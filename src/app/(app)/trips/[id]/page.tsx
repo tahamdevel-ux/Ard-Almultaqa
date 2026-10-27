@@ -161,7 +161,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
                   <td className="td"><Link className="font-bold underline" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link></td>
                   <td className="td ltr">{b.pilgrim.passportNo}</td>
                   <td className="td">{gid ? <span className="chip chip-gray">{groups.get(gid)!.kind === "COMPANIONS" ? "عصبة" : "عائلة"} ({groups.get(gid)!.members.length})</span> : ""}</td>
-                  <td className="td">{r.ready ? <span className="chip chip-ok mb-1">جاهز للسفر</span> : null}{r.missing.filter((m) => m.startsWith("ناقص")).length ? <span className="chip chip-bad">{r.missing.filter((m) => m.startsWith("ناقص")).join("، ")}</span> : <span className="chip chip-ok">مكتملة</span>}</td>
+                  <td className="td">{r.ready ? <span className="chip chip-ok mb-1">جاهز للسفر</span> : null}{r.missing.filter((m) => m.startsWith("ناقص")).length ? <span className="chip chip-bad whitespace-nowrap" title={r.missing.filter((m) => m.startsWith("ناقص")).join("، ")}>ناقص {r.missing.filter((m) => m.startsWith("ناقص")).length}</span> : <span className="chip chip-ok">مكتملة</span>}</td>
                   <td className="td">
                     {bw ? (
                       <form action={setVisa.bind(null, trip.id, b.id)} className="flex gap-1">
