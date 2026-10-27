@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
+import { autoAssignRooms } from "../src/domain/rooming";
 
 const db = new PrismaClient();
 const d = (s: string) => new Date(s + "T00:00:00Z");
@@ -97,6 +98,17 @@ async function main() {
           ? { bookingId: b.id, amount: usd * 1400, currency: "IQD", exchangeRate: 1400, credited: usd, method: "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name }
           : { bookingId: b.id, amount: usd, currency: "USD", credited: usd, method: i % 2 ? "TRANSFER" : "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name } });
       }
+    }
+  }
+  if ((await db.roomAssignment.count()) === 0) {
+    const land = await db.trip.findUnique({ where: { tripNo: "L-2611" } });
+    if (land) for (const city of ["MADINAH", "MAKKAH"] as const) {
+      const rooms = await db.room.findMany({ where: { tripId: land.id, city } });
+      const bookings = await db.booking.findMany({ where: { tripId: land.id, status: "ACTIVE" }, include: { pilgrim: true, groups: true } });
+      const r = autoAssignRooms(
+        rooms.map((x) => ({ id: x.id, roomNo: x.roomNo, beds: x.beds, occupants: [] })),
+        bookings.map((b) => ({ bookingId: b.id, gender: b.pilgrim.gender, groupIds: b.groups.map((g) => g.groupId) })));
+      for (const [bookingId, roomId] of r.assignments) await db.roomAssignment.create({ data: { bookingId, roomId, city } });
     }
   }
   console.log("seeded demo data; users: admin, reg, housing, acc, sup", process.env.VERCEL ? "" : `(password: ${pw})`);

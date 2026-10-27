@@ -68,6 +68,16 @@ Update later: `cd /opt/ard-almultaqa && git pull && docker compose up -d --build
 `next build` and `next start` were verified in the development environment; the Docker images themselves
 have not been built there (no Docker daemon), so expect to fix small things on the first `docker compose build`.
 
+## Static demo on GitHub Pages (`docs/demo`)
+
+GitHub Pages can only host static files, so it cannot run the real app. `docs/demo` is a **static walkthrough**
+of the real screens with fake data (forms do not save; PDF/Excel links open real sample outputs).
+
+- Enable: repo **Settings → Pages → Build and deployment → Deploy from a branch** → branch `claude/new-session-amlm6y` (or `main` after merging), folder **/docs**.
+  URL: `https://<owner>.github.io/<repo>/` (private repos need a paid GitHub plan for Pages).
+- Rebuild after UI changes: seed a scratch database, build and start the app, then
+  `BASE_URL=http://localhost:3002 npm run demo:build` (see `scripts/build-demo.ts`).
+
 ## Backup / restore
 
 - Daily 02:30: `pg_dump` + documents tarball, AES-256 encrypted with `BACKUP_PASSPHRASE`, stored in the `backups` volume, 14 days kept.
