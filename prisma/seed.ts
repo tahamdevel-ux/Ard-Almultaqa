@@ -11,6 +11,7 @@ const EN: Record<string, string> = { محمد: "MOHAMMED", أحمد: "AHMED", ع
 const FAMILIES: [string, string][] = [["الجبوري", "ALJUBOURI"], ["العبيدي", "ALOBAIDI"], ["الحمداني", "ALHAMDANI"], ["الطائي", "ALTAI"], ["الدليمي", "ALDULAIMI"], ["السبعاوي", "ALSABAWI"], ["النعيمي", "ALNUAIMI"]];
 
 async function main() {
+  if (process.env.VERCEL && !process.env.SEED_ADMIN_PASSWORD) throw new Error("Set SEED_ADMIN_PASSWORD before seeding a public deployment");
   const pw = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123";
   const admin = await db.user.upsert({ where: { username: "admin" }, update: {}, create: { username: "admin", name: "مدير النظام", role: "ADMIN", passwordHash: await hash(pw) } });
   await db.user.upsert({ where: { username: "reg" }, update: {}, create: { username: "reg", name: "موظف التسجيل", role: "REGISTRATION", passwordHash: await hash(pw) } });
@@ -98,6 +99,7 @@ async function main() {
       }
     }
   }
-  console.log("seeded; admin password:", pw, "admin id:", admin.id);
+  console.log("seeded demo data; users: admin, reg, housing, acc, sup", process.env.VERCEL ? "" : `(password: ${pw})`);
+  void admin;
 }
 main().finally(() => db.$disconnect());

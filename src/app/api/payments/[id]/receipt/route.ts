@@ -5,6 +5,7 @@ import { canSeeTrip } from "@/server/trips";
 import { renderReceipt } from "@/outputs/render";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET(_r: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

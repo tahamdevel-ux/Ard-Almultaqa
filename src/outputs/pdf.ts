@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { chromium } from "playwright";
+import { chromium } from "playwright-core";
 
 export const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
@@ -59,7 +59,15 @@ ${body}
 }
 
 export async function htmlToPdf(html: string): Promise<Buffer> {
-  const browser = await chromium.launch({ executablePath: findChromium(), args: ["--no-sandbox"] });
+  let launch: Parameters<typeof chromium.launch>[0];
+  if (process.env.VERCEL || process.env.USE_SPARTICUZ_CHROMIUM) {
+    // Serverless: a compressed Chromium build that fits in a function.
+    const sparticuz = (await import("@sparticuz/chromium")).default;
+    launch = { executablePath: await sparticuz.executablePath(), args: sparticuz.args, headless: true };
+  } else {
+    launch = { executablePath: findChromium(), args: ["--no-sandbox"] };
+  }
+  const browser = await chromium.launch(launch);
   try {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });

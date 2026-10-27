@@ -431,3 +431,10 @@ model Payment {
   createdAt    DateTime      @default(now())
   @@index([bookingId])
 }
+
+/// Used only when STORAGE_DRIVER=db (e.g. Vercel preview, where the disk is not persistent).
+model StoredFile {
+  key       String   @id
+  data      Bytes
+  createdAt DateTime @default(now())
+}

@@ -5,6 +5,7 @@ import { canSeeTrip } from "@/server/trips";
 import { renderFlightList, renderIdCards, renderManifest, renderMissing, renderRooming } from "@/outputs/render";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string; kind: string }> }) {
   const { id, kind } = await params;

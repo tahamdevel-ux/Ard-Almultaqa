@@ -11,7 +11,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "vercel-build": "prisma generate && prisma migrate deploy && ([ \"$SEED_DEMO\" = \"1\" ] && tsx prisma/seed.ts || true) && next build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -19,11 +20,13 @@
   "dependencies": {
     "@fontsource/noto-sans-arabic": "^5.3.0",
     "@prisma/client": "^6.19.3",
+    "@sparticuz/chromium": "^153.0.0",
     "argon2": "^0.45.1",
     "exceljs": "^4.4.0",
     "next": "^15.5.28",
     "otplib": "^12.0.1",
     "playwright": "^1.64.1",
+    "playwright-core": "^1.64.1",
     "qrcode": "^1.5.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
