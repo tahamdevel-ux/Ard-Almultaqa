@@ -10,7 +10,7 @@ async function addUser(form: FormData) {
   const password = String(form.get("password") ?? "");
   const role = String(form.get("role")) as Role;
   if (!username || password.length < 8 || !(role in ROLE_LABELS)) return;
-  await db.user.create({ data: { username, name: String(form.get("name") ?? "").trim() || username, passwordHash: await hashPassword(password), role } });
+  await db.user.create({ data: { username, name: String(form.get("name") ?? "").trim() || username, phone: String(form.get("phone") ?? "").trim() || null, passwordHash: await hashPassword(password), role } });
   revalidatePath("/users");
 }
 async function toggleUser(id: string, active: boolean) {
@@ -37,13 +37,14 @@ export default async function UsersPage() {
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-bold">المستخدمون والصلاحيات</h1>
-      <form action={addUser} className="card grid gap-3 sm:grid-cols-4">
+      <form action={addUser} className="card grid gap-3 sm:grid-cols-5">
         <div><label className="label">الاسم</label><input name="name" className="input" /></div>
+        <div><label className="label">الهاتف</label><input name="phone" className="input" dir="ltr" /></div>
         <div><label className="label">اسم المستخدم *</label><input name="username" className="input" dir="ltr" required /></div>
         <div><label className="label">كلمة المرور (8 أحرف+) *</label><input name="password" type="password" minLength={8} className="input" dir="ltr" required /></div>
         <div><label className="label">الدور</label>
           <select name="role" className="input">{Object.entries(ROLE_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
-        <div className="sm:col-span-4"><button className="btn">إضافة مستخدم</button></div>
+        <div className="sm:col-span-5"><button className="btn">إضافة مستخدم</button></div>
       </form>
       <div className="card overflow-x-auto p-0">
         <table className="w-full">

@@ -62,6 +62,22 @@ async function main() {
     await db.bookingGroupMember.createMany({ data: women.map((b) => ({ bookingId: b.id, groupId: g.id })) });
     await db.setting.upsert({ where: { key: "passportMinMonths" }, update: {}, create: { key: "passportMinMonths", value: 6 } });
   }
+  if ((await db.hotel.count()) === 0) {
+    const mk = await db.hotel.create({ data: { officialName: "Almassa Dar Al Khairat", localName: "رمادا", city: "MAKKAH", address: "مكة المكرمة - أجياد", licenseNo: "MK-1042" } });
+    const md = await db.hotel.create({ data: { officialName: "Dar Al Taqwa Hotel", localName: "دار التقوى", city: "MADINAH", address: "المدينة المنورة - المركزية", licenseNo: "MD-2231" } });
+    await db.hotel.create({ data: { officialName: "Swissotel Al Maqam", localName: "سويس مقام", city: "MAKKAH", address: "مكة المكرمة - أبراج البيت" } });
+    await db.hotel.create({ data: { officialName: "Anwar Al Madinah Movenpick", localName: "موفنبيك الأنوار", city: "MADINAH", address: "المدينة المنورة" } });
+    for (const t of await db.trip.findMany()) await db.trip.update({ where: { id: t.id }, data: { makkahHotelId: mk.id, madinahHotelId: md.id } });
+    await db.user.update({ where: { username: "sup" }, data: { phone: "07705551212" } });
+    const land = await db.trip.findFirstOrThrow({ where: { tripNo: "L-2611" } });
+    const mkRooms = [["DOUBLE", 2, 5], ["TRIPLE", 3, 5], ["QUAD", 4, 10]] as const;
+    for (const city of ["MADINAH", "MAKKAH"] as const) {
+      let n = 1;
+      for (const [type, beds, count] of mkRooms) for (let i = 0; i < count; i++) await db.room.create({ data: { tripId: land.id, hotelId: city === "MAKKAH" ? mk.id : md.id, city, roomNo: String(100 * (city === "MAKKAH" ? 5 : 3) + n++), type, beds } });
+    }
+    await db.program.create({ data: { name: "عمرة بري - قافلة الأحد", transportType: "LAND", nightsMakkah: 6, nightsMadinah: 4, firstCity: "MADINAH", makkahHotelId: mk.id, madinahHotelId: md.id, capacity: 90, busCount: 2, seatsPerBus: 48, durationDays: 12 } });
+    await db.program.create({ data: { name: "عمرة جوي - كل 10 أيام", transportType: "AIR", nightsMakkah: 5, nightsMadinah: 4, firstCity: "MADINAH", makkahHotelId: mk.id, madinahHotelId: md.id, capacity: 40, durationDays: 10 } });
+  }
   console.log("seeded; admin password:", pw, "admin id:", admin.id);
 }
 main().finally(() => db.$disconnect());

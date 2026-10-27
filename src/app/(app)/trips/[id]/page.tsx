@@ -7,7 +7,8 @@ import { fullNameAr } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
 import { SmallForm } from "@/components/SmallForm";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS, VISA_LABELS } from "@/lib/labels";
-import { addBooking, addBus, addCar, addFlight, createCompanionGroup, dissolveGroup, removeBooking, setAirAssignment, setVisa } from "../actions";
+import { db } from "@/server/db";
+import { saveAsProgram, setTripHotels, addBooking, addBus, addCar, addFlight, createCompanionGroup, dissolveGroup, removeBooking, setAirAssignment, setVisa } from "../actions";
 
 export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePage("trips.view");
@@ -23,6 +24,10 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
     e.members.push(r.booking.pilgrim.firstName + " " + r.booking.pilgrim.familyName);
     groups.set(g.groupId, e);
   }
+  const hotels = w ? await db.hotel.findMany({ where: { deletedAt: null }, orderBy: { officialName: "asc" } }) : [];
+  const hotelName = (h?: { localName: string | null; officialName: string } | null) => (h ? h.localName ?? h.officialName : "—");
+  const mk = trip.makkahHotelId ? await db.hotel.findUnique({ where: { id: trip.makkahHotelId } }) : null;
+  const md = trip.madinahHotelId ? await db.hotel.findUnique({ where: { id: trip.madinahHotelId } }) : null;
   const groupOf = (r: (typeof rows)[number]) => r.booking.groups[0]?.groupId;
 
   return (
@@ -34,6 +39,10 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
         </div>
         {can(user.role, "outputs.view") && (
           <div className="flex flex-wrap gap-2 text-sm">
+            <Link className="btn" href={`/trips/${trip.id}/rooming`}>التسكين</Link>
+            <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/missing?format=pdf`}>قائمة النواقص PDF</a>
+            <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/missing?format=xlsx`}>Excel</a>
+            <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/id-cards?format=pdf`}>بطاقات المعتمرين PDF</a>
             {trip.transportType === "LAND" && trip.buses.map((b) => (
               <span key={b.id} className="flex gap-1">
                 <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/manifest?bus=${b.id}&format=pdf`}>كشف باص {b.number} PDF</a>
@@ -56,6 +65,22 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
         ))}
       </div>
       {counter.over && <p className="rounded bg-red-50 p-2 text-sm font-bold text-red-800">⚠ عدد المسجلين تجاوز السعة القصوى للرحلة</p>}
+
+      <section className="card space-y-2">
+        <h2 className="font-bold">الفنادق والإقامة</h2>
+        <p className="text-sm">مكة: <b>{hotelName(mk)}</b> ({trip.nightsMakkah} ليالي) · المدينة: <b>{hotelName(md)}</b> ({trip.nightsMadinah} ليالي) · البداية من: {trip.firstCity === "MAKKAH" ? "مكة" : "المدينة"}</p>
+        {w && (
+          <form action={setTripHotels.bind(null, trip.id)} className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+            <select name="madinahHotelId" defaultValue={trip.madinahHotelId ?? ""} className="input" aria-label="فندق المدينة"><option value="">فندق المدينة</option>{hotels.filter((h) => h.city === "MADINAH").map((h) => <option key={h.id} value={h.id}>{hotelName(h)}</option>)}</select>
+            <select name="makkahHotelId" defaultValue={trip.makkahHotelId ?? ""} className="input" aria-label="فندق مكة"><option value="">فندق مكة</option>{hotels.filter((h) => h.city === "MAKKAH").map((h) => <option key={h.id} value={h.id}>{hotelName(h)}</option>)}</select>
+            <select name="firstCity" defaultValue={trip.firstCity} className="input" aria-label="المدينة الأولى"><option value="MADINAH">نبدأ بالمدينة</option><option value="MAKKAH">نبدأ بمكة</option></select>
+            <input name="nightsMadinah" type="number" defaultValue={trip.nightsMadinah} className="input" dir="ltr" aria-label="ليالي المدينة" />
+            <input name="nightsMakkah" type="number" defaultValue={trip.nightsMakkah} className="input" dir="ltr" aria-label="ليالي مكة" />
+            <button className="btn">حفظ</button>
+          </form>
+        )}
+        {can(user.role, "programs.write") && <form action={saveAsProgram.bind(null, trip.id)}><button className="text-sm underline">حفظ هذه الرحلة كقالب</button></form>}
+      </section>
 
       <section className="card space-y-3">
         <h2 className="font-bold">{trip.transportType === "LAND" ? "الباصات" : "الطيران والسيارات"}</h2>
@@ -116,12 +141,14 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
                   <td className="td"><Link className="font-bold underline" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link></td>
                   <td className="td ltr">{b.pilgrim.passportNo}</td>
                   <td className="td">{gid ? <span className="chip chip-gray">{groups.get(gid)!.kind === "COMPANIONS" ? "عصبة" : "عائلة"} ({groups.get(gid)!.members.length})</span> : ""}</td>
-                  <td className="td">{r.missing.filter((m) => m.startsWith("ناقص")).length ? <span className="chip chip-bad">{r.missing.filter((m) => m.startsWith("ناقص")).join("، ")}</span> : <span className="chip chip-ok">مكتملة</span>}</td>
+                  <td className="td">{r.ready ? <span className="chip chip-ok mb-1">جاهز للسفر</span> : null}{r.missing.filter((m) => m.startsWith("ناقص")).length ? <span className="chip chip-bad">{r.missing.filter((m) => m.startsWith("ناقص")).join("، ")}</span> : <span className="chip chip-ok">مكتملة</span>}</td>
                   <td className="td">
                     {bw ? (
                       <form action={setVisa.bind(null, trip.id, b.id)} className="flex gap-1">
                         <select name="visaStatus" defaultValue={b.visaStatus} className="input w-28 py-1">{Object.entries(VISA_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
                         <input name="visaNo" defaultValue={b.visaNo ?? ""} dir="ltr" placeholder="رقم التأشيرة" className="input w-28 py-1" />
+                        <input name="visaIssue" defaultValue={formatDate(b.visaIssue)} dir="ltr" placeholder="إصدار" className="input w-24 py-1" aria-label="تاريخ إصدار التأشيرة" />
+                        <input name="visaExpiry" defaultValue={formatDate(b.visaExpiry)} dir="ltr" placeholder="انتهاء" className="input w-24 py-1" aria-label="تاريخ انتهاء التأشيرة" />
                         <button className="btn-secondary py-1">حفظ</button>
                       </form>
                     ) : VISA_LABELS[b.visaStatus]}

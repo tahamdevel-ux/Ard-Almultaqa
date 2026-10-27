@@ -53,6 +53,16 @@ enum VisaStatus {
   ISSUED
   REJECTED
 }
+enum City {
+  MAKKAH
+  MADINAH
+}
+enum RoomType {
+  DOUBLE
+  TRIPLE
+  QUAD
+  QUINT
+}
 enum GroupKind {
   FAMILY
   COMPANIONS
@@ -62,6 +72,7 @@ model User {
   id           String    @id @default(uuid())
   username     String    @unique
   name         String
+  phone        String?
   passwordHash String
   role         Role
   active       Boolean   @default(true)
@@ -193,6 +204,11 @@ model Trip {
   capacity      Int
   supervisorId  String?
   supervisor    User?         @relation(fields: [supervisorId], references: [id])
+  firstCity     City          @default(MADINAH)
+  makkahHotelId String?
+  makkahHotel   Hotel?        @relation("TripMakkah", fields: [makkahHotelId], references: [id])
+  madinahHotelId String?
+  madinahHotel  Hotel?        @relation("TripMadinah", fields: [madinahHotelId], references: [id])
   status        TripStatus    @default(OPEN)
   deletedAt     DateTime?
   createdAt     DateTime      @default(now())
@@ -201,6 +217,7 @@ model Trip {
   flights       Flight[]
   cars          GroundCar[]
   bookings      Booking[]
+  rooms         Room[]
 }
 
 model Bus {
@@ -250,11 +267,14 @@ model Booking {
   movedFromId String?
   visaStatus  VisaStatus    @default(NOT_SUBMITTED)
   visaNo      String?
+  visaIssue   DateTime?     @db.Date
+  visaExpiry  DateTime?     @db.Date
   deletedAt   DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   seat        SeatAssignment?
   groups      BookingGroupMember[]
+  rooms       RoomAssignment[]
   @@unique([pilgrimId, tripId])
   @@index([tripId])
 }
@@ -300,4 +320,64 @@ model ImportMapping {
   name      String   @unique
   mapping   Json
   createdAt DateTime @default(now())
+}
+
+model Hotel {
+  id           String    @id @default(uuid())
+  officialName String
+  localName    String?
+  city         City
+  address      String?
+  licenseNo    String?
+  mealsIncluded Boolean  @default(true)
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  makkahTrips  Trip[]    @relation("TripMakkah")
+  madinahTrips Trip[]    @relation("TripMadinah")
+  rooms        Room[]
+  programsMakkah  Program[] @relation("ProgMakkah")
+  programsMadinah Program[] @relation("ProgMadinah")
+}
+
+model Room {
+  id      String   @id @default(uuid())
+  tripId  String
+  trip    Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  hotelId String
+  hotel   Hotel    @relation(fields: [hotelId], references: [id])
+  city    City
+  roomNo  String
+  type    RoomType
+  beds    Int
+  assignments RoomAssignment[]
+  @@unique([tripId, city, roomNo])
+}
+
+model RoomAssignment {
+  id        String  @id @default(uuid())
+  roomId    String
+  room      Room    @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  city      City
+  @@unique([bookingId, city])
+}
+
+model Program {
+  id             String        @id @default(uuid())
+  name           String
+  transportType  TransportType
+  nightsMakkah   Int           @default(0)
+  nightsMadinah  Int           @default(0)
+  firstCity      City          @default(MADINAH)
+  makkahHotelId  String?
+  makkahHotel    Hotel?        @relation("ProgMakkah", fields: [makkahHotelId], references: [id])
+  madinahHotelId String?
+  madinahHotel   Hotel?        @relation("ProgMadinah", fields: [madinahHotelId], references: [id])
+  capacity       Int           @default(0)
+  busCount       Int           @default(0)
+  seatsPerBus    Int           @default(48)
+  durationDays   Int           @default(10)
+  createdAt      DateTime      @default(now())
 }

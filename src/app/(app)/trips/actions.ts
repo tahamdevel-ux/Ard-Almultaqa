@@ -6,6 +6,7 @@ import { normalizePassportNo } from "@/domain/passport";
 import { autoSeat, validateSeat } from "@/domain/seating";
 import { overlapWarning } from "@/server/trips";
 import { getSetting } from "@/server/settings";
+import { parseDate } from "@/domain/dates";
 
 export type TripActionState = { error?: string; warning?: string; ok?: boolean };
 
@@ -69,7 +70,9 @@ export async function setVisa(tripId: string, bookingId: string, f: FormData) {
   await requirePermission("bookings.write");
   const st = s(f, "visaStatus");
   if (!["NOT_SUBMITTED", "IN_PROGRESS", "ISSUED", "REJECTED"].includes(st)) return;
-  await db.booking.update({ where: { id: bookingId }, data: { visaStatus: st as never, visaNo: s(f, "visaNo") || null } });
+  const issue = s(f, "visaIssue") ? parseDate(s(f, "visaIssue")) : null;
+  const expiry = s(f, "visaExpiry") ? parseDate(s(f, "visaExpiry")) : null;
+  await db.booking.update({ where: { id: bookingId }, data: { visaStatus: st as never, visaNo: s(f, "visaNo") || null, visaIssue: issue, visaExpiry: expiry } });
   touch(tripId);
 }
 
@@ -130,4 +133,26 @@ export async function dissolveGroup(tripId: string, groupId: string) {
   await requirePermission("bookings.write");
   await db.familyGroup.delete({ where: { id: groupId } });
   touch(tripId);
+}
+
+export async function setTripHotels(tripId: string, f: FormData) {
+  await requirePermission("trips.write");
+  await db.trip.update({ where: { id: tripId }, data: {
+    makkahHotelId: s(f, "makkahHotelId") || null, madinahHotelId: s(f, "madinahHotelId") || null,
+    firstCity: s(f, "firstCity") === "MAKKAH" ? "MAKKAH" : "MADINAH",
+    nightsMakkah: +s(f, "nightsMakkah") || 0, nightsMadinah: +s(f, "nightsMadinah") || 0,
+  } });
+  touch(tripId);
+}
+
+export async function saveAsProgram(tripId: string) {
+  await requirePermission("programs.write");
+  const t = await db.trip.findFirstOrThrow({ where: { id: tripId }, include: { buses: true } });
+  const days = Math.round((t.returnDate.getTime() - t.departDate.getTime()) / 86400000);
+  await db.program.create({ data: {
+    name: t.name, transportType: t.transportType, nightsMakkah: t.nightsMakkah, nightsMadinah: t.nightsMadinah, firstCity: t.firstCity,
+    makkahHotelId: t.makkahHotelId, madinahHotelId: t.madinahHotelId, capacity: t.capacity,
+    busCount: t.buses.length, seatsPerBus: t.buses[0]?.seatCount ?? 48, durationDays: days,
+  } });
+  revalidatePath("/programs");
 }

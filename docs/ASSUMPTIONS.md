@@ -38,3 +38,11 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - **Audit:** an explicit `auditChanges()` helper called inside the same transaction as each pilgrim update/import update, instead of a Prisma extension. Booking/payment auditing arrives with Phase 3.
 - **Groups:** companion/family seating groups are per-trip `BookingGroupMember` rows created from the trip page.
 - **Versions:** Next 15.5, Prisma 6.19, otplib 12, TypeScript 5.9.
+
+## Phase 2 decisions
+- **No Nusuk contracts:** no HotelContract table, no "no housing without contract" rule, no contracted-beds warnings. The partner Excel export is deferred with them.
+- **Rooms** are created per trip and city from the trip's hotel; the bed warning compares real beds with booked pilgrims.
+- **Stay dates** are computed from departure date, nights per city and which city is first (`Trip.firstCity`, default Madinah).
+- **Rooming rule:** a man and a woman may share a room only if they share a family/عصبة group on that trip. Drag-and-drop and the select fallback both go through the same server check.
+- **Templates (`Program`)** copy name, transport, nights, hotels, capacity and bus count; prices come with Phase 3.
+- **Supervisor phone** is stored on the user and printed on ID cards.

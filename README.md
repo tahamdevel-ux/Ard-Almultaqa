@@ -3,7 +3,8 @@
 نظام داخلي لشركة أرض الملتقى للحج والعمرة (الموصل). كل معتمر يُدخل مرة واحدة، ومنه تُولَّد كشوف الباصات وقوائم الطيران.
 الخطة والافتراضات: `docs/PLAN.md`, `docs/ASSUMPTIONS.md`.
 
-**الحالة:** المرحلة 1 (الأساس) مكتملة. المراحل 2–3 (الفنادق والتسكين، الدفعات) لم تبدأ.
+**الحالة:** المرحلة 1 (الأساس) والمرحلة 2 (الفنادق، التسكين، التأشيرات، البطاقات، القوالب) مكتملتان. المرحلة 3 (الأسعار والدفعات) لم تبدأ.
+بقرار الشركة: **لا توجد عقود نسك** في النظام (لا جدول عقود ولا ربط التسكين برقم عقد).
 
 ## Setup (development)
 
@@ -77,4 +78,4 @@ ADMIN (everything), REGISTRATION (pilgrims, documents, bookings, import), HOUSIN
 
 ## Partner (Nusuk) export template
 
-Planned for Phase 2 — column mapping stored in the database, editable by ADMIN. Not built yet.
+Not built: the company decided it does not need Nusuk contract features. If the Excel export for the Saudi partner is wanted later, it fits as a DB-stored column mapping (see docs/PLAN.md §1).

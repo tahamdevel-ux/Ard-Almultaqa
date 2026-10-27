@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { AuthError, requirePermission } from "@/server/auth";
 import { canSeeTrip } from "@/server/trips";
-import { renderFlightList, renderManifest } from "@/outputs/render";
+import { renderFlightList, renderIdCards, renderManifest, renderMissing, renderRooming } from "@/outputs/render";
 
 export const runtime = "nodejs";
 
@@ -20,6 +20,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       const busId = url.searchParams.get("bus") ?? "";
       buf = await renderManifest(id, busId, format);
     } else if (kind === "flight-list") buf = await renderFlightList(id, format);
+    else if (kind === "rooming-ar" || kind === "rooming-en") {
+      const city = url.searchParams.get("city") === "MAKKAH" ? "MAKKAH" : "MADINAH";
+      buf = await renderRooming(id, city, kind === "rooming-ar" ? "ar" : "en", format);
+    } else if (kind === "missing") buf = await renderMissing(id, format);
+    else if (kind === "id-cards") buf = await renderIdCards(id);
     else return NextResponse.json({ error: "unknown output" }, { status: 404 });
     return new NextResponse(new Uint8Array(buf), {
       headers: {

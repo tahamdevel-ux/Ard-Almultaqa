@@ -7,6 +7,8 @@ const NAV: { href: string; label: string; perm: Permission }[] = [
   { href: "/dashboard", label: "الرئيسية", perm: "dashboard.view" },
   { href: "/pilgrims", label: "المعتمرون", perm: "pilgrims.view" },
   { href: "/trips", label: "الرحلات", perm: "trips.view" },
+  { href: "/hotels", label: "الفنادق", perm: "hotels.view" },
+  { href: "/programs", label: "قوالب الرحلات", perm: "trips.write" },
   { href: "/agents", label: "الوكلاء", perm: "agents.view" },
   { href: "/import", label: "استيراد Excel", perm: "import.run" },
   { href: "/users", label: "المستخدمون", perm: "users.manage" },
