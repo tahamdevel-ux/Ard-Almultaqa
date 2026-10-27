@@ -35,8 +35,9 @@ UUID PKs, `createdAt/updatedAt` everywhere; `deletedAt` on Pilgrim, Agent, Hotel
 | User | email, passwordHash, role, totpSecret(enc), totpEnabled, active |
 | Setting | key/value JSON (company info, `passportMinMonths`=6, `mahramRule`, currencies, etc.) |
 | Agent | name, officeName, phones[], address, commissionType(PERCENT\|FIXED_WHOLESALE), commissionValue |
-| Pilgrim | Arabic name parts + familyName, gender, dob, motherName, governorate, address, phone, emergencyPhone, passportNo **UNIQUE**, en given/father/grandfather/surname, nationality, placeOfBirth, passportIssue/Expiry/Authority, mahramId→Pilgrim?, mahramRelation?, familyGroupId?, flags (chronic, wheelchair, elderly), notes, agentId? |
-| FamilyGroup | id, label |
+| Pilgrim | Arabic name parts + familyName, gender, dob, motherName, governorate, address, phone, emergencyPhone, passportNo **UNIQUE**, en given/father/grandfather/surname, nationality, placeOfBirth, passportIssue/Expiry/Authority, mahramId→Pilgrim? (optional, no mahram is a normal case), mahramRelation?, familyGroupId?, flags (chronic, wheelchair, elderly), notes, agentId? |
+| FamilyGroup | id, label, kind(FAMILY\|COMPANIONS) — COMPANIONS = «عصبة»: unrelated pilgrims (e.g. 4 women, no mahram) housed/seated together; linked at rooming time, not at registration |
+| BookingGroupMember | bookingId, groupId — per-trip membership, so the same woman can be in different عصبة on different trips |
 | PilgrimDocument | pilgrimId, type(PASSPORT\|PHOTO\|NATIONAL_ID\|OTHER), storageKey, mime, size |
 | Hotel | officialName, localName, city(MAKKAH\|MADINAH), address, tourismLicenseNo, mealsIncluded |
 | HotelContract | hotelId, nusukContractNo, startDate, endDate; **HotelContractRoomType**: roomType, roomsContracted |
@@ -90,3 +91,7 @@ deploy/            docker-compose.yml Caddyfile backup/
 
 ## 5. Later phases (unchanged from brief)
 Phase 2 operations, Phase 3 money, Phase 4 only on request.
+
+## 6. Change log
+- Women without a mahram are a normal case: the mahram warning is a setting, **off by default**.
+- Added «عصبة» (companion group): per-trip, created from the rooming board or trip page by selecting bookings; rooming auto-assign and bus seating treat a عصبة exactly like a family (same room, adjacent seats). Gender separation rule allows same-gender عصبة; it never forces mixing.

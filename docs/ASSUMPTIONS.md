@@ -9,7 +9,8 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 5. **Roles:** one role per user. SUPERVISOR sees only trips where they are the assigned supervisor.
 6. **Phone format:** `^07[3-9]\d{8}$` for Iraqi mobiles (validated, normalised); emergency contact uses the same rule, with a looser international fallback.
 7. **Money:** IQD default; amounts stored as integers in minor units plus a currency code; no automatic FX conversion (each amount keeps its own currency). Phase 3.
-8. **Mahram rule (default):** female pilgrim aged ≥ 12 (configurable) with no mahram link and not in a family group containing an adult male → warning. Never blocking. The rule is a settings object, not hard-coded.
+8. **Mahram rule:** women travelling without a mahram is normal for the company, so the warning is **off by default**. If enabled in settings it is a non-blocking warning, and a woman in a عصبة (companion group) is exempt.
+8b. **عصبة (companion group):** unrelated pilgrims (typically ~4 women) housed and seated together. Membership is per trip and set at rooming/trip time, not at registration. Treated like a family by auto-assign and seat adjacency.
 9. **Passport expiry warning:** expiry < return date + N months (default 6).
 10. **Soft delete** for Pilgrim, Agent, Hotel, Trip, Booking; unique passport applies across soft-deleted rows too (restoring is the right way to reuse).
 11. **Documents:** JPEG/PNG/PDF; images resized to max 2000 px long edge and re-encoded (sharp); max 8 MB before compression; stored under random keys, served only via `/api/documents/[id]` after a permission check. Virus scanning out of scope.
@@ -28,5 +29,6 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 ## Decisions that are expensive to reverse — please confirm
 - **A.** Hosting target: your own VPS with Docker Compose (assumed) vs. a managed platform.
 - **B.** Mandatory TOTP for all ~10 staff (assumed yes).
-- **C.** Mahram default rule above, or do you already know the company's rule?
+- **C.** (resolved) Mahram warning off by default; عصبة supported.
+- **C2.** Max size of a عصبة (assumed no limit; rooming splits by room capacity, e.g. 4 = quad room)?
 - **D.** Is the same pilgrim ever on two trips at the same time? (Assumed no: warn on overlapping dates.)
