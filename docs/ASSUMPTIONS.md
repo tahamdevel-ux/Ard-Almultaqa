@@ -30,5 +30,5 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - **A.** Hosting target: your own VPS with Docker Compose (assumed) vs. a managed platform.
 - **B.** Mandatory TOTP for all ~10 staff (assumed yes).
 - **C.** (resolved) Mahram warning off by default; عصبة supported.
-- **C2.** Max size of a عصبة (assumed no limit; rooming splits by room capacity, e.g. 4 = quad room)?
+- **C2.** (resolved) Max عصبة size is 4, so it always fits one quad room. The limit is a setting (default 4); rooming still warns if a group is larger than the largest room.
 - **D.** Is the same pilgrim ever on two trips at the same time? (Assumed no: warn on overlapping dates.)
