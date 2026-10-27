@@ -8,6 +8,9 @@ import { formatDate } from "@/domain/dates";
 import { SmallForm } from "@/components/SmallForm";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS, VISA_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
+import { saveTripPrices } from "../../bookings/[id]/actions";
+import { balance, formatMoney } from "@/domain/money";
+import { ROOM_TYPE_LABELS } from "@/domain/rooming";
 import { saveAsProgram, setTripHotels, addBooking, addBus, addCar, addFlight, createCompanionGroup, dissolveGroup, removeBooking, setAirAssignment, setVisa } from "../actions";
 
 export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
@@ -28,6 +31,8 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
   const hotelName = (h?: { localName: string | null; officialName: string } | null) => (h ? h.localName ?? h.officialName : "—");
   const mk = trip.makkahHotelId ? await db.hotel.findUnique({ where: { id: trip.makkahHotelId } }) : null;
   const md = trip.madinahHotelId ? await db.hotel.findUnique({ where: { id: trip.madinahHotelId } }) : null;
+  const money = can(user.role, "payments.view"), pw = can(user.role, "prices.write");
+  const prices = money ? await db.tripPrice.findMany({ where: { tripId: trip.id } }) : [];
   const groupOf = (r: (typeof rows)[number]) => r.booking.groups[0]?.groupId;
 
   return (
@@ -112,6 +117,21 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
         )}
       </section>
 
+      {money && (
+        <section className="card space-y-2">
+          <h2 className="font-bold">أسعار الرحلة (بالدولار، حسب نوع الغرفة)</h2>
+          {pw ? (
+            <form action={saveTripPrices.bind(null, trip.id)} className="flex flex-wrap items-end gap-2">
+              {(["DOUBLE", "TRIPLE", "QUAD", "QUINT"] as const).map((t) => (
+                <div key={t}><label className="label" htmlFor={"price-" + t}>{ROOM_TYPE_LABELS[t]}</label>
+                  <input id={"price-" + t} name={t} type="number" min={0} defaultValue={prices.find((p) => p.roomType === t)?.amount ?? ""} className="input w-28" dir="ltr" /></div>
+              ))}
+              <button className="btn">حفظ الأسعار</button>
+            </form>
+          ) : <p className="text-sm">{prices.map((p) => `${ROOM_TYPE_LABELS[p.roomType]}: ${formatMoney(p.amount, p.currency)}`).join(" · ") || "غير محددة"}</p>}
+        </section>
+      )}
+
       {bw && (
         <section className="card">
           <h2 className="mb-2 font-bold">إضافة معتمر للرحلة</h2>
@@ -131,7 +151,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
           )}
         </div>
         <table className="w-full">
-          <thead><tr><th className="th" />{["الاسم", "الجواز", "المجموعة", "المستمسكات", "التأشيرة", "المقعد / التذكرة", "تنبيهات", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+          <thead><tr><th className="th" />{["الاسم", "الجواز", "المجموعة", "المستمسكات", "التأشيرة", "المقعد / التذكرة", ...(money ? ["السعر", "المتبقي"] : []), "تنبيهات", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
             {rows.map((r) => {
               const b = r.booking, gid = groupOf(r);
@@ -164,6 +184,13 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
                         </form>
                       ) : b.seat?.ticketNo}
                   </td>
+                  {money && (() => {
+                    const bal = balance(b.priceAmount, b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) })));
+                    return (<>
+                      <td className="td">{b.priceAmount == null ? <span className="chip chip-warn">بلا سعر</span> : formatMoney(b.priceAmount, b.priceCurrency)}</td>
+                      <td className="td"><Link className={"underline " + ((bal ?? 0) > 0 ? "text-red-700 font-bold" : "")} href={`/bookings/${b.id}`}>{bal == null ? "الحساب" : formatMoney(bal, b.priceCurrency)}</Link></td>
+                    </>);
+                  })()}
                   <td className="td space-y-0.5 text-xs text-amber-800">{r.warnings.map((x) => <div key={x}>⚠ {x}</div>)}</td>
                   <td className="td">
                     {gid && bw && <form action={dissolveGroup.bind(null, trip.id, gid)}><button className="text-xs underline">فك المجموعة</button></form>}

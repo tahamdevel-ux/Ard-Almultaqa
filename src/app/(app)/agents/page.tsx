@@ -53,7 +53,7 @@ export default async function AgentsPage() {
           <tbody>
             {agents.map((a) => (
               <tr key={a.id}>
-                <td className="td font-bold">{a.name}</td><td className="td">{a.officeName}</td>
+                <td className="td font-bold">{can(user.role, "payments.view") ? <a className="text-brand underline" href={`/agents/${a.id}`}>{a.name}</a> : a.name}</td><td className="td">{a.officeName}</td>
                 <td className="td ltr">{a.phones.join("، ")}</td>
                 <td className="td">{a.commissionType === "PERCENT" ? `${a.commissionValue}%` : `${a.commissionValue} جملة`}</td>
                 <td className="td">{a._count.pilgrims}</td>

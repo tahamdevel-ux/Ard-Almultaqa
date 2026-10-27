@@ -46,3 +46,14 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - **Rooming rule:** a man and a woman may share a room only if they share a family/عصبة group on that trip. Drag-and-drop and the select fallback both go through the same server check.
 - **Templates (`Program`)** copy name, transport, nights, hotels, capacity and bus count; prices come with Phase 3.
 - **Supervisor phone** is stored on the user and printed on ID cards.
+
+## Phase 3 decisions (money)
+- **Pricing:** one price per room type per trip (not per agent), in USD; staff can override the price of a single booking. Prices are whole dollars.
+- **Currency:** a booking is priced in USD. The pilgrim may pay in dinars: each payment stores the original amount, the exchange rate typed at payment time (dinars per dollar) and the dollar value credited. The balance is always shown in the booking currency. `usdRate` in settings is only a suggestion pre-filled in the form (default 1400 — change it).
+- **Guards:** a payment cannot exceed the remaining balance (catches typos); a refund needs a reason and cannot exceed what was paid; payments need a price on the booking; no payments on cancelled/moved bookings.
+- **Receipts:** sequential integer (`Payment.receiptNo`, database sequence). A rolled-back insert can leave a gap in the numbering; receipts are never deleted.
+- **Cancellation:** requires a reason, frees seat and rooms, optionally records a refund; unrefunded money stays with the company.
+- **Move to another trip:** creates a new booking on the target trip carrying price and visa data, re-points the payments to it, and keeps the old booking as `MOVED` (history).
+- **Agent statement:** PERCENT = commission is that % of the price; FIXED_WHOLESALE = the company price per pilgrim is the fixed value and the agent keeps the difference. Due to company = price − commission − net money received. Cancelled bookings add no price/commission.
+- **Audit:** price/room type changes and every payment (amount, currency, rate, credited value, receipt no.) are written to the audit log.
+- **Who:** only ADMIN and ACCOUNTANT see or edit prices and payments; moving a pilgrim between trips needs `bookings.write` (ADMIN/REGISTRATION).

@@ -89,3 +89,51 @@ export async function renderIdCards(tripId: string) {
   .info{flex:1;line-height:1.5}.qr{width:20mm;height:20mm}.small{margin-top:3px;font-size:9px}.co{margin-top:3px;color:#0f5132;font-weight:700;font-size:9px}</style>`;
   return htmlToPdf(pageHtml(d.company as Company, "بطاقات المعتمرين", esc(`الرحلة ${d.trip.tripNo}`), css + `<div class="grid">${cards.join("")}</div>`));
 }
+
+import { agentStatementData } from "./viewmodels";
+import { formatDate as fmtDate } from "@/domain/dates";
+import { formatMoney, paidTotal as paidSum } from "@/domain/money";
+import { db } from "@/server/db";
+import { getSetting } from "@/server/settings";
+
+export async function renderAgentStatement(agentId: string, tripId: string | undefined, format: "pdf" | "xlsx") {
+  const d = await agentStatementData(agentId, tripId);
+  const c = d.currency;
+  const headers = ["المعتمر", "الرحلة", "السعر", "المدفوع", "المتبقي", "الحالة"];
+  const rows = d.rows.map((r) => [fullNameAr(r.b.pilgrim), r.b.trip.tripNo, r.price == null ? "—" : formatMoney(r.price, c), formatMoney(r.paid, c),
+    r.price == null || r.cancelled ? "—" : formatMoney(r.price - r.paid, c), r.cancelled ? "ملغى" : "فعّال"]);
+  const sumLines: [string, string][] = [
+    ["عدد المعتمرين الفعّالين", String(d.sum.count)], ["إجمالي الأسعار", formatMoney(d.sum.totalPrice, c)],
+    ["العمولة", formatMoney(d.sum.commission, c)], ["المستحق للشركة بعد العمولة", formatMoney(d.sum.netToCompany, c)],
+    ["المبالغ المستلمة (صافي)", formatMoney(d.sum.collected, c)],
+    [d.sum.dueToCompany >= 0 ? "المتبقي على الوكيل للشركة" : "زيادة مدفوعة (للوكيل)", formatMoney(Math.abs(d.sum.dueToCompany), c)],
+  ];
+  const title = `كشف حساب الوكيل: ${d.agent.name}`;
+  if (format === "xlsx") {
+    return buildXlsx({ name: "كشف الوكيل", title, company: d.company as Company,
+      columns: headers.map((h, i) => ({ header: h, width: i === 0 ? 34 : 16 })), rows: [...rows, [], ...sumLines] });
+  }
+  const sumHtml = `<table style="width:60%;margin-top:10px">${sumLines.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}</table>`;
+  return htmlToPdf(pageHtml(d.company as Company, title, esc(d.agent.officeName ?? ""), table(headers, rows) + sumHtml));
+}
+
+export async function renderReceipt(paymentId: string) {
+  const p = await db.payment.findUniqueOrThrow({ where: { id: paymentId }, include: { booking: { include: { pilgrim: true, trip: true, payments: true } } } });
+  const company = (await getSetting("company")) as Company;
+  const b = p.booking, cur = b.priceCurrency;
+  const bal = b.priceAmount == null ? null : b.priceAmount - paidSum(b.payments.filter((x) => x.receiptNo <= p.receiptNo).map((x) => ({ kind: x.kind, credited: Number(x.credited) })));
+  const refund = p.kind === "REFUND";
+  const line = (k: string, v: string) => `<tr><th style="width:35%">${esc(k)}</th><td>${esc(v)}</td></tr>`;
+  const body = `<table style="font-size:13px">
+    ${line("رقم الوصل", String(p.receiptNo))}${line("التاريخ", fmtDate(p.paidAt))}
+    ${line(refund ? "المبلغ المُسترد إلى" : "استلمنا من", fullNameAr(b.pilgrim))}${line("رقم الجواز", b.pilgrim.passportNo)}
+    ${line("الرحلة", `${b.trip.tripNo} — ${b.trip.name}`)}
+    ${line("المبلغ", formatMoney(p.amount, p.currency))}
+    ${p.exchangeRate ? line("سعر الصرف", `${p.exchangeRate} دينار لكل دولار`) + line("القيمة المحتسبة", formatMoney(Number(p.credited), cur)) : ""}
+    ${line("الطريقة", { CASH: "نقداً", TRANSFER: "حوالة", CARD: "بطاقة", OTHER: "أخرى" }[p.method])}
+    ${refund ? line("سبب الاسترداد", p.reason ?? "") : p.note ? line("ملاحظة", p.note) : ""}
+    ${b.priceAmount != null ? line("سعر الحجز", formatMoney(b.priceAmount, cur)) + line("المتبقي بعد هذا الوصل", formatMoney(bal ?? 0, cur)) : ""}
+    ${line("استلمها", p.receivedByName)}</table>
+    <p style="margin-top:30px">التوقيع: ____________________</p>`;
+  return htmlToPdf(pageHtml(company, refund ? "وصل استرداد" : "وصل قبض", `رقم ${p.receiptNo}`, body));
+}

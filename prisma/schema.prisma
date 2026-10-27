@@ -53,6 +53,20 @@ enum VisaStatus {
   ISSUED
   REJECTED
 }
+enum Currency {
+  IQD
+  USD
+}
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  CARD
+  OTHER
+}
+enum PaymentKind {
+  PAYMENT
+  REFUND
+}
 enum City {
   MAKKAH
   MADINAH
@@ -218,6 +232,7 @@ model Trip {
   cars          GroundCar[]
   bookings      Booking[]
   rooms         Room[]
+  prices        TripPrice[]
 }
 
 model Bus {
@@ -263,6 +278,10 @@ model Booking {
   agentId     String?
   agent       Agent?        @relation(fields: [agentId], references: [id])
   roomType    String?
+  priceAmount Int?
+  priceCurrency Currency    @default(USD)
+  cancelReason String?
+  cancelledAt DateTime?
   status      BookingStatus @default(ACTIVE)
   movedFromId String?
   visaStatus  VisaStatus    @default(NOT_SUBMITTED)
@@ -275,6 +294,7 @@ model Booking {
   seat        SeatAssignment?
   groups      BookingGroupMember[]
   rooms       RoomAssignment[]
+  payments    Payment[]
   @@unique([pilgrimId, tripId])
   @@index([tripId])
 }
@@ -380,4 +400,34 @@ model Program {
   seatsPerBus    Int           @default(48)
   durationDays   Int           @default(10)
   createdAt      DateTime      @default(now())
+}
+
+model TripPrice {
+  id       String    @id @default(uuid())
+  tripId   String
+  trip     Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  roomType RoomType
+  currency Currency  @default(USD)
+  amount   Int
+  @@unique([tripId, roomType])
+}
+
+model Payment {
+  id           String        @id @default(uuid())
+  receiptNo    Int           @unique @default(autoincrement())
+  bookingId    String
+  booking      Booking       @relation(fields: [bookingId], references: [id])
+  kind         PaymentKind   @default(PAYMENT)
+  amount       Int
+  currency     Currency
+  exchangeRate Int?
+  credited     Decimal       @default(0) @db.Decimal(14, 2)
+  method       PaymentMethod @default(CASH)
+  paidAt       DateTime      @db.Date
+  receivedById String
+  receivedByName String
+  note         String?
+  reason       String?
+  createdAt    DateTime      @default(now())
+  @@index([bookingId])
 }

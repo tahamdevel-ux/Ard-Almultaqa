@@ -17,6 +17,7 @@ export async function loadTripDetail(tripId: string) {
       pilgrim: { include: { documents: { select: { type: true } } } },
       seat: { include: { bus: true, car: true } },
       groups: { include: { group: true } },
+      payments: true,
     },
     orderBy: { createdAt: "asc" },
   });

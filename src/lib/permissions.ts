@@ -5,6 +5,7 @@ export const PERMISSIONS = [
   "pilgrims.view", "pilgrims.write", "pilgrims.health", "documents.view", "documents.write",
   "agents.view", "agents.write",
   "trips.view", "trips.write", "bookings.write", "seats.write",
+  "prices.write", "payments.view", "payments.write",
   "hotels.view", "hotels.write", "rooming.write", "programs.write",
   "outputs.view",
   "import.run",
@@ -21,7 +22,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "agents.view", "trips.view", "bookings.write", "seats.write", "outputs.view", "import.run", "hotels.view",
   ],
   HOUSING: ["dashboard.view", "pilgrims.view", "trips.view", "seats.write", "outputs.view", "hotels.view", "hotels.write", "rooming.write"],
-  ACCOUNTANT: ["dashboard.view", "pilgrims.view", "agents.view", "agents.write", "trips.view", "outputs.view"],
+  ACCOUNTANT: ["dashboard.view", "pilgrims.view", "agents.view", "agents.write", "trips.view", "outputs.view", "prices.write", "payments.view", "payments.write"],
   SUPERVISOR: ["pilgrims.view", "pilgrims.health", "trips.view", "outputs.view", "hotels.view"],
 };
 

@@ -78,6 +78,26 @@ async function main() {
     await db.program.create({ data: { name: "عمرة بري - قافلة الأحد", transportType: "LAND", nightsMakkah: 6, nightsMadinah: 4, firstCity: "MADINAH", makkahHotelId: mk.id, madinahHotelId: md.id, capacity: 90, busCount: 2, seatsPerBus: 48, durationDays: 12 } });
     await db.program.create({ data: { name: "عمرة جوي - كل 10 أيام", transportType: "AIR", nightsMakkah: 5, nightsMadinah: 4, firstCity: "MADINAH", makkahHotelId: mk.id, madinahHotelId: md.id, capacity: 40, durationDays: 10 } });
   }
+  if ((await db.tripPrice.count()) === 0) {
+    const acc = await db.user.findUniqueOrThrow({ where: { username: "acc" } });
+    const price: Record<string, [number, number, number, number]> = { "L-2611": [1300, 1150, 1000, 950], "A-2612": [1700, 1550, 1400, 1350] };
+    for (const [no, [d2, d3, d4, d5]] of Object.entries(price)) {
+      const t = await db.trip.findUnique({ where: { tripNo: no } });
+      if (!t) continue;
+      await db.tripPrice.createMany({ data: [["DOUBLE", d2], ["TRIPLE", d3], ["QUAD", d4], ["QUINT", d5]].map(([roomType, amount]) => ({ tripId: t.id, roomType: roomType as "DOUBLE", amount: amount as number, currency: "USD" as const })) });
+      const bookings = await db.booking.findMany({ where: { tripId: t.id }, orderBy: { createdAt: "asc" } });
+      for (const [i, b] of bookings.entries()) {
+        await db.booking.update({ where: { id: b.id }, data: { roomType: "QUAD", priceAmount: d4, priceCurrency: "USD" } });
+        if (i % 4 === 3) continue; // some owe everything
+        const full = i % 4 === 0;
+        const usd = full ? d4 : Math.round(d4 / 2);
+        const inDinar = i % 3 === 0;
+        await db.payment.create({ data: inDinar
+          ? { bookingId: b.id, amount: usd * 1400, currency: "IQD", exchangeRate: 1400, credited: usd, method: "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name }
+          : { bookingId: b.id, amount: usd, currency: "USD", credited: usd, method: i % 2 ? "TRANSFER" : "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name } });
+      }
+    }
+  }
   console.log("seeded; admin password:", pw, "admin id:", admin.id);
 }
 main().finally(() => db.$disconnect());

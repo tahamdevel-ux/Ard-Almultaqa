@@ -13,6 +13,7 @@ const DEFAULTS = {
   passportMinMonths: 6,
   mahram: DEFAULT_MAHRAM_SETTINGS,
   maxCompanionGroup: 4,
+  usdRate: 1400, // suggested dinars per dollar; the real rate is typed on each payment
 };
 type Defaults = typeof DEFAULTS;
 

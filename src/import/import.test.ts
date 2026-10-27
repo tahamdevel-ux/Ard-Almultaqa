@@ -23,7 +23,8 @@ async function sample(n: number) {
 
 beforeAll(async () => { await db.$connect(); });
 beforeEach(async () => {
-  await db.auditLog.deleteMany(); await db.booking.deleteMany(); await db.pilgrim.deleteMany();
+  await db.payment.deleteMany(); await db.auditLog.deleteMany(); await db.seatAssignment.deleteMany(); await db.booking.deleteMany();
+  await db.tripPrice.deleteMany(); await db.trip.deleteMany(); await db.pilgrim.deleteMany();
 });
 
 describe("import wizard engine", () => {

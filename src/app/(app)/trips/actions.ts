@@ -61,7 +61,8 @@ export async function addBooking(tripId: string, _p: TripActionState, f: FormDat
 
 export async function removeBooking(tripId: string, bookingId: string) {
   await requirePermission("bookings.write");
-  await db.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED" } });
+  if (await db.payment.count({ where: { bookingId } })) return; // has money: cancel from the account page (reason + refund)
+  await db.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: "إزالة من الرحلة" } });
   await db.seatAssignment.deleteMany({ where: { bookingId } });
   touch(tripId);
 }

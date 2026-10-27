@@ -3,7 +3,7 @@
 نظام داخلي لشركة أرض الملتقى للحج والعمرة (الموصل). كل معتمر يُدخل مرة واحدة، ومنه تُولَّد كشوف الباصات وقوائم الطيران.
 الخطة والافتراضات: `docs/PLAN.md`, `docs/ASSUMPTIONS.md`.
 
-**الحالة:** المرحلة 1 (الأساس) والمرحلة 2 (الفنادق، التسكين، التأشيرات، البطاقات، القوالب) مكتملتان. المرحلة 3 (الأسعار والدفعات) لم تبدأ.
+**الحالة:** المراحل 1 (الأساس) و2 (الفنادق، التسكين، التأشيرات، البطاقات، القوالب) و3 (الأسعار والدفعات) مكتملة. المرحلة 4 (اختيارية) لم تُطلب.
 بقرار الشركة: **لا توجد عقود نسك** في النظام (لا جدول عقود ولا ربط التسكين برقم عقد).
 
 ## Setup (development)
@@ -74,7 +74,7 @@ The Docker files have not been built in the development environment (no Docker d
 
 ## Roles
 
-ADMIN (everything), REGISTRATION (pilgrims, documents, bookings, import), HOUSING (seats), ACCOUNTANT (agents), SUPERVISOR (only trips assigned to them, incl. health notes).
+ADMIN (everything), REGISTRATION (pilgrims, documents, bookings, import — no money screens), HOUSING (hotels, rooming, seats), ACCOUNTANT (prices, payments, receipts, agents and agent statements), SUPERVISOR (only trips assigned to them, incl. health notes).
 
 ## Partner (Nusuk) export template
 

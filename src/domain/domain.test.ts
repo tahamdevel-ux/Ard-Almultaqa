@@ -142,3 +142,41 @@ describe("readiness", () => {
     expect(readiness({ bookingActive: true, docs: ["PASSPORT", "PHOTO"], visaStatus: "IN_PROGRESS" }).missing).toEqual(["التأشيرة لم تصدر"]);
   });
 });
+
+import { formatMoney, paidTotal, balance, checkPayment, creditedValue, agentStatement } from "./money";
+
+describe("money", () => {
+  it("formats", () => {
+    expect(formatMoney(1500000, "IQD")).toBe("1,500,000 د.ع");
+    expect(formatMoney(1200.5, "USD")).toBe("$1,200.5");
+  });
+  it("converts dinar payments to dollars at the payment-time rate", () => {
+    expect(creditedValue(1_400_000, "IQD", "USD", 1400)).toBe(1000);
+    expect(creditedValue(100, "USD", "USD")).toBe(100);
+    expect(creditedValue(100, "IQD", "USD", null)).toBeNull();
+    expect(creditedValue(100, "USD", "IQD", 1500)).toBe(150000);
+  });
+  it("balance = price - (payments - refunds), mixed currencies", () => {
+    const ps = [{ kind: "PAYMENT" as const, credited: 1000 }, { kind: "PAYMENT" as const, credited: 357.14 }, { kind: "REFUND" as const, credited: 200 }];
+    expect(paidTotal(ps)).toBe(1157.14);
+    expect(balance(1500, ps)).toBe(342.86);
+    expect(balance(null, ps)).toBeNull();
+  });
+  it("validates payments and refunds", () => {
+    const ps = [{ kind: "PAYMENT" as const, credited: 1000 }];
+    expect(checkPayment({ kind: "PAYMENT", amount: 0, currency: "USD" }, "USD", ps)).toHaveProperty("error");
+    expect(checkPayment({ kind: "PAYMENT", amount: 700000, currency: "IQD" }, "USD", ps)).toHaveProperty("error"); // no rate
+    expect(checkPayment({ kind: "PAYMENT", amount: 700000, currency: "IQD", rate: 1400 }, "USD", ps)).toEqual({ credited: 500 });
+    expect(checkPayment({ kind: "REFUND", amount: 500, currency: "USD" }, "USD", ps)).toHaveProperty("error"); // no reason
+    expect(checkPayment({ kind: "REFUND", amount: 2000, currency: "USD", reason: "x" }, "USD", ps)).toHaveProperty("error");
+    expect(checkPayment({ kind: "REFUND", amount: 500, currency: "USD", reason: "x" }, "USD", ps)).toEqual({ credited: 500 });
+  });
+  it("agent statement: percent", () => {
+    const s = agentStatement([{ price: 1000, paid: 400, cancelled: false }, { price: 1000, paid: 1000, cancelled: false }], { type: "PERCENT", value: 5 });
+    expect(s).toMatchObject({ totalPrice: 2000, commission: 100, netToCompany: 1900, collected: 1400, dueToCompany: 500, count: 2 });
+  });
+  it("agent statement: fixed wholesale, cancelled gives no commission", () => {
+    const s = agentStatement([{ price: 1000, paid: 0, cancelled: false }, { price: 1000, paid: 100, cancelled: true }], { type: "FIXED_WHOLESALE", value: 900 });
+    expect(s).toMatchObject({ totalPrice: 1000, commission: 100, netToCompany: 900, collected: 100, dueToCompany: 800, count: 1 });
+  });
+});

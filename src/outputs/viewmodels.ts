@@ -103,3 +103,21 @@ export async function idCardData(tripId: string) {
   });
   return { company, trip, bookings };
 }
+
+import { agentStatement, formatMoney, paidTotal } from "@/domain/money";
+
+export async function agentStatementData(agentId: string, tripId?: string) {
+  const [company, agent] = await Promise.all([getSetting("company"), db.agent.findFirstOrThrow({ where: { id: agentId, deletedAt: null } })]);
+  const bookings = await db.booking.findMany({
+    where: { agentId, deletedAt: null, status: { in: ["ACTIVE", "CANCELLED"] }, ...(tripId ? { tripId } : {}) },
+    include: { pilgrim: true, trip: true, payments: true }, orderBy: [{ trip: { departDate: "asc" } }, { createdAt: "asc" }],
+  });
+  const rows = bookings.map((b) => {
+    const paid = paidTotal(b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) })));
+    return { b, paid, price: b.priceAmount, cancelled: b.status === "CANCELLED" };
+  });
+  const sum = agentStatement(rows.map((r) => ({ price: r.price, paid: r.paid, cancelled: r.cancelled })), { type: agent.commissionType, value: Number(agent.commissionValue) });
+  return { company, agent, rows, sum, currency: "USD" as const };
+}
+
+export const money = formatMoney;
