@@ -47,14 +47,26 @@ Production (docker compose): `DOMAIN`, `DB_PASSWORD`, `APP_SECRET`, `BACKUP_PASS
 
 ## Deployment (single VPS)
 
-1. Point the domain's DNS at the VPS; install Docker.
-2. `cp .env.production.example .env` and fill in real secrets.
-3. `docker compose up -d --build` — starts app, Postgres, Caddy (automatic HTTPS), backup.
-4. First run: `docker compose exec app npx tsx prisma/seed.ts` creates the demo users (change their passwords immediately from **المستخدمون** and remove demo data you do not want), or create the first admin by hand.
-5. Migrations run automatically on every start (`prisma migrate deploy`).
+Fast path (fresh Ubuntu/Debian server, as root):
 
-The Docker files have not been built in the development environment (no Docker daemon there). Do a first
-`docker compose build` on the VPS and fix anything it reports.
+```bash
+# DNS for your domain must already point at the server
+bash <(curl -fsSL https://raw.githubusercontent.com/<owner>/<repo>/<branch>/deploy/install.sh) <git-repo-url> <domain>
+```
+
+The script installs Docker, clones the repo to `/opt/ard-almultaqa`, generates strong secrets in `.env`
+(back this file up — `BACKUP_PASSPHRASE` is needed to open backups), starts the stack
+(app, PostgreSQL, Caddy with automatic HTTPS, backup), and asks for the first admin username/password.
+Production starts with **no demo data**; do not run `prisma/seed.ts` there.
+
+Manual path: `cp .env.production.example .env`, fill in secrets, `docker compose up -d --build`, then
+`docker compose exec app npx tsx prisma/create-admin.ts <user> <password> "<name>"`.
+Migrations run automatically on every start (`prisma migrate deploy`).
+
+Update later: `cd /opt/ard-almultaqa && git pull && docker compose up -d --build`.
+
+`next build` and `next start` were verified in the development environment; the Docker images themselves
+have not been built there (no Docker daemon), so expect to fix small things on the first `docker compose build`.
 
 ## Backup / restore
 
