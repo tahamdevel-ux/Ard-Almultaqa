@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import sharp from "sharp";
+import ExcelJS from "exceljs";
 
 const PW = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123";
 const RUN = String(Date.now()).slice(-7);
@@ -93,4 +94,29 @@ test("role permissions enforced on pages and routes", async ({ page, request }) 
   await expect(page).toHaveURL(/forbidden/);
   const r = await page.request.get("/api/documents/00000000-0000-0000-0000-000000000000");
   expect(r.status()).toBe(403);
+});
+
+test("import wizard: 200 rows, bad rows reported, duplicates detected", async ({ page }) => {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Sheet1");
+  ws.addRow(["الاسم الأول", "اسم الأب", "اسم الجد", "اللقب", "الجنس", "تاريخ الميلاد", "رقم الجواز", "Given name", "Surname", "تاريخ الانتهاء", "الهاتف"]);
+  for (let i = 0; i < 200; i++) {
+    ws.addRow(["سعد", "خالد", "حمد", "النعيمي", "ذكر", "05/04/1970", `IM${RUN}${String(i).padStart(3, "0")}`, "SAAD", "ALNUAIMI", "01/01/2032", i % 40 === 5 ? "999" : "07701234567"]);
+  }
+  ws.addRow(["سعد", "خالد", "حمد", "النعيمي", "ذكر", "05/04/1970", `IM${RUN}000`, "SAAD", "ALNUAIMI", "01/01/2032", "07701234567"]); // dup inside file
+  const buffer = Buffer.from(await wb.xlsx.writeBuffer());
+
+  await login(page, "admin");
+  await page.goto("/import");
+  await page.setInputFiles("input[type=file]", { name: "p.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer });
+  await page.click("button:has-text('رفع')");
+  await page.click("button:has-text('معاينة وفحص')");
+  await expect(page.getByText("إجمالي الصفوف:")).toContainText("201");
+  await expect(page.getByText("بأخطاء:")).toContainText("6"); // 5 bad phones + 1 in-file duplicate
+  await page.click("button:has-text('تنفيذ الاستيراد')");
+  await expect(page.getByText("تم الاستيراد")).toBeVisible();
+  await expect(page.getByText("أُضيف: 195")).toBeVisible();
+  const href = await page.locator("a:has-text('تنزيل تقرير الأخطاء')").getAttribute("href");
+  const rep = await page.request.get(href!);
+  expect(rep.status()).toBe(200);
 });

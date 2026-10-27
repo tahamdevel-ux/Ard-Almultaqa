@@ -1,0 +1,48 @@
+services:
+  db:
+    image: postgres:16
+    restart: always
+    environment:
+      POSTGRES_USER: ard
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ard
+    volumes: [dbdata:/var/lib/postgresql/data]
+  app:
+    build: .
+    restart: always
+    depends_on: [db]
+    environment:
+      DATABASE_URL: postgresql://ard:${DB_PASSWORD}@db:5432/ard
+      APP_SECRET: ${APP_SECRET}
+      STORAGE_DIR: /data/storage
+    volumes: [documents:/data/storage]
+  caddy:
+    image: caddy:2
+    restart: always
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+    depends_on: [app]
+  backup:
+    build: ./deploy/backup
+    restart: always
+    depends_on: [db]
+    environment:
+      PGHOST: db
+      PGUSER: ard
+      PGPASSWORD: ${DB_PASSWORD}
+      PGDATABASE: ard
+      BACKUP_PASSPHRASE: ${BACKUP_PASSPHRASE}
+      RCLONE_REMOTE: ${RCLONE_REMOTE:-}
+    volumes:
+      - documents:/data/storage:ro
+      - backups:/backups
+      - ./deploy/backup/rclone:/root/.config/rclone
+volumes:
+  dbdata:
+  documents:
+  caddydata:
+  backups:

@@ -32,3 +32,9 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - **C.** (resolved) Mahram warning off by default; عصبة supported.
 - **C2.** (resolved) Max عصبة size is 4, so it always fits one quad room. The limit is a setting (default 4); rooming still warns if a group is larger than the largest room.
 - **D.** (resolved) A pilgrim cannot be on two trips at once: warn only when date ranges actually overlap. Back-to-back trips (leaves on one, returns, then goes on the next) are normal and not flagged. The same overlap rule applies to the trip supervisor.
+
+## Deviations from PLAN.md made during Phase 1
+- **Auth:** custom DB-backed sessions (httpOnly cookie, sha-256 token hash, idle/absolute timeout, login lockout) instead of Auth.js — simpler and gives instant revocation. TOTP via `otplib` is implemented but off by default.
+- **Audit:** an explicit `auditChanges()` helper called inside the same transaction as each pilgrim update/import update, instead of a Prisma extension. Booking/payment auditing arrives with Phase 3.
+- **Groups:** companion/family seating groups are per-trip `BookingGroupMember` rows created from the trip page.
+- **Versions:** Next 15.5, Prisma 6.19, otplib 12, TypeScript 5.9.

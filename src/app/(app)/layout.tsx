@@ -10,6 +10,7 @@ const NAV: { href: string; label: string; perm: Permission }[] = [
   { href: "/agents", label: "الوكلاء", perm: "agents.view" },
   { href: "/import", label: "استيراد Excel", perm: "import.run" },
   { href: "/users", label: "المستخدمون", perm: "users.manage" },
+  { href: "/settings", label: "الإعدادات", perm: "settings.manage" },
   { href: "/audit", label: "سجل التعديلات", perm: "audit.view" },
 ];
 
@@ -27,7 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <header className="bg-brand text-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2">
           <span className="font-bold">أرض الملتقى</span>
-          <nav className="flex flex-1 flex-wrap gap-x-3 text-sm">
+          <nav className="flex w-full flex-1 gap-x-3 overflow-x-auto whitespace-nowrap text-sm sm:w-auto">
             {NAV.filter((n) => can(user.role, n.perm)).map((n) => (
               <Link key={n.href} href={n.href} className="rounded px-2 py-1 hover:bg-brand-dark">{n.label}</Link>
             ))}

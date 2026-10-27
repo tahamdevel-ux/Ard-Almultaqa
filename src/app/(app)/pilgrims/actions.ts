@@ -26,6 +26,13 @@ export async function savePilgrim(id: string | null, _prev: ActionState, form: F
     const parsed = pilgrimSchema.safeParse(raw);
     if (!parsed.success) return zodToState(parsed.error);
     const data = { ...parsed.data } as Record<string, unknown>;
+    const mp = String(raw.mahramPassport ?? "").replace(/\s+/g, "").toUpperCase();
+    if (mp) {
+      const m = await db.pilgrim.findFirst({ where: { passportNo: mp, deletedAt: null } });
+      if (!m) return { error: "المحرم غير مسجّل", fieldErrors: { mahramPassport: "لا يوجد معتمر بهذا رقم الجواز" } };
+      if (id && m.id === id) return { error: "لا يمكن ربط المعتمر بنفسه", fieldErrors: { mahramPassport: "لا يمكن ربط المعتمر بنفسه" } };
+      data.mahramId = m.id;
+    } else data.mahramId = null;
     if (!canHealth) for (const k of HEALTH) delete data[k];
     const r = id ? await updatePilgrim(user, id, data as never) : await createPilgrim(user, data as never);
     if (r.ok) revalidatePath("/pilgrims");

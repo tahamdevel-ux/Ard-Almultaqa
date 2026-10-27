@@ -18,7 +18,7 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const p = await db.pilgrim.findFirst({
     where: { id, deletedAt: null },
-    include: { documents: true, bookings: { include: { trip: true, seat: { include: { bus: true } } }, orderBy: { createdAt: "desc" } } },
+    include: { documents: true, mahram: true, bookings: { include: { trip: true, seat: { include: { bus: true } } }, orderBy: { createdAt: "desc" } } },
   });
   if (!p) notFound();
   const agents = await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
@@ -40,6 +40,7 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
 
   const values = {
     ...p,
+    mahramPassport: p.mahram?.passportNo ?? "",
     birthDate: formatDate(p.birthDate), passportIssue: formatDate(p.passportIssue), passportExpiry: formatDate(p.passportExpiry),
   } as unknown as Record<string, string | boolean | null>;
 

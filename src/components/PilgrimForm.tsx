@@ -86,6 +86,7 @@ export function PilgrimForm({
               <option value="">— بدون —</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </Field>
+          {t("mahramPassport", "رقم جواز المحرم", { dir: "ltr", upper: true, hint: "اختياري — يجب أن يكون المحرم مسجّلاً" })}
           {t("mahramRelation", "صلة المحرم", { hint: "اختياري — لا يوجد محرم لبعض المعتمرات وهذا طبيعي" })}
         </div>
       </section>
