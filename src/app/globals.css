@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face { font-family: "NotoArabic"; font-weight: 400; src: url("/fonts/noto-sans-arabic-arabic-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "NotoArabic"; font-weight: 700; src: url("/fonts/noto-sans-arabic-arabic-700-normal.woff2") format("woff2"); }
+
+html { font-family: "NotoArabic", Tahoma, "Segoe UI", "DejaVu Sans", sans-serif; }
+body { @apply bg-gray-50 text-gray-900; }
+input[dir="ltr"], .ltr { direction: ltr; text-align: left; unicode-bidi: plaintext; }
+
+@layer components {
+  .card { @apply bg-white rounded-lg shadow-sm border border-gray-200 p-4; }
+  .btn { @apply inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-white text-sm font-bold hover:bg-brand-dark disabled:opacity-50; }
+  .btn-secondary { @apply inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-100; }
+  .btn-danger { @apply inline-flex items-center justify-center rounded-md bg-red-700 px-3 py-1.5 text-white text-sm font-bold hover:bg-red-800; }
+  .input { @apply w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand focus:outline-none; }
+  .label { @apply mb-1 block text-sm font-bold text-gray-700; }
+  .th { @apply px-3 py-2 text-right text-xs font-bold text-gray-600 bg-gray-100; }
+  .td { @apply px-3 py-2 text-sm border-t border-gray-100; }
+  .chip { @apply inline-block rounded-full px-2 py-0.5 text-xs font-bold; }
+  .chip-ok { @apply bg-green-100 text-green-800; }
+  .chip-warn { @apply bg-amber-100 text-amber-800; }
+  .chip-bad { @apply bg-red-100 text-red-800; }
+  .chip-gray { @apply bg-gray-100 text-gray-700; }
+}
