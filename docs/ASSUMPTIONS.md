@@ -4,7 +4,7 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 
 1. **Stack:** default stack from the brief, unchanged. Node 20+, Postgres 16, Prisma.
 2. **Hosting:** one VPS running Docker Compose; Caddy for HTTPS (auto Let's Encrypt). Domain supplied by the company.
-3. **Password hashing:** argon2id. TOTP is mandatory for every user (no opt-out); 10 recovery codes issued at enrolment.
+3. **Password hashing:** argon2id. Login is username + password only. TOTP is **optional and off by default** (an ADMIN can enable it per user later); login rate limiting and session timeout still apply.
 4. **Session:** 30 min idle / 12 h absolute timeout, configurable in settings.
 5. **Roles:** one role per user. SUPERVISOR sees only trips where they are the assigned supervisor.
 6. **Phone format:** `^07[3-9]\d{8}$` for Iraqi mobiles (validated, normalised); emergency contact uses the same rule, with a looser international fallback.
@@ -27,8 +27,8 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 22. **Time zone:** all display in `Asia/Baghdad`; trip dates are plain dates (no time zone).
 
 ## Decisions that are expensive to reverse — please confirm
-- **A.** Hosting target: your own VPS with Docker Compose (assumed) vs. a managed platform.
-- **B.** Mandatory TOTP for all ~10 staff (assumed yes).
+- **A.** (resolved) Hosting: company VPS with Docker Compose.
+- **B.** (resolved) No mandatory 2FA; username + password.
 - **C.** (resolved) Mahram warning off by default; عصبة supported.
 - **C2.** (resolved) Max عصبة size is 4, so it always fits one quad room. The limit is a setting (default 4); rooming still warns if a group is larger than the largest room.
-- **D.** Is the same pilgrim ever on two trips at the same time? (Assumed no: warn on overlapping dates.)
+- **D.** (resolved) A pilgrim cannot be on two trips at once: warn only when date ranges actually overlap. Back-to-back trips (leaves on one, returns, then goes on the next) are normal and not flagged. The same overlap rule applies to the trip supervisor.

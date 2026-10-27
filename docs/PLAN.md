@@ -16,7 +16,7 @@ Browser (RTL Arabic, mobile) ──HTTPS──> Caddy ──> Next.js app ──
 - **Mutations:** server actions, each wrapped by `withAuth(permission, handler)` which checks session + role on the server and writes audit rows in the same transaction.
 - **Reads/downloads:** route handlers (`/api/documents/[id]`, `/api/trips/[id]/outputs/...`) — always authenticated and permission-checked; documents are streamed, never public URLs.
 - **Domain logic** lives in `src/domain/*` as pure functions (no DB, no Next imports) so every rule in `<business_rules>` is unit-testable: passport-expiry, mahram, rooming, seating, readiness, capacity.
-- **Auth:** Auth.js credentials + argon2 hashes + TOTP (otplib), enforced at login; absolute + idle session timeout; login rate limiting.
+- **Auth:** Auth.js credentials + argon2 hashes; TOTP (otplib) optional per user, off by default; absolute + idle session timeout; login rate limiting.
 - **Permissions:** one static matrix `role → permission[]` in `src/lib/permissions.ts`; used by both UI (hide) and server (enforce). Middleware blocks unauthenticated; each action/route checks its permission.
 - **Audit:** Prisma client extension records old/new values for audited models (Pilgrim names, passport fields, Booking price, Payment) — central, so no action can forget it.
 - **Money:** integer minor units + currency column per amount (IQD has 0 decimals; USD cents).
@@ -76,7 +76,7 @@ deploy/            docker-compose.yml Caddyfile backup/
 
 1. Scaffold Next.js+TS+Tailwind RTL, ESLint, Vitest, Prisma, Docker dev DB; CI script `npm test`.
 2. Schema + initial migration for Phase 1 entities (User, Setting, Agent, Pilgrim, FamilyGroup, PilgrimDocument, Trip, Bus, Flight, GroundCar, Booking, SeatAssignment, AuditLog, ImportMapping).
-3. Auth: login, argon2, TOTP enrol/verify, session timeout, rate limit, roles + permission matrix, `withAuth`.
+3. Auth: login, argon2, optional TOTP, session timeout, rate limit, roles + permission matrix, `withAuth`.
 4. Audit extension + viewer screen (ADMIN).
 5. Storage adapter + authenticated document route; image compression (sharp), size limit; mobile camera upload.
 6. Pilgrims: create/edit/list/search (passport, Arabic, English, phone); validation (Iraqi phone, unique passport with Arabic error); profile page.
