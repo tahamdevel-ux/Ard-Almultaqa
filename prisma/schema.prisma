@@ -1,0 +1,303 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  REGISTRATION
+  HOUSING
+  ACCOUNTANT
+  SUPERVISOR
+}
+enum Gender {
+  MALE
+  FEMALE
+}
+enum DocType {
+  PASSPORT
+  PHOTO
+  NATIONAL_ID
+  OTHER
+}
+enum CommissionType {
+  PERCENT
+  FIXED_WHOLESALE
+}
+enum ProgramType {
+  UMRAH
+}
+enum TransportType {
+  LAND
+  AIR
+}
+enum TripStatus {
+  OPEN
+  FULL
+  TRAVELLING
+  RETURNED
+  CANCELLED
+}
+enum BookingStatus {
+  ACTIVE
+  CANCELLED
+  MOVED
+}
+enum VisaStatus {
+  NOT_SUBMITTED
+  IN_PROGRESS
+  ISSUED
+  REJECTED
+}
+enum GroupKind {
+  FAMILY
+  COMPANIONS
+}
+
+model User {
+  id           String    @id @default(uuid())
+  username     String    @unique
+  name         String
+  passwordHash String
+  role         Role
+  active       Boolean   @default(true)
+  totpSecret   String?
+  totpEnabled  Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  sessions     Session[]
+  supervisedTrips Trip[]
+}
+
+model Session {
+  id         String   @id @default(uuid())
+  tokenHash  String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+}
+
+model LoginAttempt {
+  id        String   @id @default(uuid())
+  username  String
+  ok        Boolean
+  at        DateTime @default(now())
+  @@index([username, at])
+}
+
+model Setting {
+  key   String @id
+  value Json
+}
+
+model Agent {
+  id              String         @id @default(uuid())
+  name            String
+  officeName      String?
+  phones          String[]
+  address         String?
+  commissionType  CommissionType @default(PERCENT)
+  commissionValue Decimal        @default(0)
+  deletedAt       DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  pilgrims        Pilgrim[]
+  bookings        Booking[]
+}
+
+model FamilyGroup {
+  id        String   @id @default(uuid())
+  label     String?
+  kind      GroupKind @default(FAMILY)
+  createdAt DateTime @default(now())
+  pilgrims  Pilgrim[]
+  members   BookingGroupMember[]
+}
+
+model Pilgrim {
+  id             String    @id @default(uuid())
+  // Arabic
+  firstName      String
+  fatherName     String
+  grandfatherName String
+  greatGrandfatherName String?
+  familyName     String
+  gender         Gender
+  birthDate      DateTime  @db.Date
+  motherName     String?
+  governorate    String?
+  address        String?
+  phone          String?
+  emergencyPhone String?
+  // Passport (English as printed)
+  passportNo     String    @unique
+  enGivenName    String
+  enFatherName   String?
+  enGrandfatherName String?
+  enSurname      String
+  nationality    String    @default("IRAQI")
+  placeOfBirth   String?
+  passportIssue  DateTime? @db.Date
+  passportExpiry DateTime  @db.Date
+  passportAuthority String?
+  // Mahram & family
+  mahramId       String?
+  mahram         Pilgrim?  @relation("Mahram", fields: [mahramId], references: [id])
+  mahramOf       Pilgrim[] @relation("Mahram")
+  mahramRelation String?
+  familyGroupId  String?
+  familyGroup    FamilyGroup? @relation(fields: [familyGroupId], references: [id])
+  // Health
+  chronicIllness Boolean   @default(false)
+  wheelchair     Boolean   @default(false)
+  elderly        Boolean   @default(false)
+  healthNotes    String?
+  agentId        String?
+  agent          Agent?    @relation(fields: [agentId], references: [id])
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  documents      PilgrimDocument[]
+  bookings       Booking[]
+  @@index([phone])
+  @@index([familyName])
+}
+
+model PilgrimDocument {
+  id         String   @id @default(uuid())
+  pilgrimId  String
+  pilgrim    Pilgrim  @relation(fields: [pilgrimId], references: [id], onDelete: Cascade)
+  type       DocType
+  storageKey String
+  mime       String
+  size       Int
+  createdAt  DateTime @default(now())
+  @@index([pilgrimId])
+}
+
+model Trip {
+  id            String        @id @default(uuid())
+  tripNo        String        @unique
+  programType   ProgramType   @default(UMRAH)
+  transportType TransportType
+  name          String
+  departDate    DateTime      @db.Date
+  returnDate    DateTime      @db.Date
+  nightsMakkah  Int           @default(0)
+  nightsMadinah Int           @default(0)
+  capacity      Int
+  supervisorId  String?
+  supervisor    User?         @relation(fields: [supervisorId], references: [id])
+  status        TripStatus    @default(OPEN)
+  deletedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  buses         Bus[]
+  flights       Flight[]
+  cars          GroundCar[]
+  bookings      Booking[]
+}
+
+model Bus {
+  id          String @id @default(uuid())
+  tripId      String
+  trip        Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  number      String
+  driverName  String?
+  driverPhone String?
+  company     String?
+  seatCount   Int    @default(48)
+  seats       SeatAssignment[]
+}
+
+model Flight {
+  id          String   @id @default(uuid())
+  tripId      String
+  trip        Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  flightNo    String
+  airline     String?
+  departAt    DateTime?
+  arriveAt    DateTime?
+  ticketCount Int      @default(0)
+}
+
+model GroundCar {
+  id          String @id @default(uuid())
+  tripId      String
+  trip        Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  label       String
+  driverName  String?
+  driverPhone String?
+  capacity    Int    @default(4)
+  assignments SeatAssignment[]
+}
+
+model Booking {
+  id          String        @id @default(uuid())
+  pilgrimId   String
+  pilgrim     Pilgrim       @relation(fields: [pilgrimId], references: [id])
+  tripId      String
+  trip        Trip          @relation(fields: [tripId], references: [id])
+  agentId     String?
+  agent       Agent?        @relation(fields: [agentId], references: [id])
+  roomType    String?
+  status      BookingStatus @default(ACTIVE)
+  movedFromId String?
+  visaStatus  VisaStatus    @default(NOT_SUBMITTED)
+  visaNo      String?
+  deletedAt   DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  seat        SeatAssignment?
+  groups      BookingGroupMember[]
+  @@unique([pilgrimId, tripId])
+  @@index([tripId])
+}
+
+model BookingGroupMember {
+  id        String      @id @default(uuid())
+  bookingId String
+  booking   Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  groupId   String
+  group     FamilyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  @@unique([bookingId, groupId])
+}
+
+model SeatAssignment {
+  id        String     @id @default(uuid())
+  bookingId String     @unique
+  booking   Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  busId     String?
+  bus       Bus?       @relation(fields: [busId], references: [id], onDelete: Cascade)
+  seatNo    Int?
+  ticketNo  String?
+  carId     String?
+  car       GroundCar? @relation(fields: [carId], references: [id])
+  @@unique([busId, seatNo])
+}
+
+model AuditLog {
+  id       String   @id @default(uuid())
+  userId   String?
+  userName String?
+  entity   String
+  entityId String
+  field    String
+  oldValue String?
+  newValue String?
+  at       DateTime @default(now())
+  @@index([entity, entityId])
+  @@index([at])
+}
+
+model ImportMapping {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  mapping   Json
+  createdAt DateTime @default(now())
+}
