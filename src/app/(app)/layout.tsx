@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           </Link>
           <div className="min-w-0 flex-1"><NavLinks items={NAV.filter((n) => can(user.role, n.perm))} /></div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="hidden text-left text-xs leading-tight md:block">{user.name}<span className="block text-white/60">{ROLE_LABELS[user.role]}</span></span>
+            <span className="hidden text-left text-xs leading-tight xl:block">{user.name}<span className="block text-white/60">{ROLE_LABELS[user.role]}</span></span>
             <form action={doLogout}><button className="flex items-center gap-1 rounded-lg bg-white/10 px-2.5 py-2 text-xs font-bold hover:bg-white/20" aria-label="تسجيل الخروج"><Icon name="logout" size={16} /><span className="hidden sm:inline">خروج</span></button></form>
           </div>
         </div>

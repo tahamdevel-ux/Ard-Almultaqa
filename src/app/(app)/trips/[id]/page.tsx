@@ -65,7 +65,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[["المسجّلون", `${counter.registered} / ${counter.capacity}`, counter.over ? "chip-bad" : "chip-ok"], ["الجاهزون", String(counter.ready), "chip-ok"], ["النواقص", String(counter.missing), counter.missing ? "chip-warn" : "chip-ok"], ["الشواغر", String(counter.free), "chip-gray"]].map(([l, v, c]) => (
+        {[["المسجّلون", `${counter.registered} من ${counter.capacity}`, counter.over ? "chip-bad" : "chip-ok"], ["الجاهزون", String(counter.ready), "chip-ok"], ["النواقص", String(counter.missing), counter.missing ? "chip-warn" : "chip-ok"], ["الشواغر", String(counter.free), "chip-gray"]].map(([l, v, c]) => (
           <div key={l} className="card text-center"><div className="text-xs text-brand-mid">{l}</div><div className={"chip mt-1 text-base " + c}>{v}</div></div>
         ))}
       </div>

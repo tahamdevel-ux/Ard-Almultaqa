@@ -47,7 +47,7 @@ export default async function Dashboard() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="إجمالي المعتمرين" value={String(pilgrims)} icon={<Icon name="users" size={22} />} />
         <StatCard label="رحلات قادمة" value={String(trips.length)} icon={<Icon name="bus" size={22} />} tone="gold" />
-        <StatCard label="جاهزون للسفر" value={`${ready} / ${rows.length}`} icon={<Icon name="check" size={22} />} tone="green" />
+        <StatCard label="جاهزون للسفر" value={`${ready} من ${rows.length}`} icon={<Icon name="check" size={22} />} tone="green" />
         {money
           ? <StatCard label="أرصدة مستحقة" value={formatMoney(Math.round(totalDebt), "USD")} icon={<Icon name="wallet" size={22} />} tone="red"><div className="text-xs text-brand-mid">{debts.length} حجز</div></StatCard>
           : <StatCard label="مستمسكات ناقصة" value={String(missingDocs)} icon={<Icon name="alert" size={22} />} tone="red" />}
@@ -68,7 +68,7 @@ export default async function Dashboard() {
                       <Link className="font-bold text-brand underline-offset-2 hover:underline" href={`/trips/${t.id}`}>{t.tripNo} — {t.name}</Link>
                       <span className="chip chip-gray"><Icon name={t.transportType === "AIR" ? "plane" : "bus"} size={13} className="ml-1" />{TRANSPORT_LABELS[t.transportType]}</span>
                       <span className="text-xs text-brand-mid">{formatDate(t.departDate)}</span>
-                      <span className="mr-auto text-xs text-brand-mid">{n} / {t.capacity}</span>
+                      <span className="mr-auto text-xs text-brand-mid">{n} من {t.capacity}</span>
                     </div>
                     <Bar value={n} max={t.capacity} tone={t.capacity && n > t.capacity ? "red" : "brand"} />
                     <div className="mt-1 flex gap-3 text-xs text-brand-mid"><span>تأشيرات لم تصدر: <b className={noVisa ? "text-gold-dark" : ""}>{noVisa}</b></span><span>مستمسكات ناقصة: <b className={noDocs ? "text-red-700" : ""}>{noDocs}</b></span></div>
