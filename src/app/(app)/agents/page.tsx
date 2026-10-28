@@ -34,7 +34,7 @@ export default async function AgentsPage() {
   const w = can(user.role, "agents.write");
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">الوكلاء</h1>
+      <h1 className="page-title">الوكلاء</h1>
       {w && (
         <form action={addAgent} className="card grid gap-3 sm:grid-cols-3">
           <div><label className="label">اسم الوكيل *</label><input name="name" className="input" required /></div>

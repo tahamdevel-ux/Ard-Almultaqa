@@ -32,14 +32,14 @@ export default async function BusPage({ params }: { params: Promise<{ id: string
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">باص {bus.number} — خريطة المقاعد</h1>
+        <h1 className="page-title">باص {bus.number} — خريطة المقاعد</h1>
         <div className="flex gap-2">
           <Link href={`/trips/${id}`} className="btn-secondary">رجوع للرحلة</Link>
           {sw && <form action={autoSeatBus.bind(null, id, busId)}><button className="btn">توزيع تلقائي (العوائل متجاورة)</button></form>}
         </div>
       </div>
-      {bad.length > 0 && <p className="rounded bg-amber-50 p-2 text-sm font-bold text-amber-900">⚠ {bad.length} مجموعة غير متجاورة في المقاعد</p>}
-      <p className="text-sm text-gray-600">{onBus.size} / {bus.seatCount} مقعد مشغول · بدون مقعد: {unseated.length}</p>
+      {bad.length > 0 && <p className="alert-warn">⚠ {bad.length} مجموعة غير متجاورة في المقاعد</p>}
+      <p className="text-sm text-brand-mid">{onBus.size} / {bus.seatCount} مقعد مشغول · بدون مقعد: {unseated.length}</p>
       <div className="card space-y-1">
         {Array.from({ length: rows }, (_, r) => (
           <div key={r} className="flex items-stretch gap-1">
@@ -49,7 +49,7 @@ export default async function BusPage({ params }: { params: Promise<{ id: string
               if (n > bus.seatCount) return null;
               const b = onBus.get(n);
               return (
-                <div key={n} className={"flex-1 rounded border p-1 text-xs " + (c === 1 ? "ml-4 " : "") + (b ? "border-brand bg-brand-light" : "border-gray-300 bg-white")}>
+                <div key={n} className={"flex-1 rounded border p-1 text-xs " + (c === 1 ? "ml-4 " : "") + (b ? "border-brand bg-brand-light" : "border-line bg-white")}>
                   <div className="font-bold">{n}</div>
                   {b ? (
                     <>

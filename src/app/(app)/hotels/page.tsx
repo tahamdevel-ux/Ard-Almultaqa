@@ -31,7 +31,7 @@ export default async function HotelsPage({ searchParams }: { searchParams: Promi
   const w = can(user.role, "hotels.write");
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">الفنادق</h1>
+      <h1 className="page-title">الفنادق</h1>
       {w && (
         <form action={saveHotel} className="card grid gap-3 sm:grid-cols-3" key={cur?.id ?? "new"}>
           <input type="hidden" name="id" defaultValue={cur?.id ?? ""} />
@@ -57,7 +57,7 @@ export default async function HotelsPage({ searchParams }: { searchParams: Promi
                   <form action={deleteHotel.bind(null, h.id)}><button className="text-sm text-red-700 underline">حذف</button></form></span>}</td>
               </tr>
             ))}
-            {hotels.length === 0 && <tr><td className="td text-center text-gray-500" colSpan={7}>لا توجد فنادق</td></tr>}
+            {hotels.length === 0 && <tr><td className="td text-center text-brand-mid" colSpan={7}>لا توجد فنادق</td></tr>}
           </tbody>
         </table>
       </div>

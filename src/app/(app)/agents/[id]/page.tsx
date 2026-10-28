@@ -18,7 +18,7 @@ export default async function AgentStatementPage({ params, searchParams }: { par
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">كشف حساب الوكيل: {agent.name}</h1>
+        <h1 className="page-title">كشف حساب الوكيل: {agent.name}</h1>
         <div className="flex gap-2">
           <a className="btn-secondary" href={`/api/agents/${id}/statement?format=pdf${qs}`}>PDF</a>
           <a className="btn-secondary" href={`/api/agents/${id}/statement?format=xlsx${qs}`}>Excel</a>
@@ -26,10 +26,10 @@ export default async function AgentStatementPage({ params, searchParams }: { par
         </div>
       </div>
       <form className="flex gap-2"><select name="trip" defaultValue={trip ?? ""} className="input w-64"><option value="">كل الرحلات</option>{trips.map((t) => <option key={t.id} value={t.id}>{t.tripNo} — {t.name}</option>)}</select><button className="btn-secondary">عرض</button></form>
-      <p className="text-sm text-gray-600">العمولة: {agent.commissionType === "PERCENT" ? `${agent.commissionValue}% من السعر` : `سعر جملة ثابت ${formatMoney(Number(agent.commissionValue), c)} للمعتمر (الباقي للوكيل)`}</p>
+      <p className="text-sm text-brand-mid">العمولة: {agent.commissionType === "PERCENT" ? `${agent.commissionValue}% من السعر` : `سعر جملة ثابت ${formatMoney(Number(agent.commissionValue), c)} للمعتمر (الباقي للوكيل)`}</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 text-center">
         {([["المعتمرون", String(d.sum.count)], ["إجمالي الأسعار", formatMoney(d.sum.totalPrice, c)], ["العمولة", formatMoney(d.sum.commission, c)], ["المستلم", formatMoney(d.sum.collected, c)], [d.sum.dueToCompany >= 0 ? "المتبقي للشركة" : "زيادة مدفوعة", formatMoney(Math.abs(d.sum.dueToCompany), c)]] as const).map(([l, v]) => (
-          <div key={l} className="card"><div className="text-xs text-gray-600">{l}</div><div className="font-bold">{v}</div></div>
+          <div key={l} className="card"><div className="text-xs text-brand-mid">{l}</div><div className="font-bold">{v}</div></div>
         ))}
       </div>
       <div className="card overflow-x-auto p-0">
@@ -44,7 +44,7 @@ export default async function AgentStatementPage({ params, searchParams }: { par
                 <td className="td">{r.cancelled ? <span className="chip chip-bad">ملغى</span> : <span className="chip chip-ok">فعّال</span>}</td>
               </tr>
             ))}
-            {d.rows.length === 0 && <tr><td className="td text-center text-gray-500" colSpan={6}>لا توجد حجوزات لهذا الوكيل</td></tr>}
+            {d.rows.length === 0 && <tr><td className="td text-center text-brand-mid" colSpan={6}>لا توجد حجوزات لهذا الوكيل</td></tr>}
           </tbody>
         </table>
       </div>

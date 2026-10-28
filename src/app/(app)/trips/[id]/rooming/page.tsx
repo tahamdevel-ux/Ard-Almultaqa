@@ -42,7 +42,7 @@ export default async function RoomingPage({ params, searchParams }: { params: Pr
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">التسكين — {trip.tripNo} {trip.name}</h1>
+        <h1 className="page-title">التسكين — {trip.tripNo} {trip.name}</h1>
         <Link href={`/trips/${id}`} className="btn-secondary">رجوع للرحلة</Link>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -57,15 +57,15 @@ export default async function RoomingPage({ params, searchParams }: { params: Pr
           </span>
         )}
       </div>
-      <p className="text-sm text-gray-700">
+      <p className="text-sm text-ink">
         الفندق: <b>{hotel ? (hotel.localName ? `${hotel.localName} (${hotel.officialName})` : hotel.officialName) : "غير محدد"}</b>
         {" · "}الدخول {formatDate(stay.checkIn)} ← الخروج {formatDate(stay.checkOut)}
       </p>
-      {!hotel && <p className="rounded bg-amber-50 p-2 text-sm font-bold text-amber-900">⚠ حدّد فندق {CITY_LABEL[city]} من صفحة الرحلة قبل إضافة الغرف.</p>}
-      {rooms.length > 0 && totalBeds < bookings.length && <p className="rounded bg-red-50 p-2 text-sm font-bold text-red-800">⚠ عدد الأسرّة ({totalBeds}) أقل من عدد المعتمرين ({bookings.length}).</p>}
-      {rooms.length > 0 && emptyBeds > 0 && pool.length === 0 && <p className="rounded bg-amber-50 p-2 text-sm font-bold text-amber-900">ℹ {emptyBeds} سرير فارغ بعد تسكين الجميع.</p>}
+      {!hotel && <p className="alert-warn">⚠ حدّد فندق {CITY_LABEL[city]} من صفحة الرحلة قبل إضافة الغرف.</p>}
+      {rooms.length > 0 && totalBeds < bookings.length && <p className="alert-bad">⚠ عدد الأسرّة ({totalBeds}) أقل من عدد المعتمرين ({bookings.length}).</p>}
+      {rooms.length > 0 && emptyBeds > 0 && pool.length === 0 && <p className="alert-warn">ℹ {emptyBeds} سرير فارغ بعد تسكين الجميع.</p>}
       {w && <RoomingControls tripId={id} city={city} />}
-      <p className="text-xs text-gray-600">اللون: أبيض = فارغة · أصفر = جزئية · أخضر = ممتلئة. ♂ ♀ = الجنس.</p>
+      <p className="text-xs text-brand-mid">اللون: أبيض = فارغة · أصفر = جزئية · أخضر = ممتلئة. ♂ ♀ = الجنس.</p>
       <RoomingBoard key={city} tripId={id} city={city} rooms={boardRooms} pool={pool} canEdit={w} />
     </div>
   );

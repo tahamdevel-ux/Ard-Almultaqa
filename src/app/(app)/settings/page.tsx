@@ -19,7 +19,7 @@ export default async function SettingsPage() {
   const [company, months, mahram, maxGroup, usdRate] = await Promise.all([getSetting("company"), getSetting("passportMinMonths"), getSetting("mahram"), getSetting("maxCompanionGroup"), getSetting("usdRate")]);
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">الإعدادات</h1>
+      <h1 className="page-title">الإعدادات</h1>
       <form action={save} className="card grid gap-3 sm:grid-cols-2">
         <div><label className="label">اسم الشركة (يظهر في الطباعة)</label><input name="name" defaultValue={company.name} className="input" /></div>
         <div><label className="label">العنوان</label><input name="address" defaultValue={company.address} className="input" /></div>

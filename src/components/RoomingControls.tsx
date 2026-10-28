@@ -18,7 +18,7 @@ export function RoomingControls({ tripId, city }: { tripId: string; city: "MAKKA
       <div className="flex flex-wrap items-center gap-2">
         <button className="btn" disabled={pending} onClick={() => start(async () => setRes(await autoAssign(tripId, city)))}>تسكين تلقائي (اقتراح)</button>
         <button className="btn-secondary" disabled={pending} onClick={() => { if (confirm("إلغاء تسكين الجميع في هذه المدينة؟")) start(async () => setRes(await clearCity(tripId, city))); }}>إلغاء كل التسكين</button>
-        <span className="text-xs text-gray-500">بعد الاقتراح اسحب المعتمرين بين الغرف للتعديل.</span>
+        <span className="text-xs text-brand-mid">بعد الاقتراح اسحب المعتمرين بين الغرف للتعديل.</span>
       </div>
       {res?.error && <p role="alert" className="text-sm font-bold text-red-700">{res.error}</p>}
       {res?.info && <p role="status" className="text-sm font-bold text-green-800">{res.info}</p>}

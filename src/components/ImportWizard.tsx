@@ -34,7 +34,7 @@ export function ImportWizard({ savedMappings }: { savedMappings: { name: string;
         <form action={onUpload} className="flex flex-wrap items-center gap-2">
           <input type="file" name="file" accept=".xlsx" required />
           <button className="btn" disabled={pending}>رفع</button>
-          <span className="text-xs text-gray-500">xlsx فقط، حتى 5 ميغابايت و 5000 صف</span>
+          <span className="text-xs text-brand-mid">xlsx فقط، حتى 5 ميغابايت و 5000 صف</span>
         </form>
         {up.error && <p role="alert" className="mt-2 text-sm font-bold text-red-700">{up.error}</p>}
       </section>
@@ -73,7 +73,7 @@ export function ImportWizard({ savedMappings }: { savedMappings: { name: string;
         </section>
       )}
 
-      {prev?.error && <p role="alert" className="rounded bg-red-50 p-3 text-sm font-bold text-red-800">{prev.error}</p>}
+      {prev?.error && <p role="alert" className="alert-bad">{prev.error}</p>}
       {prev?.preview && up.key && cur && (
         <section className="card space-y-3">
           <h2 className="font-bold">٣. المعاينة</h2>
@@ -96,7 +96,7 @@ export function ImportWizard({ savedMappings }: { savedMappings: { name: string;
           )}
           <div className="flex flex-wrap items-center gap-2">
             <button className="btn" disabled={pending} onClick={() => start(async () => setResult(await runImport(up.key!, cur.name, mapping, decisions)))}>تنفيذ الاستيراد</button>
-            <span className="text-xs text-gray-500">الصفوف السليمة فقط تُستورد داخل عملية واحدة؛ أي فشل يلغي الاستيراد كاملاً.</span>
+            <span className="text-xs text-brand-mid">الصفوف السليمة فقط تُستورد داخل عملية واحدة؛ أي فشل يلغي الاستيراد كاملاً.</span>
           </div>
         </section>
       )}

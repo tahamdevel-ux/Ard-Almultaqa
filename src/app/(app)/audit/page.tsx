@@ -17,7 +17,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   });
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">سجل التعديلات</h1>
+      <h1 className="page-title">سجل التعديلات</h1>
       <form className="flex gap-2"><input name="q" defaultValue={q} className="input" placeholder="بحث بالقيمة أو المستخدم أو معرّف السجل" /><button className="btn-secondary">بحث</button></form>
       <div className="card overflow-x-auto p-0">
         <table className="w-full">
@@ -32,7 +32,7 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
                 <td className="td">{r.oldValue ?? "—"}</td><td className="td">{r.newValue ?? "—"}</td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td className="td text-center text-gray-500" colSpan={6}>لا توجد تعديلات</td></tr>}
+            {rows.length === 0 && <tr><td className="td text-center text-brand-mid" colSpan={6}>لا توجد تعديلات</td></tr>}
           </tbody>
         </table>
       </div>

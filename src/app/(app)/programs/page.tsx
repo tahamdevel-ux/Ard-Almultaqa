@@ -35,16 +35,16 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
   const programs = await db.program.findMany({ orderBy: { createdAt: "desc" }, include: { makkahHotel: true, madinahHotel: true } });
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">قوالب الرحلات</h1>
-      <p className="text-sm text-gray-600">احفظ أي رحلة كقالب من صفحتها، ثم أنشئ الرحلات المتكررة (قافلة الأحد البرية، الرحلة الجوية كل 10 أيام) بضغطة واحدة.</p>
-      {error && <p role="alert" className="rounded bg-red-50 p-3 text-sm font-bold text-red-800">{error}</p>}
+      <h1 className="page-title">قوالب الرحلات</h1>
+      <p className="text-sm text-brand-mid">احفظ أي رحلة كقالب من صفحتها، ثم أنشئ الرحلات المتكررة (قافلة الأحد البرية، الرحلة الجوية كل 10 أيام) بضغطة واحدة.</p>
+      {error && <p role="alert" className="alert-bad">{error}</p>}
       {programs.map((p) => (
         <div key={p.id} className="card space-y-2">
           <div className="flex items-start justify-between">
             <div>
               <h2 className="font-bold">{p.name}</h2>
-              <p className="text-sm text-gray-600">{TRANSPORT_LABELS[p.transportType]} · {p.durationDays} يوم · مكة {p.nightsMakkah} / المدينة {p.nightsMadinah} ليالي · السعة {p.capacity}{p.busCount ? ` · ${p.busCount} باص` : ""}</p>
-              <p className="text-sm text-gray-600">مكة: {p.makkahHotel?.localName ?? p.makkahHotel?.officialName ?? "—"} · المدينة: {p.madinahHotel?.localName ?? p.madinahHotel?.officialName ?? "—"}</p>
+              <p className="text-sm text-brand-mid">{TRANSPORT_LABELS[p.transportType]} · {p.durationDays} يوم · مكة {p.nightsMakkah} / المدينة {p.nightsMadinah} ليالي · السعة {p.capacity}{p.busCount ? ` · ${p.busCount} باص` : ""}</p>
+              <p className="text-sm text-brand-mid">مكة: {p.makkahHotel?.localName ?? p.makkahHotel?.officialName ?? "—"} · المدينة: {p.madinahHotel?.localName ?? p.madinahHotel?.officialName ?? "—"}</p>
             </div>
             <form action={deleteProgram.bind(null, p.id)}><button className="text-sm text-red-700 underline">حذف القالب</button></form>
           </div>
@@ -55,7 +55,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
           </form>
         </div>
       ))}
-      {programs.length === 0 && <p className="card text-center text-sm text-gray-500">لا توجد قوالب بعد</p>}
+      {programs.length === 0 && <p className="card text-center text-sm text-brand-mid">لا توجد قوالب بعد</p>}
     </div>
   );
 }

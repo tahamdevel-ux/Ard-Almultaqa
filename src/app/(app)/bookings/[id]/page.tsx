@@ -44,16 +44,16 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">حساب الحجز — {fullNameAr(b.pilgrim)}</h1>
-        <p className="text-sm text-gray-600">
+        <h1 className="page-title">حساب الحجز — {fullNameAr(b.pilgrim)}</h1>
+        <p className="text-sm text-brand-mid">
           <Link className="underline" href={`/pilgrims/${b.pilgrimId}`}>ملف المعتمر</Link> · <Link className="underline" href={`/trips/${b.tripId}`}>{b.trip.tripNo} {b.trip.name}</Link>
           {b.agent && ` · الوكيل: ${b.agent.name}`} · الحالة: {b.status === "ACTIVE" ? "فعّال" : b.status === "CANCELLED" ? `ملغى (${b.cancelReason})` : "منقول إلى رحلة أخرى"}
         </p>
       </div>
       <div className="grid grid-cols-3 gap-3 text-center">
-        <div className="card"><div className="text-xs text-gray-600">السعر</div><div className="text-lg font-bold">{b.priceAmount == null ? "غير محدد" : formatMoney(b.priceAmount, cur)}</div></div>
-        <div className="card"><div className="text-xs text-gray-600">المدفوع (صافي)</div><div className="text-lg font-bold text-green-800">{formatMoney(paid, cur)}</div></div>
-        <div className="card"><div className="text-xs text-gray-600">المتبقي</div><div className={"text-lg font-bold " + ((bal ?? 0) > 0 ? "text-red-700" : "")}>{bal == null ? "—" : formatMoney(bal, cur)}</div></div>
+        <div className="card"><div className="text-xs text-brand-mid">السعر</div><div className="text-lg font-bold">{b.priceAmount == null ? "غير محدد" : formatMoney(b.priceAmount, cur)}</div></div>
+        <div className="card"><div className="text-xs text-brand-mid">المدفوع (صافي)</div><div className="text-lg font-bold text-green-800">{formatMoney(paid, cur)}</div></div>
+        <div className="card"><div className="text-xs text-brand-mid">المتبقي</div><div className={"text-lg font-bold " + ((bal ?? 0) > 0 ? "text-red-700" : "")}>{bal == null ? "—" : formatMoney(bal, cur)}</div></div>
       </div>
 
       {wpr && active && (
@@ -64,7 +64,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
             <div><label className="label">السعر (فارغ = سعر الرحلة الافتراضي)</label><input name="amount" type="number" min={0} defaultValue={b.priceAmount ?? ""} className="input w-36" dir="ltr" /></div>
             <input type="hidden" name="currency" value={cur} />
           </MoneyForm>
-          <p className="text-xs text-gray-500">السعر موحّد حسب نوع الغرفة (يُحدَّد من صفحة الرحلة) ويمكن تعديله لحجز معيّن. العملة الأساسية: {cur === "USD" ? "الدولار" : "الدينار"}.</p>
+          <p className="text-xs text-brand-mid">السعر موحّد حسب نوع الغرفة (يُحدَّد من صفحة الرحلة) ويمكن تعديله لحجز معيّن. العملة الأساسية: {cur === "USD" ? "الدولار" : "الدينار"}.</p>
         </section>
       )}
 
@@ -83,7 +83,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
                 <td className="td"><a className="underline" href={`/api/payments/${p.id}/receipt`}>وصل PDF</a></td>
               </tr>
             ))}
-            {b.payments.length === 0 && <tr><td className="td text-center text-gray-500" colSpan={10}>لا توجد دفعات</td></tr>}
+            {b.payments.length === 0 && <tr><td className="td text-center text-brand-mid" colSpan={10}>لا توجد دفعات</td></tr>}
           </tbody>
         </table>
       </section>
@@ -92,7 +92,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
         <section className="card space-y-2">
           <h2 className="font-bold">استلام دفعة</h2>
           <MoneyForm action={recordPayment.bind(null, b.id, "PAYMENT")} submit="تسجيل الدفعة">{payFields("PAYMENT")}</MoneyForm>
-          <p className="text-xs text-gray-500">عند الدفع بالدينار اكتب سعر الصرف الفعلي وقت التسديد؛ يُحتسب المبلغ بالدولار تلقائياً.</p>
+          <p className="text-xs text-brand-mid">عند الدفع بالدينار اكتب سعر الصرف الفعلي وقت التسديد؛ يُحتسب المبلغ بالدولار تلقائياً.</p>
         </section>
       )}
       {wp && b.payments.length > 0 && (
@@ -111,7 +111,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
             <div><label className="label">سعر الصرف</label><input name="rate" type="number" defaultValue={rate} className="input w-24" dir="ltr" /></div>
             <input type="hidden" name="method" value="CASH" /><input type="hidden" name="paidAt" value={today} />
           </MoneyForm>
-          <p className="text-xs text-gray-500">يُحرَّر المقعد والغرفة. المبلغ غير المسترد يبقى للشركة ويظهر في كشف الوكيل.</p>
+          <p className="text-xs text-brand-mid">يُحرَّر المقعد والغرفة. المبلغ غير المسترد يبقى للشركة ويظهر في كشف الوكيل.</p>
         </section>
       )}
       {active && otherTrips.length > 0 && (
@@ -120,7 +120,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
           <MoneyForm action={move.bind(null, b.id)} submit="نقل">
             <div><label className="label">الرحلة</label><select name="tripId" className="input w-64">{otherTrips.map((t) => <option key={t.id} value={t.id}>{t.tripNo} — {t.name} ({formatDate(t.departDate)})</option>)}</select></div>
           </MoneyForm>
-          <p className="text-xs text-gray-500">تنتقل الدفعات والسعر مع الحجز، ويبقى الحجز القديم في السجل بحالة «منقول».</p>
+          <p className="text-xs text-brand-mid">تنتقل الدفعات والسعر مع الحجز، ويبقى الحجز القديم في السجل بحالة «منقول».</p>
         </section>
       )}
     </div>

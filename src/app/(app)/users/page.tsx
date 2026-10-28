@@ -36,7 +36,7 @@ export default async function UsersPage() {
   const users = await db.user.findMany({ orderBy: { createdAt: "asc" } });
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">المستخدمون والصلاحيات</h1>
+      <h1 className="page-title">المستخدمون والصلاحيات</h1>
       <form action={addUser} className="card grid gap-3 sm:grid-cols-5">
         <div><label className="label">الاسم</label><input name="name" className="input" /></div>
         <div><label className="label">الهاتف</label><input name="phone" className="input" dir="ltr" /></div>

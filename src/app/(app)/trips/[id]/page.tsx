@@ -39,8 +39,8 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="text-xl font-bold">{trip.tripNo} — {trip.name}</h1>
-          <p className="text-sm text-gray-600">{TRANSPORT_LABELS[trip.transportType]} · {formatDate(trip.departDate)} ← {formatDate(trip.returnDate)} · {TRIP_STATUS_LABELS[trip.status]}{trip.supervisor && ` · المشرف: ${trip.supervisor.name}`}</p>
+          <h1 className="page-title">{trip.tripNo} — {trip.name}</h1>
+          <p className="text-sm text-brand-mid">{TRANSPORT_LABELS[trip.transportType]} · {formatDate(trip.departDate)} ← {formatDate(trip.returnDate)} · {TRIP_STATUS_LABELS[trip.status]}{trip.supervisor && ` · المشرف: ${trip.supervisor.name}`}</p>
         </div>
         {can(user.role, "outputs.view") && (
           <div className="flex flex-wrap gap-2 text-sm">
@@ -66,10 +66,10 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[["المسجّلون", `${counter.registered} / ${counter.capacity}`, counter.over ? "chip-bad" : "chip-ok"], ["الجاهزون", String(counter.ready), "chip-ok"], ["النواقص", String(counter.missing), counter.missing ? "chip-warn" : "chip-ok"], ["الشواغر", String(counter.free), "chip-gray"]].map(([l, v, c]) => (
-          <div key={l} className="card text-center"><div className="text-xs text-gray-600">{l}</div><div className={"chip mt-1 text-base " + c}>{v}</div></div>
+          <div key={l} className="card text-center"><div className="text-xs text-brand-mid">{l}</div><div className={"chip mt-1 text-base " + c}>{v}</div></div>
         ))}
       </div>
-      {counter.over && <p className="rounded bg-red-50 p-2 text-sm font-bold text-red-800">⚠ عدد المسجلين تجاوز السعة القصوى للرحلة</p>}
+      {counter.over && <p className="alert-bad">⚠ عدد المسجلين تجاوز السعة القصوى للرحلة</p>}
 
       <section className="card space-y-2">
         <h2 className="font-bold">الفنادق والإقامة</h2>

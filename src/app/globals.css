@@ -5,22 +5,31 @@
 @font-face { font-family: "NotoArabic"; font-weight: 400; src: url("/fonts/noto-sans-arabic-arabic-400-normal.woff2") format("woff2"); }
 @font-face { font-family: "NotoArabic"; font-weight: 700; src: url("/fonts/noto-sans-arabic-arabic-700-normal.woff2") format("woff2"); }
 
-html { font-family: "NotoArabic", Tahoma, "Segoe UI", "DejaVu Sans", sans-serif; }
-body { @apply bg-gray-50 text-gray-900; }
+html { font-family: "NotoArabic", Tahoma, "Segoe UI", "DejaVu Sans", sans-serif; -webkit-text-size-adjust: 100%; }
+body { @apply bg-canvas text-ink antialiased; }
 input[dir="ltr"], .ltr { direction: ltr; text-align: left; unicode-bidi: plaintext; }
+:focus-visible { outline: 2px solid #e3b02e; outline-offset: 2px; }
+::selection { background: #f2c744; color: #1f2120; }
 
 @layer components {
-  .card { @apply bg-white rounded-lg shadow-sm border border-gray-200 p-4; }
-  .btn { @apply inline-flex items-center justify-center rounded-md bg-brand px-4 py-2 text-white text-sm font-bold hover:bg-brand-dark disabled:opacity-50; }
-  .btn-secondary { @apply inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-bold text-gray-800 hover:bg-gray-100; }
-  .btn-danger { @apply inline-flex items-center justify-center rounded-md bg-red-700 px-3 py-1.5 text-white text-sm font-bold hover:bg-red-800; }
-  .input { @apply w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm focus:border-brand focus:outline-none; }
-  .label { @apply mb-1 block text-sm font-bold text-gray-700; }
-  .th { @apply px-3 py-2 text-right text-xs font-bold text-gray-600 bg-gray-100; }
-  .td { @apply px-3 py-2 text-sm border-t border-gray-100; }
-  .chip { @apply inline-block rounded-full px-2 py-0.5 text-xs font-bold; }
-  .chip-ok { @apply bg-green-100 text-green-800; }
-  .chip-warn { @apply bg-amber-100 text-amber-800; }
-  .chip-bad { @apply bg-red-100 text-red-800; }
-  .chip-gray { @apply bg-gray-100 text-gray-700; }
+  .card { @apply bg-white rounded-xl2 shadow-card border border-line p-4; }
+  .btn { @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-white text-sm font-bold transition-colors hover:bg-brand-dark active:bg-brand-deeper disabled:opacity-50; }
+  .btn-gold { @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-gold-bright px-4 py-2 text-ink text-sm font-bold transition-colors hover:bg-gold active:bg-gold-dark disabled:opacity-50; }
+  .btn-secondary { @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-4 py-2 text-sm font-bold text-ink transition-colors hover:bg-brand-light; }
+  .btn-danger { @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-700 px-3 py-1.5 text-white text-sm font-bold hover:bg-red-800; }
+  .input { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm transition-colors placeholder:text-gray-400 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30; }
+  .label { @apply mb-1 block text-xs font-bold text-brand-mid; }
+  .th { @apply px-3 py-2.5 text-right text-xs font-bold text-brand-mid bg-canvas whitespace-nowrap; }
+  .td { @apply px-3 py-2.5 text-sm border-t border-line align-middle; }
+  tbody tr { @apply transition-colors hover:bg-canvas/70; }
+  .chip { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold; }
+  .chip-ok { @apply bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200; }
+  .chip-warn { @apply bg-gold-light text-gold-dark ring-1 ring-gold/40; }
+  .chip-bad { @apply bg-red-50 text-red-800 ring-1 ring-red-200; }
+  .chip-gray { @apply bg-brand-light text-brand ring-1 ring-line; }
+  .page-title { @apply text-xl font-bold text-ink; }
+  .section-title { @apply mb-3 flex items-center gap-2 text-sm font-bold text-ink; }
+  .stat { @apply card flex items-center gap-3; }
+  .alert-warn { @apply rounded-lg border border-gold/40 bg-gold-light px-3 py-2 text-sm font-bold text-gold-dark; }
+  .alert-bad { @apply rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-800; }
 }

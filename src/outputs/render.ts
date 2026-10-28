@@ -1,4 +1,4 @@
-import { esc, htmlToPdf, pageHtml } from "./pdf";
+import { esc, htmlToPdf, logoDataUri, pageHtml } from "./pdf";
 import { buildXlsx } from "./xlsx";
 import { flightListData, manifestData } from "./viewmodels";
 
@@ -76,17 +76,21 @@ export async function renderIdCards(tripId: string) {
     if (doc && doc.mime.startsWith("image/")) {
       try { photo = `data:${doc.mime};base64,${(await getFile(doc.storageKey)).toString("base64")}`; } catch { /* missing file: leave blank */ }
     }
-    cards.push(`<div class="card"><div class="top"><div class="ph">${photo ? `<img src="${photo}">` : ""}</div>
-      <div class="info"><b>${esc(fullNameAr(b.pilgrim))}</b><div class="ltr">${esc(fullNameEn(b.pilgrim))}</div>
-      <div>جواز: <span class="ltr">${esc(b.pilgrim.passportNo)}</span></div><div>الرحلة: <b>${esc(d.trip.tripNo)}</b></div></div>
+    cards.push(`<div class="card"><div class="cb"><img src="${logoDataUri()}"><b>${esc((d.company as Company).name)}</b><span>${esc(d.trip.tripNo)}</span></div>
+      <div class="top"><div class="ph">${photo ? `<img src="${photo}">` : ""}</div>
+      <div class="info"><b class="nm">${esc(fullNameAr(b.pilgrim))}</b><div class="ltr">${esc(fullNameEn(b.pilgrim))}</div>
+      <div>جواز: <span class="ltr">${esc(b.pilgrim.passportNo)}</span></div></div>
       <img class="qr" src="${qr}"></div>
-      <div class="small">مكة: ${esc(hotel(d.trip.makkahHotel))} — المدينة: ${esc(hotel(d.trip.madinahHotel))}</div>
-      <div class="small">المشرف: ${esc(d.trip.supervisor?.name ?? "")} <span class="ltr">${esc(d.trip.supervisor?.phone ?? "")}</span></div>
-      <div class="co">${esc((d.company as Company).name)}</div></div>`);
+      <div class="small"><b>مكة:</b> ${esc(hotel(d.trip.makkahHotel))} — <b>المدينة:</b> ${esc(hotel(d.trip.madinahHotel))}</div>
+      <div class="small"><b>المشرف:</b> ${esc(d.trip.supervisor?.name ?? "")} <span class="ltr">${esc(d.trip.supervisor?.phone ?? "")}</span></div></div>`);
   }
-  const css = `<style>.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.card{border:1.5px solid #0f5132;border-radius:6px;padding:6px;height:60mm;page-break-inside:avoid;font-size:10px}
-  .top{display:flex;gap:6px;align-items:flex-start}.ph{width:24mm;height:30mm;border:1px solid #aaa;flex:none}.ph img{width:100%;height:100%;object-fit:cover}
-  .info{flex:1;line-height:1.5}.qr{width:20mm;height:20mm}.small{margin-top:3px;font-size:9px}.co{margin-top:3px;color:#0f5132;font-weight:700;font-size:9px}</style>`;
+  const css = `<style>.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .card{border:1.5px solid #4f5444;border-radius:8px;overflow:hidden;height:60mm;page-break-inside:avoid;font-size:10px;display:flex;flex-direction:column;background:#fff}
+  .cb{background:#4f5444;color:#fff;display:flex;align-items:center;gap:6px;padding:3px 6px;border-bottom:2.5px solid #e3b02e}
+  .cb img{width:20px;height:20px}.cb b{font-size:10px}.cb span{margin-right:auto;font-size:9px;color:#f2c744;font-weight:700}
+  .top{display:flex;gap:6px;align-items:flex-start;padding:5px 6px}.ph{width:22mm;height:28mm;border:1px solid #cfd2c4;border-radius:4px;flex:none;background:#f6f6f2}.ph img{width:100%;height:100%;object-fit:cover;border-radius:4px}
+  .info{flex:1;line-height:1.55}.nm{font-size:11px;color:#3b3f32}.qr{width:19mm;height:19mm}
+  .small{padding:0 6px;font-size:9px;color:#3b3f32}.small b{color:#4f5444}</style>`;
   return htmlToPdf(pageHtml(d.company as Company, "بطاقات المعتمرين", esc(`الرحلة ${d.trip.tripNo}`), css + `<div class="grid">${cards.join("")}</div>`));
 }
 

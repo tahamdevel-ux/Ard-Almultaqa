@@ -8,7 +8,7 @@ export default async function ImportPage() {
   const saved = (await db.importMapping.findMany({ orderBy: { name: "asc" } })).map((m) => ({ name: m.name, mapping: m.mapping as Mapping }));
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">استيراد المعتمرين من Excel</h1>
+      <h1 className="page-title">استيراد المعتمرين من Excel</h1>
       <ImportWizard savedMappings={saved} />
     </div>
   );

@@ -5,7 +5,7 @@ import { moveBooking, deleteRoom, type RoomingResult } from "@/app/(app)/trips/[
 export interface BoardPerson { bookingId: string; name: string; gender: "MALE" | "FEMALE"; group?: string }
 export interface BoardRoom { id: string; roomNo: string; beds: number; typeLabel: string; people: BoardPerson[] }
 
-const tone = { empty: "border-gray-300 bg-white", partial: "border-amber-400 bg-amber-50", full: "border-green-600 bg-green-50" };
+const tone = { empty: "border-line bg-white", partial: "border-gold bg-gold-light", full: "border-brand bg-brand-light" };
 
 export function RoomingBoard({ tripId, city, rooms, pool, canEdit }: { tripId: string; city: "MAKKAH" | "MADINAH"; rooms: BoardRoom[]; pool: BoardPerson[]; canEdit: boolean }) {
   const [msg, setMsg] = useState<RoomingResult | null>(null);
@@ -19,7 +19,7 @@ export function RoomingBoard({ tripId, city, rooms, pool, canEdit }: { tripId: s
     <div key={p.bookingId} draggable={canEdit} onDragStart={(e) => e.dataTransfer.setData("text/plain", p.bookingId)}
       className={"flex items-center gap-1 rounded border px-1.5 py-1 text-xs " + (p.gender === "FEMALE" ? "border-pink-300 bg-pink-50" : "border-sky-300 bg-sky-50") + (canEdit ? " cursor-grab" : "")}>
       <span>{p.gender === "FEMALE" ? "♀" : "♂"}</span><span className="flex-1">{p.name}</span>
-      {p.group && <span className="rounded bg-gray-200 px-1">{p.group}</span>}
+      {p.group && <span className="rounded bg-brand-light px-1">{p.group}</span>}
       {canEdit && <button type="button" aria-label="إخراج من الغرفة" className="text-red-700" onClick={() => move(p.bookingId, null)}>×</button>}
     </div>
   );
@@ -31,7 +31,7 @@ export function RoomingBoard({ tripId, city, rooms, pool, canEdit }: { tripId: s
 
   return (
     <div className="space-y-3" aria-busy={pending}>
-      {msg?.error && <p role="alert" className="rounded bg-red-50 p-2 text-sm font-bold text-red-800">{msg.error}</p>}
+      {msg?.error && <p role="alert" className="alert-bad">{msg.error}</p>}
       <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
         <aside className={"card space-y-1 " + (over === "pool" ? "ring-2 ring-brand" : "")} onDragOver={(e) => { e.preventDefault(); setOver("pool"); }} onDragLeave={() => setOver(null)} onDrop={drop(null)}>
           <h3 className="font-bold">بدون غرفة ({pool.length})</h3>
@@ -46,7 +46,7 @@ export function RoomingBoard({ tripId, city, rooms, pool, canEdit }: { tripId: s
               )}
             </div>
           ))}
-          {pool.length === 0 && <p className="text-xs text-gray-500">الكل مسكّن ✓</p>}
+          {pool.length === 0 && <p className="text-xs text-brand-mid">الكل مسكّن ✓</p>}
         </aside>
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {rooms.map((r) => {
@@ -55,7 +55,7 @@ export function RoomingBoard({ tripId, city, rooms, pool, canEdit }: { tripId: s
               <div key={r.id} data-room={r.roomNo} onDragOver={(e) => { e.preventDefault(); setOver(r.id); }} onDragLeave={() => setOver(null)} onDrop={drop(r.id)}
                 className={`rounded-lg border-2 p-2 ${tone[st]} ${over === r.id ? "ring-2 ring-brand" : ""}`}>
                 <div className="mb-1 flex items-center justify-between text-sm font-bold">
-                  <span>غرفة {r.roomNo} <span className="text-xs font-normal text-gray-600">{r.typeLabel}</span></span>
+                  <span>غرفة {r.roomNo} <span className="text-xs font-normal text-brand-mid">{r.typeLabel}</span></span>
                   <span className="text-xs">{r.people.length}/{r.beds}</span>
                 </div>
                 <div className="min-h-8 space-y-1">{r.people.map(chip)}</div>

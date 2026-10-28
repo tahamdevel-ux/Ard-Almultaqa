@@ -15,7 +15,7 @@ export default async function TripsPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">الرحلات</h1>
+        <h1 className="page-title">الرحلات</h1>
         {can(user.role, "trips.write") && <Link href="/trips/new" className="btn">+ رحلة جديدة</Link>}
       </div>
       <div className="card overflow-x-auto p-0">
@@ -23,7 +23,7 @@ export default async function TripsPage() {
           <thead><tr><th className="th">الرقم</th><th className="th">الاسم</th><th className="th">النوع</th><th className="th">الذهاب</th><th className="th">العودة</th><th className="th">المسجّلون / السعة</th><th className="th">الحالة</th></tr></thead>
           <tbody>
             {trips.map((t) => (
-              <tr key={t.id} className="hover:bg-gray-50">
+              <tr key={t.id} className="hover:bg-canvas">
                 <td className="td font-bold"><Link className="text-brand underline" href={`/trips/${t.id}`}>{t.tripNo}</Link></td>
                 <td className="td">{t.name}</td><td className="td">{TRANSPORT_LABELS[t.transportType]}</td>
                 <td className="td">{formatDate(t.departDate)}</td><td className="td">{formatDate(t.returnDate)}</td>
@@ -31,7 +31,7 @@ export default async function TripsPage() {
                 <td className="td"><span className="chip chip-gray">{TRIP_STATUS_LABELS[t.status]}</span></td>
               </tr>
             ))}
-            {trips.length === 0 && <tr><td className="td text-center text-gray-500" colSpan={7}>لا توجد رحلات</td></tr>}
+            {trips.length === 0 && <tr><td className="td text-center text-brand-mid" colSpan={7}>لا توجد رحلات</td></tr>}
           </tbody>
         </table>
       </div>

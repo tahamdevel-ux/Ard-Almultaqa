@@ -31,7 +31,7 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">المعتمرون <span className="text-sm font-normal text-gray-500">({total})</span></h1>
+        <h1 className="page-title">المعتمرون <span className="text-sm font-normal text-brand-mid">({total})</span></h1>
         {can(user.role, "pilgrims.write") && <Link href="/pilgrims/new" className="btn">+ معتمر جديد</Link>}
       </div>
       <form className="flex gap-2">
@@ -43,7 +43,7 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
           <thead><tr><th className="th">الاسم</th><th className="th">English</th><th className="th">الجواز</th><th className="th">الجنس</th><th className="th">الهاتف</th><th className="th">الوكيل</th><th className="th">انتهاء الجواز</th></tr></thead>
           <tbody>
             {rows.map((p) => (
-              <tr key={p.id} className="hover:bg-gray-50">
+              <tr key={p.id} className="hover:bg-canvas">
                 <td className="td"><Link className="font-bold text-brand underline" href={`/pilgrims/${p.id}`}>{fullNameAr(p)}</Link></td>
                 <td className="td ltr">{fullNameEn(p)}</td>
                 <td className="td ltr">{p.passportNo}</td>
@@ -53,7 +53,7 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
                 <td className="td">{formatDate(p.passportExpiry)}</td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td className="td text-center text-gray-500" colSpan={7}>لا توجد نتائج</td></tr>}
+            {rows.length === 0 && <tr><td className="td text-center text-brand-mid" colSpan={7}>لا توجد نتائج</td></tr>}
           </tbody>
         </table>
       </div>

@@ -47,10 +47,10 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold">{fullNameAr(p)}</h1>
-        <p className="ltr text-sm text-gray-600">{fullNameEn(p)} — {p.passportNo}</p>
+        <h1 className="page-title">{fullNameAr(p)}</h1>
+        <p className="ltr text-sm text-brand-mid">{fullNameEn(p)} — {p.passportNo}</p>
       </div>
-      {warnings.map((w) => <p key={w} className="rounded bg-amber-50 p-2 text-sm font-bold text-amber-900">⚠ {w}</p>)}
+      {warnings.map((w) => <p key={w} className="alert-warn">⚠ {w}</p>)}
 
       <section className="card">
         <h2 className="mb-3 font-bold">المستمسكات</h2>
@@ -59,7 +59,7 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
             {(["PASSPORT", "PHOTO", "NATIONAL_ID", "OTHER"] as const).map((type) => {
               const docs = p.documents.filter((d) => d.type === type);
               return (
-                <div key={type} className="rounded border border-gray-200 p-3">
+                <div key={type} className="rounded border border-line p-3">
                   <div className="mb-2 flex items-center gap-2 text-sm font-bold">
                     {DOC_LABELS[type]}
                     <span className={"chip " + (docs.length ? "chip-ok" : "chip-bad")}>{docs.length ? "مرفوع" : "ناقص"}</span>
@@ -82,7 +82,7 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
               );
             })}
           </div>
-        ) : <p className="text-sm text-gray-500">لا تملك صلاحية عرض المستمسكات</p>}
+        ) : <p className="text-sm text-brand-mid">لا تملك صلاحية عرض المستمسكات</p>}
       </section>
 
       <section className="card">
@@ -101,7 +101,7 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
                 <td className="td">{VISA_LABELS[b.visaStatus]}</td>
               </tr>
             ))}
-            {p.bookings.length === 0 && <tr><td className="td text-gray-500" colSpan={7}>لم يُحجز في أي رحلة</td></tr>}
+            {p.bookings.length === 0 && <tr><td className="td text-brand-mid" colSpan={7}>لم يُحجز في أي رحلة</td></tr>}
           </tbody>
         </table>
       </section>

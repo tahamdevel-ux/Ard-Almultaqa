@@ -33,8 +33,8 @@ export function PilgrimForm({
   );
   return (
     <form action={formAction} className="space-y-6">
-      {state.error && <p role="alert" className="rounded bg-red-50 p-3 text-sm font-bold text-red-800">{state.error}</p>}
-      {state.ok && !redirectTo && <p className="rounded bg-green-50 p-3 text-sm font-bold text-green-800">تم الحفظ</p>}
+      {state.error && <p role="alert" className="alert-bad">{state.error}</p>}
+      {state.ok && !redirectTo && <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">تم الحفظ</p>}
 
       <section className="card">
         <h2 className="mb-3 font-bold">البيانات الشخصية (بالعربي)</h2>

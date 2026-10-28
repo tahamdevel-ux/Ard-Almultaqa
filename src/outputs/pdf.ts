@@ -5,6 +5,13 @@ import { chromium } from "playwright-core";
 export const esc = (s: unknown) =>
   String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
+let logoUri: string | null = null;
+export function logoDataUri() {
+  if (logoUri) return logoUri;
+  const b = fs.readFileSync(path.join(process.cwd(), "public/brand/logo-192.png")).toString("base64");
+  return (logoUri = `data:image/png;base64,${b}`);
+}
+
 let fontCss: string | null = null;
 function fonts() {
   if (fontCss) return fontCss;
@@ -34,25 +41,30 @@ export const BASE_CSS = `
 ${"/*fonts*/"}
 @page { size: A4; margin: 14mm 12mm; }
 * { box-sizing: border-box; }
-body { font-family: 'NotoArabic', 'DejaVu Sans', sans-serif; font-size: 11px; color: #111; margin: 0; }
-.hdr { border-bottom: 2px solid #0f5132; padding-bottom: 6px; margin-bottom: 8px; display:flex; justify-content:space-between; align-items:flex-end; }
-.hdr h1 { margin: 0; font-size: 17px; color: #0f5132; }
-.hdr small { color: #444; display:block; }
-h2 { font-size: 13px; margin: 6px 0; }
+body { font-family: 'NotoArabic', 'DejaVu Sans', sans-serif; font-size: 11px; color: #1f2120; margin: 0; }
+.hdr { display:flex; align-items:center; gap:10px; padding-bottom:8px; margin-bottom:10px; border-bottom: 3px solid #e3b02e; }
+.hdr img { width: 54px; height: 54px; flex: none; }
+.hdr .co { flex: 1; }
+.hdr h1 { margin: 0; font-size: 16px; color: #3b3f32; }
+.hdr small { color: #6b7157; display:block; font-size: 10px; }
+.hdr .doc { text-align: left; }
+.hdr .doc b { display:block; font-size: 14px; color: #3b3f32; }
+h2 { font-size: 13px; margin: 6px 0; color: #3b3f32; }
 table { width: 100%; border-collapse: collapse; }
-th, td { border: 1px solid #999; padding: 3px 5px; text-align: right; }
-th { background: #e8efe9; }
+th, td { border: 1px solid #d9dbcf; padding: 4px 6px; text-align: right; }
+th { background: #4f5444; color: #fff; font-weight: 700; }
+tbody tr:nth-child(even) td { background: #f6f6f2; }
 .ltr { direction: ltr; unicode-bidi: plaintext; text-align: left; }
 .num { text-align:center; width: 28px; }
 tr { page-break-inside: avoid; }
-.foot { margin-top: 10px; font-size: 10px; color:#555; }
+.foot { margin-top: 12px; padding-top: 6px; border-top: 1px solid #d9dbcf; font-size: 9.5px; color:#6b7157; text-align:center; }
 `;
 
 export function pageHtml(company: { name: string; address: string; phones: string }, title: string, meta: string, body: string, dir: "rtl" | "ltr" = "rtl") {
   return `<!doctype html><html lang="ar" dir="${dir}"><head><meta charset="utf-8"><title>${esc(title)}</title>
 <style>${BASE_CSS.replace("/*fonts*/", fonts())}</style></head><body>
-<div class="hdr"><div><h1>${esc(company.name)}</h1><small>${esc(company.address)} ${esc(company.phones)}</small></div>
-<div style="text-align:left"><b>${esc(title)}</b><small>${meta}</small></div></div>
+<div class="hdr"><img src="${logoDataUri()}" alt=""><div class="co"><h1>${esc(company.name)}</h1><small>${esc(company.address)} ${esc(company.phones)}</small></div>
+<div class="doc"><b>${esc(title)}</b><small>${meta}</small></div></div>
 ${body}
 <div class="foot">${esc(company.name)} — ${esc(company.address)} — ${esc(company.phones)}</div>
 </body></html>`;

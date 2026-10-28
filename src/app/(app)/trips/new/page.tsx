@@ -26,8 +26,8 @@ export default async function NewTrip({ searchParams }: { searchParams: Promise<
   const supervisors = await db.user.findMany({ where: { active: true }, select: { id: true, name: true } });
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">رحلة جديدة</h1>
-      {error && <p role="alert" className="rounded bg-red-50 p-3 text-sm font-bold text-red-800">{error}</p>}
+      <h1 className="page-title">رحلة جديدة</h1>
+      {error && <p role="alert" className="alert-bad">{error}</p>}
       <form action={createTrip} className="card grid gap-3 sm:grid-cols-3">
         <div><label className="label">رقم الرحلة *</label><input name="tripNo" className="input" dir="ltr" required /></div>
         <div><label className="label">اسم البرنامج *</label><input name="name" className="input" required /></div>
