@@ -15,8 +15,8 @@
 | `DATABASE_URL` | `${db.DATABASE_URL}` |
 | `APP_SECRET` | نص عشوائي طويل (Encrypt) |
 | `STORAGE_DIR`/`STORAGE_DRIVER` | `STORAGE_DRIVER=db` (لا يوجد قرص دائم، فالمرفقات تُحفظ بالقاعدة) |
-| `SEED_DEMO` | `1` للتجربة فقط (بيانات وهمية) |
-| `SEED_ADMIN_PASSWORD` | كلمة سر قوية لمستخدمي التجربة (Encrypt) |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | أول مدير (كلمة السر ≥ 10 أحرف، Encrypt)؛ احذف `ADMIN_PASSWORD` بعد أول دخول |
+| `SEED_DEMO` | **لا تضفه للإنتاج** (بيانات وهمية للتجربة فقط) |
 
 6. **Create Resources.** أول بناء ياخذ 10–15 دقيقة (تنزيل Chromium).
 7. الرابط يظهر بالأعلى: `https://<app>.ondigitalocean.app` (يمكن ربط دومين من تبويب Settings → Domains، والشهادة تلقائية).

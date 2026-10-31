@@ -1,5 +1,6 @@
 # DigitalOcean App Platform spec: builds the Dockerfile from GitHub on every push and runs it with a managed PostgreSQL.
 # Create the app from this file:  doctl apps create --spec .do/app.yaml   (or paste it in Create App -> "Edit your app spec")
+# Before creating: replace APP_SECRET (>= 32 random chars) and ADMIN_PASSWORD. For demo data instead, add SEED_DEMO=1 and SEED_ADMIN_PASSWORD.
 name: ard-almultaqa
 region: fra            # Frankfurt
 services:
@@ -25,13 +26,13 @@ services:
       - key: STORAGE_DRIVER      # App Platform has no persistent disk: keep uploaded documents in PostgreSQL
         scope: RUN_TIME
         value: db
-      - key: SEED_DEMO           # "1" fills demo data on start (testing). Remove it for real use.
+      - key: ADMIN_USERNAME      # first admin: created once, only while there are no users. Delete ADMIN_PASSWORD after first login.
         scope: RUN_TIME
-        value: "1"
-      - key: SEED_ADMIN_PASSWORD # password of the demo users (admin, reg, housing, acc, sup)
+        value: admin
+      - key: ADMIN_PASSWORD
         scope: RUN_TIME
         type: SECRET
-        value: CHANGE_ME_strong_password
+        value: CHANGE_ME_at_least_10_characters
 databases:
   - name: db
     engine: PG
