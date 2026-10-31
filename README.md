@@ -59,6 +59,12 @@ npm run lint      # type-check
 
 Production (docker compose): `DOMAIN`, `DB_PASSWORD`, `APP_SECRET`, `BACKUP_PASSPHRASE`, optional `RCLONE_REMOTE` — see `.env.production.example`.
 
+## Deployment: DigitalOcean App Platform (auto-deploy on every push)
+
+See `docs/DIGITALOCEAN.md` and `.do/app.yaml`: connect the GitHub repo, pick the branch, enable autodeploy; it builds the
+`Dockerfile`, runs migrations on start and uses a managed PostgreSQL. Uploaded documents are stored in the database there
+(`STORAGE_DRIVER=db`) because App Platform has no persistent disk.
+
 ## Deployment (single VPS)
 
 Fast path (fresh Ubuntu/Debian server, as root):

@@ -1,0 +1,39 @@
+# DigitalOcean App Platform spec: builds the Dockerfile from GitHub on every push and runs it with a managed PostgreSQL.
+# Create the app from this file:  doctl apps create --spec .do/app.yaml   (or paste it in Create App -> "Edit your app spec")
+name: ard-almultaqa
+region: fra            # Frankfurt
+services:
+  - name: web
+    dockerfile_path: Dockerfile
+    github:
+      repo: tahamdevel-ux/Ard-Almultaqa
+      branch: claude/new-session-amlm6y   # change to main after merging
+      deploy_on_push: true
+    http_port: 3000
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-2gb   # PDF generation (Chromium) needs RAM; 1 GB may be too small
+    health_check:
+      http_path: /login
+    envs:
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+      - key: APP_SECRET
+        scope: RUN_TIME
+        type: SECRET
+        value: CHANGE_ME_long_random_string
+      - key: STORAGE_DRIVER      # App Platform has no persistent disk: keep uploaded documents in PostgreSQL
+        scope: RUN_TIME
+        value: db
+      - key: SEED_DEMO           # "1" fills demo data on start (testing). Remove it for real use.
+        scope: RUN_TIME
+        value: "1"
+      - key: SEED_ADMIN_PASSWORD # password of the demo users (admin, reg, housing, acc, sup)
+        scope: RUN_TIME
+        type: SECRET
+        value: CHANGE_ME_strong_password
+databases:
+  - name: db
+    engine: PG
+    version: "16"
+    production: false     # true = managed cluster with daily backups (recommended once real data is entered)
