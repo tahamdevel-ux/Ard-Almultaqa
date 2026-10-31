@@ -7,15 +7,28 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ard
     volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ard -d ard"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
   app:
     build: .
     restart: always
-    depends_on: [db]
+    labels: ["autoheal=true"]
+    depends_on:
+      db: { condition: service_healthy }
     environment:
       DATABASE_URL: postgresql://ard:${DB_PASSWORD}@db:5432/ard
       APP_SECRET: ${APP_SECRET}
       STORAGE_DIR: /data/storage
     volumes: [documents:/data/storage]
+  autoheal:           # restarts containers that are running but unhealthy (hung app)
+    image: willfarrell/autoheal
+    restart: always
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock"]
   caddy:
     image: caddy:2
     restart: always

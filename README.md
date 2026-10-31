@@ -103,6 +103,10 @@ of the real screens with fake data (forms do not save; PDF/Excel links open real
 - Rebuild after UI changes: seed a scratch database, build and start the app, then
   `BASE_URL=http://localhost:3002 npm run demo:build` (see `scripts/build-demo.ts`).
 
+## Staying online
+
+`GET /api/health` (app + database check), Docker `HEALTHCHECK`, `restart: always` + autoheal, build-then-switch deploys and external monitoring: see `docs/UPTIME.md` (includes what "always online" realistically means for a single server).
+
 ## Backup / restore
 
 - Daily 02:30: `pg_dump` + documents tarball, AES-256 encrypted with `BACKUP_PASSPHRASE`, stored in the `backups` volume, 14 days kept.

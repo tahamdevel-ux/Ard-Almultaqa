@@ -40,7 +40,7 @@ jobs:
           URL: ${{ secrets.DEPLOY_URL }}
         run: |
           for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/login" || true)
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/health" || true)
             [ "$code" = "200" ] && echo "healthy" && exit 0
             sleep 5
           done
