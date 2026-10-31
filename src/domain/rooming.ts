@@ -79,15 +79,16 @@ export function autoAssignRooms(rooms: RoomState[], people: Occupant[]): AutoRes
   return { assignments, unplaced, splitGroups };
 }
 
-export interface StayDates { city: "MAKKAH" | "MADINAH"; checkIn: Date; checkOut: Date }
+export interface StayDates { city: "MAKKAH" | "MADINAH"; checkIn: Date | null; checkOut: Date | null }
 
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400000);
 
 /** Check-in / check-out per city, from departure date, nights and which city comes first. */
-export function stayDates(depart: Date, firstCity: "MAKKAH" | "MADINAH", nightsMakkah: number, nightsMadinah: number): StayDates[] {
+export function stayDates(depart: Date | null, firstCity: "MAKKAH" | "MADINAH", nightsMakkah: number, nightsMadinah: number): StayDates[] {
   const second = firstCity === "MAKKAH" ? "MADINAH" : "MAKKAH";
   const n1 = firstCity === "MAKKAH" ? nightsMakkah : nightsMadinah;
   const n2 = second === "MAKKAH" ? nightsMakkah : nightsMadinah;
+  if (!depart) return [{ city: firstCity, checkIn: null, checkOut: null }, { city: second, checkIn: null, checkOut: null }];
   return [
     { city: firstCity, checkIn: depart, checkOut: addDays(depart, n1) },
     { city: second, checkIn: addDays(depart, n1), checkOut: addDays(depart, n1 + n2) },

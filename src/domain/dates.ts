@@ -13,6 +13,14 @@ export function rangesOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date
   return aStart.getTime() <= bEnd.getTime() && bStart.getTime() <= aEnd.getTime();
 }
 
+export interface TripDates { departDate: Date | null; returnDate: Date | null }
+
+/** Overlap of two trips. A trip missing either date can never be said to overlap, so it is skipped. */
+export function tripsOverlap(a: TripDates, b: TripDates): boolean {
+  if (!a.departDate || !a.returnDate || !b.departDate || !b.returnDate) return false;
+  return rangesOverlap(a.departDate, a.returnDate, b.departDate, b.returnDate);
+}
+
 /** DD/MM/YYYY from a date-only value (UTC fields, no timezone shift). */
 export function formatDate(d: Date | null | undefined): string {
   if (!d) return "";

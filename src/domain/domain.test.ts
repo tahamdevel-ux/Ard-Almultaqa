@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { normalizePhone, isIraqiMobile, isEmergencyPhone } from "./phone";
-import { rangesOverlap, parseDate, formatDate, addMonths } from "./dates";
+import { rangesOverlap, parseDate, formatDate, addMonths, tripsOverlap } from "./dates";
+import { parseTripIdentity } from "./tripFields";
 import { passportExpiryWarning, normalizePassportNo } from "./passport";
 import { mahramWarning, ageOn } from "./mahram";
 import { tripCounter } from "./capacity";
@@ -178,5 +179,44 @@ describe("money", () => {
   it("agent statement: fixed wholesale, cancelled gives no commission", () => {
     const s = agentStatement([{ price: 1000, paid: 0, cancelled: false }, { price: 1000, paid: 100, cancelled: true }], { type: "FIXED_WHOLESALE", value: 900 });
     expect(s).toMatchObject({ totalPrice: 1000, commission: 100, netToCompany: 900, collected: 100, dueToCompany: 800, count: 1 });
+  });
+});
+
+
+describe("optional trip code and dates", () => {
+  it("passport check is skipped silently when the trip has no return date", () => {
+    expect(passportExpiryWarning(d("2026-12-01"), null, 6)).toBeNull();
+    expect(passportExpiryWarning(d("2026-12-01"), undefined, 6)).toBeNull();
+  });
+  it("overlap check skips any trip missing either date", () => {
+    const full = { departDate: d("2026-11-01"), returnDate: d("2026-11-10") };
+    expect(tripsOverlap(full, { departDate: d("2026-11-05"), returnDate: d("2026-11-20") })).toBe(true);
+    expect(tripsOverlap(full, { departDate: null, returnDate: null })).toBe(false);
+    expect(tripsOverlap(full, { departDate: d("2026-11-05"), returnDate: null })).toBe(false);
+    expect(tripsOverlap({ departDate: null, returnDate: d("2026-11-10") }, full)).toBe(false);
+    expect(tripsOverlap({ departDate: null, returnDate: null }, { departDate: null, returnDate: null })).toBe(false);
+  });
+  it("stay dates are null (not 1970 or NaN) without a departure date", () => {
+    const s = stayDates(null, "MADINAH", 6, 4);
+    expect(s.map((x) => x.city)).toEqual(["MADINAH", "MAKKAH"]);
+    expect(s.every((x) => x.checkIn === null && x.checkOut === null)).toBe(true);
+    expect(formatDate(s[0].checkIn)).toBe("");
+  });
+  it("parseTripIdentity: everything empty is valid and stored as null", () => {
+    expect(parseTripIdentity({})).toEqual({ ok: true, tripNo: null, departDate: null, returnDate: null });
+    expect(parseTripIdentity({ tripNo: "  ", departDate: "", returnDate: "   " })).toEqual({ ok: true, tripNo: null, departDate: null, returnDate: null });
+  });
+  it("parseTripIdentity: partial values are accepted", () => {
+    expect(parseTripIdentity({ tripNo: " L-1 " })).toMatchObject({ ok: true, tripNo: "L-1", departDate: null, returnDate: null });
+    expect(parseTripIdentity({ departDate: "15/11/2026" })).toMatchObject({ ok: true, returnDate: null });
+    expect(parseTripIdentity({ returnDate: "27/11/2026" })).toMatchObject({ ok: true, departDate: null });
+  });
+  it("parseTripIdentity keeps the rule: return cannot be before departure when both are filled", () => {
+    expect(parseTripIdentity({ departDate: "15/11/2026", returnDate: "14/11/2026" })).toMatchObject({ ok: false });
+    expect(parseTripIdentity({ departDate: "15/11/2026", returnDate: "15/11/2026" })).toMatchObject({ ok: true });
+  });
+  it("parseTripIdentity rejects a filled but invalid date", () => {
+    expect(parseTripIdentity({ departDate: "31/02/2026" })).toMatchObject({ ok: false });
+    expect(parseTripIdentity({ returnDate: "soon" })).toMatchObject({ ok: false });
   });
 });
