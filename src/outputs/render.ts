@@ -1,4 +1,6 @@
 import { esc, htmlToPdf, logoDataUri, pageHtml } from "./pdf";
+import { joinMeta, tripMetaParts } from "./meta";
+import { tripLabel } from "@/lib/tripLabel";
 import { buildXlsx } from "./xlsx";
 import { flightListData, manifestData } from "./viewmodels";
 
@@ -44,8 +46,10 @@ export async function renderRooming(tripId: string, city: "MAKKAH" | "MADINAH", 
   const headers = ar ? ["الغرفة", "النوع", "الاسم", "رقم الجواز"] : ["Room", "Type", "Name (as in passport)", "Passport No"];
   const rows = d.rows.map((r) => (ar ? [r.roomNo, r.typeAr, r.nameAr, r.passportNo] : [r.roomNo, r.typeEn, r.nameEn, r.passportNo]));
   const title = ar ? `قائمة التسكين — ${d.cityAr}` : `Rooming list — ${d.cityEn}`;
-  const meta = ar ? `${d.hotelAr} · الدخول ${d.checkIn} · الخروج ${d.checkOut} · الرحلة ${d.trip.tripNo}`
-    : `${d.hotelEn} · Check-in ${d.checkIn} · Check-out ${d.checkOut} · Trip ${d.trip.tripNo}`;
+  // check-in/out and the trip code are optional: missing parts drop out of the header line
+  const meta = ar
+    ? joinMeta([d.hotelAr, d.checkIn && `الدخول ${d.checkIn}`, d.checkOut && `الخروج ${d.checkOut}`, tripMetaParts(d.trip)[0]], " · ")
+    : joinMeta([d.hotelEn, d.checkIn && `Check-in ${d.checkIn}`, d.checkOut && `Check-out ${d.checkOut}`, tripMetaParts(d.trip, "en")[0]], " · ");
   if (format === "xlsx") {
     return buildXlsx({ name: ar ? "التسكين" : "Rooming", title: `${title} — ${meta}`, company: d.company as Company,
       columns: [{ header: headers[0], width: 10 }, { header: headers[1], width: 12 }, { header: headers[2], width: 38 }, { header: headers[3], width: 16 }], rows });
@@ -76,7 +80,7 @@ export async function renderIdCards(tripId: string) {
     if (doc && doc.mime.startsWith("image/")) {
       try { photo = `data:${doc.mime};base64,${(await getFile(doc.storageKey)).toString("base64")}`; } catch { /* missing file: leave blank */ }
     }
-    cards.push(`<div class="card"><div class="cb"><img src="${logoDataUri()}"><b>${esc((d.company as Company).name)}</b><span>${esc(d.trip.tripNo)}</span></div>
+    cards.push(`<div class="card"><div class="cb"><img src="${logoDataUri()}"><b>${esc((d.company as Company).name)}</b><span>${esc(d.trip.tripNo ?? "")}</span></div>
       <div class="top"><div class="ph">${photo ? `<img src="${photo}">` : ""}</div>
       <div class="info"><b class="nm">${esc(fullNameAr(b.pilgrim))}</b><div class="ltr">${esc(fullNameEn(b.pilgrim))}</div>
       <div>جواز: <span class="ltr">${esc(b.pilgrim.passportNo)}</span></div></div>
@@ -91,7 +95,7 @@ export async function renderIdCards(tripId: string) {
   .top{display:flex;gap:6px;align-items:flex-start;padding:5px 6px}.ph{width:22mm;height:28mm;border:1px solid #cfd2c4;border-radius:4px;flex:none;background:#f6f6f2}.ph img{width:100%;height:100%;object-fit:cover;border-radius:4px}
   .info{flex:1;line-height:1.55}.nm{font-size:11px;color:#3b3f32}.qr{width:19mm;height:19mm}
   .small{padding:0 6px;font-size:9px;color:#3b3f32}.small b{color:#4f5444}</style>`;
-  return htmlToPdf(pageHtml(d.company as Company, "بطاقات المعتمرين", esc(`الرحلة ${d.trip.tripNo}`), css + `<div class="grid">${cards.join("")}</div>`));
+  return htmlToPdf(pageHtml(d.company as Company, "بطاقات المعتمرين", esc(joinMeta(tripMetaParts(d.trip).slice(0, 1))), css + `<div class="grid">${cards.join("")}</div>`));
 }
 
 import { agentStatementData } from "./viewmodels";
@@ -104,7 +108,7 @@ export async function renderAgentStatement(agentId: string, tripId: string | und
   const d = await agentStatementData(agentId, tripId);
   const c = d.currency;
   const headers = ["المعتمر", "الرحلة", "السعر", "المدفوع", "المتبقي", "الحالة"];
-  const rows = d.rows.map((r) => [fullNameAr(r.b.pilgrim), r.b.trip.tripNo, r.price == null ? "—" : formatMoney(r.price, c), formatMoney(r.paid, c),
+  const rows = d.rows.map((r) => [fullNameAr(r.b.pilgrim), r.b.trip.tripNo ?? r.b.trip.name, r.price == null ? "—" : formatMoney(r.price, c), formatMoney(r.paid, c),
     r.price == null || r.cancelled ? "—" : formatMoney(r.price - r.paid, c), r.cancelled ? "ملغى" : "فعّال"]);
   const sumLines: [string, string][] = [
     ["عدد المعتمرين الفعّالين", String(d.sum.count)], ["إجمالي الأسعار", formatMoney(d.sum.totalPrice, c)],
@@ -131,7 +135,7 @@ export async function renderReceipt(paymentId: string) {
   const body = `<table style="font-size:13px">
     ${line("رقم الوصل", String(p.receiptNo))}${line("التاريخ", fmtDate(p.paidAt))}
     ${line(refund ? "المبلغ المُسترد إلى" : "استلمنا من", fullNameAr(b.pilgrim))}${line("رقم الجواز", b.pilgrim.passportNo)}
-    ${line("الرحلة", `${b.trip.tripNo} — ${b.trip.name}`)}
+    ${line("الرحلة", tripLabel(b.trip))}
     ${line("المبلغ", formatMoney(p.amount, p.currency))}
     ${p.exchangeRate ? line("سعر الصرف", `${p.exchangeRate} دينار لكل دولار`) + line("القيمة المحتسبة", formatMoney(Number(p.credited), cur)) : ""}
     ${line("الطريقة", { CASH: "نقداً", TRANSFER: "حوالة", CARD: "بطاقة", OTHER: "أخرى" }[p.method])}

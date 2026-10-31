@@ -18,7 +18,7 @@ export async function manifestData(tripId: string, busId: string) {
     seat: s.seatNo!, nameAr: fullNameAr(s.booking.pilgrim), nameEn: fullNameEn(s.booking.pilgrim),
     passportNo: s.booking.pilgrim.passportNo, visaNo: s.booking.visaNo ?? "",
   }));
-  return { company, trip, bus, rows, title: `كشف الباص رقم ${bus.number}`, meta: `الرحلة ${trip.tripNo} — ${formatDate(trip.departDate)}` };
+  return { company, trip, bus, rows, title: `كشف الباص رقم ${bus.number}`, meta: joinMeta(tripMetaParts(trip)) };
 }
 
 export async function flightListData(tripId: string) {
@@ -36,10 +36,11 @@ export async function flightListData(tripId: string) {
     ticketNo: b.seat?.ticketNo ?? "", car: b.seat?.car?.label ?? "",
   }));
   const f = trip.flights[0];
-  return { company, trip, rows, title: "قائمة ركاب الطيران", meta: `الرحلة ${trip.tripNo}${f ? ` — ${f.flightNo} ${f.airline ?? ""}` : ""} — ${formatDate(trip.departDate)}` };
+  return { company, trip, rows, title: "قائمة ركاب الطيران", meta: joinMeta([...tripMetaParts(trip).slice(0, 1), f ? `${f.flightNo} ${f.airline ?? ""}`.trim() : null, ...tripMetaParts(trip).slice(1)]) };
 }
 
 import { stayDates, ROOM_TYPE_LABELS } from "@/domain/rooming";
+import { joinMeta, tripMetaParts } from "./meta";
 import { readiness } from "@/domain/readiness";
 import { passportExpiryWarning } from "@/domain/passport";
 
@@ -89,7 +90,7 @@ export async function missingData(tripId: string) {
     if (w) items.push(w);
     return { nameAr: fullNameAr(b.pilgrim), passportNo: b.pilgrim.passportNo, phone: b.pilgrim.phone ?? "", ready, items };
   }).filter((r) => r.items.length);
-  return { company, trip, rows, title: "قائمة النواقص", meta: `الرحلة ${trip.tripNo} — ${formatDate(trip.departDate)}`, total: bookings.length };
+  return { company, trip, rows, title: "قائمة النواقص", meta: joinMeta(tripMetaParts(trip)), total: bookings.length };
 }
 
 export async function idCardData(tripId: string) {
@@ -110,7 +111,7 @@ export async function agentStatementData(agentId: string, tripId?: string) {
   const [company, agent] = await Promise.all([getSetting("company"), db.agent.findFirstOrThrow({ where: { id: agentId, deletedAt: null } })]);
   const bookings = await db.booking.findMany({
     where: { agentId, deletedAt: null, status: { in: ["ACTIVE", "CANCELLED"] }, ...(tripId ? { tripId } : {}) },
-    include: { pilgrim: true, trip: true, payments: true }, orderBy: [{ trip: { departDate: "asc" } }, { createdAt: "asc" }],
+    include: { pilgrim: true, trip: true, payments: true }, orderBy: [{ trip: { departDate: { sort: "asc", nulls: "last" } } }, { createdAt: "asc" }],
   });
   const rows = bookings.map((b) => {
     const paid = paidTotal(b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) })));
