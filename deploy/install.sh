@@ -28,6 +28,9 @@ ENV
   chmod 600 .env
 fi
 
+# basic firewall: only SSH + web (the database is never published)
+if command -v ufw >/dev/null; then ufw allow OpenSSH >/dev/null; ufw allow 80,443/tcp >/dev/null; ufw --force enable >/dev/null; fi
+
 docker compose up -d --build
 echo ">> waiting for the app to answer..."
 for i in $(seq 1 60); do docker compose exec -T app node -e "fetch('http://localhost:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" && break || sleep 3; done

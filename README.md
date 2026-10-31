@@ -65,6 +65,11 @@ See `docs/DIGITALOCEAN.md` and `.do/app.yaml`: connect the GitHub repo, pick the
 `Dockerfile`, runs migrations on start and uses a managed PostgreSQL. Uploaded documents are stored in the database there
 (`STORAGE_DRIVER=db`) because App Platform has no persistent disk.
 
+## Deployment: VPS + auto-deploy from GitHub (Contabo / Hetzner / any Ubuntu server)
+
+`docs/CONTABO.md`: one-time `deploy/install.sh`, then `.github/workflows/deploy.yml` SSHes into the server on every push and runs
+`deploy/update.sh` (git reset to the branch + `docker compose up -d --build`).
+
 ## Deployment (single VPS)
 
 Fast path (fresh Ubuntu/Debian server, as root):

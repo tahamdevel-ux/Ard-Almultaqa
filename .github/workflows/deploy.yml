@@ -1,0 +1,47 @@
+# Deploys to the VPS over SSH on every push to the listed branches.
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   DEPLOY_HOST     server IP or hostname
+#   DEPLOY_USER     SSH user (root or a sudo user in the docker group)
+#   DEPLOY_SSH_KEY  PRIVATE key of a dedicated deploy key pair (public half in the server's ~/.ssh/authorized_keys)
+# Optional: DEPLOY_PORT (default 22), DEPLOY_URL (e.g. https://app.example.com, used for a health check)
+name: deploy
+
+on:
+  push:
+    branches: [main, claude/new-session-amlm6y]
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_URL: ${{ secrets.DEPLOY_URL }}   # secrets cannot be read directly in step-level `if`
+    steps:
+      - name: Deploy over SSH
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER_NAME: ${{ secrets.DEPLOY_USER }}
+          KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${PORT:-22}" "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/deploy_key -p "${PORT:-22}" "$USER_NAME@$HOST" "bash /opt/ard-almultaqa/deploy/update.sh '$BRANCH'"
+
+      - name: Health check
+        if: env.DEPLOY_URL != ''
+        env:
+          URL: ${{ secrets.DEPLOY_URL }}
+        run: |
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/login" || true)
+            [ "$code" = "200" ] && echo "healthy" && exit 0
+            sleep 5
+          done
+          echo "app did not become healthy" && exit 1
