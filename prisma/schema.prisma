@@ -207,12 +207,12 @@ model PilgrimDocument {
 
 model Trip {
   id            String        @id @default(uuid())
-  tripNo        String        @unique
+  tripNo        String?       @unique   // optional; unique only when filled (PostgreSQL allows many NULLs)
   programType   ProgramType   @default(UMRAH)
   transportType TransportType
   name          String
-  departDate    DateTime      @db.Date
-  returnDate    DateTime      @db.Date
+  departDate    DateTime?     @db.Date
+  returnDate    DateTime?     @db.Date
   nightsMakkah  Int           @default(0)
   nightsMadinah Int           @default(0)
   capacity      Int

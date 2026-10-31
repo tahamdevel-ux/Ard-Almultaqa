@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Trip" ALTER COLUMN "tripNo" DROP NOT NULL,
+ALTER COLUMN "departDate" DROP NOT NULL,
+ALTER COLUMN "returnDate" DROP NOT NULL;
