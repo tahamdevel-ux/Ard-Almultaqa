@@ -10,4 +10,4 @@ RUN npx prisma generate && npm run build
 ENV NODE_ENV=production
 EXPOSE 3000
 # migrate on every start; optionally seed demo data (testing only: SEED_DEMO=1)
-CMD ["sh", "-c", "npx prisma migrate deploy && { [ \"$SEED_DEMO\" != 1 ] || npx tsx prisma/seed.ts; } && npx next start -p 3000"]
+CMD ["sh", "-c", "npx prisma migrate deploy && { [ \"$SEED_DEMO\" != 1 ] || npx tsx prisma/seed.ts; } && npx next start -p ${PORT:-3000}"]
