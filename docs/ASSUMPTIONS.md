@@ -57,3 +57,12 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - **Agent statement:** PERCENT = commission is that % of the price; FIXED_WHOLESALE = the company price per pilgrim is the fixed value and the agent keeps the difference. Due to company = price − commission − net money received. Cancelled bookings add no price/commission.
 - **Audit:** price/room type changes and every payment (amount, currency, rate, credited value, receipt no.) are written to the audit log.
 - **Who:** only ADMIN and ACCOUNTANT see or edit prices and payments; moving a pilgrim between trips needs `bookings.write` (ADMIN/REGISTRATION).
+
+## Optional trip fields (branch claude/optional-trip-fields)
+- **Trip code (رقم الرحلة), departure date (تاريخ الذهاب) and return date (تاريخ العودة) are optional**, for land and air trips. Empty input is stored as `NULL` (migration `optional_trip_fields`), never as an empty string. No warning, reminder or block appears when they are empty.
+- **Unique only when filled:** `Trip.tripNo` keeps its unique index; PostgreSQL allows many `NULL`s.
+- **Still validated:** a filled date must be DD/MM/YYYY, and when both dates are filled the return cannot be before the departure (`parseTripIdentity`, server side).
+- **Skipped silently for trips missing dates:** passport-expiry warning (no return date) and the overlapping-trips warning (either date missing).
+- **Display:** lists sort undated trips after dated ones; an uncoded trip is shown by its name (`tripLabel`); a missing date prints "غير محدد" on screens and is left out of printed header lines (`joinMeta`).
+- **Editing:** the trip page has a small form to fill or clear the three fields; each change is written to the audit log (entity `Trip`).
+- **Not changed:** flight and ticket numbers, every other date, other validation rules and permissions.
