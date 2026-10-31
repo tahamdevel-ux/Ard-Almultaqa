@@ -5,11 +5,13 @@ import { can } from "@/lib/permissions";
 import { fullNameAr, fullNameEn } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
 import { GENDER_LABELS } from "@/lib/labels";
+import { isSqlite } from "@/server/dbkind";
 
 export default async function PilgrimsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const user = await requirePage("pilgrims.view");
   const { q = "" } = await searchParams;
   const term = q.trim();
+  const ci = isSqlite() ? {} : { mode: "insensitive" as const }; // SQLite `contains` is already case-insensitive for ASCII
   const where = term
     ? {
         deletedAt: null,
@@ -18,8 +20,8 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
           { phone: { contains: term.replace(/\D/g, "") || "__none__" } },
           ...term.split(/\s+/).map((w) => ({ OR: [
             { firstName: { contains: w } }, { fatherName: { contains: w } }, { grandfatherName: { contains: w } }, { familyName: { contains: w } },
-            { enGivenName: { contains: w, mode: "insensitive" as const } }, { enSurname: { contains: w, mode: "insensitive" as const } },
-            { enFatherName: { contains: w, mode: "insensitive" as const } },
+            { enGivenName: { contains: w, ...ci } }, { enSurname: { contains: w, ...ci } },
+            { enFatherName: { contains: w, ...ci } },
           ] })),
         ],
       }
