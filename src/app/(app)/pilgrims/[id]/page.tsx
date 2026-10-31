@@ -7,6 +7,7 @@ import { PilgrimForm } from "@/components/PilgrimForm";
 import { DocUpload } from "@/components/DocUpload";
 import { fullNameAr, fullNameEn } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
+import { dateOrNotSet, tripLabel } from "@/lib/tripLabel";
 import { passportExpiryWarning } from "@/domain/passport";
 import { mahramWarning, ageOn } from "@/domain/mahram";
 import { getSetting } from "@/server/settings";
@@ -30,7 +31,7 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
   const warnings: string[] = [];
   for (const b of p.bookings.filter((b) => b.status === "ACTIVE")) {
     const w = passportExpiryWarning(p.passportExpiry, b.trip.returnDate, minMonths);
-    if (w) warnings.push(`${w} (رحلة ${b.trip.tripNo})`);
+    if (w) warnings.push(`${w} (رحلة ${tripLabel(b.trip)})`);
   }
   const mw = mahramWarning(
     { gender: p.gender, age: ageOn(p.birthDate, new Date()), hasMahram: !!p.mahramId, inCompanionGroup: false, familyHasAdultMale: false },
@@ -92,10 +93,10 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
           <tbody>
             {p.bookings.map((b) => (
               <tr key={b.id}>
-                <td className="td"><Link className="underline" href={`/trips/${b.tripId}`}>{b.trip.tripNo} - {b.trip.name}</Link></td>
+                <td className="td"><Link className="underline" href={`/trips/${b.tripId}`}>{tripLabel(b.trip)}</Link></td>
                 <td className="td">{TRANSPORT_LABELS[b.trip.transportType]}</td>
-                <td className="td">{formatDate(b.trip.departDate)}</td>
-                <td className="td">{formatDate(b.trip.returnDate)}</td>
+                <td className="td">{dateOrNotSet(b.trip.departDate)}</td>
+                <td className="td">{dateOrNotSet(b.trip.returnDate)}</td>
                 <td className="td">{TRIP_STATUS_LABELS[b.trip.status]}</td>
                 <td className="td">{b.seat?.bus ? `باص ${b.seat.bus.number} / ${b.seat.seatNo}` : b.seat?.ticketNo ?? "—"}</td>
                 <td className="td">{VISA_LABELS[b.visaStatus]}</td>

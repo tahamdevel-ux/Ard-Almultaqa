@@ -30,7 +30,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         "Content-Type": format === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "Content-Disposition": `attachment; filename="${kind}-${trip.tripNo}.${format}"`,
+        "Content-Disposition": `attachment; filename="${kind}-${trip.tripNo ?? trip.id.slice(0, 8)}.${format}"`,
         "Cache-Control": "private, no-store",
       },
     });

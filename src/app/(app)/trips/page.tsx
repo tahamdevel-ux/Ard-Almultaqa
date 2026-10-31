@@ -2,14 +2,14 @@ import Link from "next/link";
 import { db } from "@/server/db";
 import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
-import { formatDate } from "@/domain/dates";
+import { dateOrNotSet } from "@/lib/tripLabel";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
 
 export default async function TripsPage() {
   const user = await requirePage("trips.view");
   const trips = await db.trip.findMany({
     where: { deletedAt: null, ...(user.role === "SUPERVISOR" ? { supervisorId: user.id } : {}) },
-    orderBy: { departDate: "desc" },
+    orderBy: [{ departDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }], // undated trips are listed after dated ones
     include: { _count: { select: { bookings: { where: { status: "ACTIVE", deletedAt: null } } } } },
   });
   return (
@@ -24,9 +24,9 @@ export default async function TripsPage() {
           <tbody>
             {trips.map((t) => (
               <tr key={t.id} className="hover:bg-canvas">
-                <td className="td font-bold"><Link className="text-brand underline" href={`/trips/${t.id}`}>{t.tripNo}</Link></td>
+                <td className="td font-bold"><Link className="text-brand underline" href={`/trips/${t.id}`}>{t.tripNo ?? "بدون رقم"}</Link></td>
                 <td className="td">{t.name}</td><td className="td">{TRANSPORT_LABELS[t.transportType]}</td>
-                <td className="td">{formatDate(t.departDate)}</td><td className="td">{formatDate(t.returnDate)}</td>
+                <td className="td">{dateOrNotSet(t.departDate)}</td><td className="td">{dateOrNotSet(t.returnDate)}</td>
                 <td className="td">{t._count.bookings} من {t.capacity}</td>
                 <td className="td"><span className="chip chip-gray">{TRIP_STATUS_LABELS[t.status]}</span></td>
               </tr>

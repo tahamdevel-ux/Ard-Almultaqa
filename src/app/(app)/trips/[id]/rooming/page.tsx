@@ -6,7 +6,7 @@ import { can } from "@/lib/permissions";
 import { canSeeTrip } from "@/server/trips";
 import { fullNameAr } from "@/server/pilgrims";
 import { stayDates, ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { formatDate } from "@/domain/dates";
+import { dateOrNotSet, tripLabel } from "@/lib/tripLabel";
 import { RoomingBoard, type BoardRoom } from "@/components/RoomingBoard";
 import { RoomingControls } from "@/components/RoomingControls";
 
@@ -42,7 +42,7 @@ export default async function RoomingPage({ params, searchParams }: { params: Pr
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="page-title">التسكين — {trip.tripNo} {trip.name}</h1>
+        <h1 className="page-title">التسكين — {tripLabel(trip)}</h1>
         <Link href={`/trips/${id}`} className="btn-secondary">رجوع للرحلة</Link>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -59,7 +59,7 @@ export default async function RoomingPage({ params, searchParams }: { params: Pr
       </div>
       <p className="text-sm text-ink">
         الفندق: <b>{hotel ? (hotel.localName ? `${hotel.localName} (${hotel.officialName})` : hotel.officialName) : "غير محدد"}</b>
-        {" · "}الدخول {formatDate(stay.checkIn)} ← الخروج {formatDate(stay.checkOut)}
+        {" · "}الدخول {dateOrNotSet(stay.checkIn)} ← الخروج {dateOrNotSet(stay.checkOut)}
       </p>
       {!hotel && <p className="alert-warn">⚠ حدّد فندق {CITY_LABEL[city]} من صفحة الرحلة قبل إضافة الغرف.</p>}
       {rooms.length > 0 && totalBeds < bookings.length && <p className="alert-bad">⚠ عدد الأسرّة ({totalBeds}) أقل من عدد المعتمرين ({bookings.length}).</p>}

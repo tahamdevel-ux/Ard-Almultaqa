@@ -5,7 +5,7 @@ import { can } from "@/lib/permissions";
 import { balance, formatMoney } from "@/domain/money";
 import { readiness } from "@/domain/readiness";
 import { fullNameAr } from "@/server/pilgrims";
-import { formatDate } from "@/domain/dates";
+import { dateOrNotSet, tripLabel } from "@/lib/tripLabel";
 import { TRANSPORT_LABELS, VISA_LABELS } from "@/lib/labels";
 import { Bar, Donut, EmptyState, Legend, StatCard } from "@/components/charts";
 import { Icon } from "@/components/icons";
@@ -15,8 +15,8 @@ export default async function Dashboard() {
   const money = can(user.role, "payments.view");
   const today = new Date(); today.setUTCHours(0, 0, 0, 0);
   const trips = await db.trip.findMany({
-    where: { deletedAt: null, status: { in: ["OPEN", "FULL", "TRAVELLING"] }, returnDate: { gte: today } },
-    orderBy: { departDate: "asc" }, take: 8,
+    where: { deletedAt: null, status: { in: ["OPEN", "FULL", "TRAVELLING"] }, OR: [{ returnDate: { gte: today } }, { returnDate: null }] }, // undated trips stay listed
+    orderBy: [{ departDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }], take: 8,
     include: { bookings: { where: { status: "ACTIVE", deletedAt: null }, include: { pilgrim: { include: { documents: { select: { type: true } } } } } } },
   });
   const pilgrims = await db.pilgrim.count({ where: { deletedAt: null } });
@@ -65,9 +65,9 @@ export default async function Dashboard() {
                 return (
                   <li key={t.id}>
                     <div className="mb-1 flex flex-wrap items-center gap-x-3 text-sm">
-                      <Link className="font-bold text-brand underline-offset-2 hover:underline" href={`/trips/${t.id}`}>{t.tripNo} — {t.name}</Link>
+                      <Link className="font-bold text-brand underline-offset-2 hover:underline" href={`/trips/${t.id}`}>{tripLabel(t)}</Link>
                       <span className="chip chip-gray"><Icon name={t.transportType === "AIR" ? "plane" : "bus"} size={13} className="ml-1" />{TRANSPORT_LABELS[t.transportType]}</span>
-                      <span className="text-xs text-brand-mid">{formatDate(t.departDate)}</span>
+                      <span className="text-xs text-brand-mid">{dateOrNotSet(t.departDate)}</span>
                       <span className="mr-auto text-xs text-brand-mid">{n} من {t.capacity}</span>
                     </div>
                     <Bar value={n} max={t.capacity} tone={t.capacity && n > t.capacity ? "red" : "brand"} />
@@ -97,7 +97,7 @@ export default async function Dashboard() {
             <thead><tr><th className="th">المعتمر</th><th className="th">الرحلة</th><th className="th">المتبقي</th></tr></thead>
             <tbody>
               {debts.slice(0, 8).map(({ b, bal }) => (
-                <tr key={b.id}><td className="td"><Link className="font-bold text-brand hover:underline" href={`/bookings/${b.id}`}>{fullNameAr(b.pilgrim)}</Link></td><td className="td">{b.trip.tripNo}</td><td className="td font-bold text-red-700">{formatMoney(bal, b.priceCurrency)}</td></tr>
+                <tr key={b.id}><td className="td"><Link className="font-bold text-brand hover:underline" href={`/bookings/${b.id}`}>{fullNameAr(b.pilgrim)}</Link></td><td className="td">{b.trip.tripNo ?? b.trip.name}</td><td className="td font-bold text-red-700">{formatMoney(bal, b.priceCurrency)}</td></tr>
               ))}
               {debts.length === 0 && <tr><td colSpan={3}><EmptyState icon={<Icon name="check" size={36} />} text="لا توجد أرصدة مستحقة" /></td></tr>}
             </tbody>

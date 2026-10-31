@@ -2,20 +2,21 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
 import { requirePage, requirePermission } from "@/server/auth";
-import { parseDate } from "@/domain/dates";
+import { parseTripIdentity } from "@/domain/tripFields";
 import { TRANSPORT_LABELS } from "@/lib/labels";
 
 async function createFromProgram(programId: string, form: FormData) {
   "use server";
   await requirePermission("trips.write");
   const p = await db.program.findUniqueOrThrow({ where: { id: programId } });
-  const tripNo = String(form.get("tripNo") ?? "").trim();
-  const depart = parseDate(String(form.get("departDate") ?? "").trim());
-  if (!tripNo || !depart) redirect("/programs?error=" + encodeURIComponent("أدخل رقم الرحلة وتاريخ الذهاب بصيغة DD/MM/YYYY"));
-  if (await db.trip.findUnique({ where: { tripNo } })) redirect("/programs?error=" + encodeURIComponent("رقم الرحلة مستخدم"));
-  const ret = new Date(depart.getTime() + p.durationDays * 86400000);
+  const id = parseTripIdentity({ tripNo: String(form.get("tripNo") ?? ""), departDate: String(form.get("departDate") ?? "") });
+  if (!id.ok) redirect("/programs?error=" + encodeURIComponent(id.error));
+  if (id.tripNo && (await db.trip.findUnique({ where: { tripNo: id.tripNo } }))) redirect("/programs?error=" + encodeURIComponent("رقم الرحلة مستخدم"));
+  // both dates are optional: the return date is derived only when a departure date was given
+  const depart = id.departDate;
+  const ret = depart ? new Date(depart.getTime() + p.durationDays * 86400000) : null;
   const trip = await db.trip.create({ data: {
-    tripNo, name: p.name, transportType: p.transportType, departDate: depart, returnDate: ret,
+    tripNo: id.tripNo, name: p.name, transportType: p.transportType, departDate: depart, returnDate: ret,
     nightsMakkah: p.nightsMakkah, nightsMadinah: p.nightsMadinah, firstCity: p.firstCity,
     makkahHotelId: p.makkahHotelId, madinahHotelId: p.madinahHotelId, capacity: p.capacity,
   } });
@@ -49,8 +50,8 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
             <form action={deleteProgram.bind(null, p.id)}><button className="text-sm text-red-700 underline">حذف القالب</button></form>
           </div>
           <form action={createFromProgram.bind(null, p.id)} className="flex flex-wrap items-end gap-2">
-            <div><label className="label">رقم الرحلة الجديدة</label><input name="tripNo" className="input w-36" dir="ltr" required /></div>
-            <div><label className="label">تاريخ الذهاب</label><input name="departDate" className="input w-36" dir="ltr" placeholder="DD/MM/YYYY" required /></div>
+            <div><label className="label">رقم الرحلة الجديدة</label><input name="tripNo" className="input w-36" dir="ltr" /></div>
+            <div><label className="label">تاريخ الذهاب</label><input name="departDate" className="input w-36" dir="ltr" placeholder="DD/MM/YYYY" /></div>
             <button className="btn">إنشاء رحلة من القالب</button>
           </form>
         </div>

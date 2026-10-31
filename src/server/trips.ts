@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { passportExpiryWarning } from "@/domain/passport";
-import { rangesOverlap } from "@/domain/dates";
+import { tripsOverlap } from "@/domain/dates";
+import { tripLabel } from "@/lib/tripLabel";
 import { tripCounter } from "@/domain/capacity";
 import { readiness } from "@/domain/readiness";
 import { getSetting } from "./settings";
@@ -32,8 +33,8 @@ export async function loadTripDetail(tripId: string) {
     const warnings: string[] = [];
     const pw = passportExpiryWarning(b.pilgrim.passportExpiry, trip.returnDate, minMonths);
     if (pw) warnings.push(pw);
-    const overlap = others.find((o) => o.pilgrimId === b.pilgrimId && rangesOverlap(trip.departDate, trip.returnDate, o.trip.departDate, o.trip.returnDate));
-    if (overlap) warnings.push(`متداخل مع الرحلة ${overlap.trip.tripNo}`);
+    const overlap = others.find((o) => o.pilgrimId === b.pilgrimId && tripsOverlap(trip, o.trip));
+    if (overlap) warnings.push(`متداخل مع الرحلة ${tripLabel(overlap.trip)}`);
     return { booking: b, missing, warnings, ready };
   });
   const counter = tripCounter({ capacity: trip.capacity, bookings: rows.map((r) => ({ ready: r.ready, missing: r.missing })) });
@@ -41,13 +42,13 @@ export async function loadTripDetail(tripId: string) {
 }
 
 /** Returns Arabic warning text if the pilgrim is already booked on a trip whose dates truly overlap. */
-export async function overlapWarning(pilgrimId: string, trip: { id: string; departDate: Date; returnDate: Date }) {
+export async function overlapWarning(pilgrimId: string, trip: { id: string; departDate: Date | null; returnDate: Date | null }) {
   const others = await db.booking.findMany({
     where: { pilgrimId, tripId: { not: trip.id }, status: "ACTIVE", deletedAt: null, trip: { deletedAt: null, status: { not: "CANCELLED" } } },
     include: { trip: true },
   });
-  const o = others.find((x) => rangesOverlap(trip.departDate, trip.returnDate, x.trip.departDate, x.trip.returnDate));
-  return o ? `المعتمر محجوز في الرحلة ${o.trip.tripNo} بتواريخ متداخلة` : null;
+  const o = others.find((x) => tripsOverlap(trip, x.trip));
+  return o ? `المعتمر محجوز في الرحلة ${tripLabel(o.trip)} بتواريخ متداخلة` : null;
 }
 
 export function canSeeTrip(user: { id: string; role: string }, trip: { supervisorId: string | null }) {

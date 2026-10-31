@@ -7,6 +7,7 @@ import { canSeeTrip } from "@/server/trips";
 import { getSetting } from "@/server/settings";
 import { fullNameAr } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
+import { tripLabel } from "@/lib/tripLabel";
 import { balance, formatMoney, paidTotal } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
 import { MoneyForm } from "@/components/MoneyForm";
@@ -27,7 +28,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
   const bal = balance(b.priceAmount, pays);
   const wp = can(user.role, "payments.write"), wpr = can(user.role, "prices.write");
   const today = formatDate(new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())));
-  const otherTrips = can(user.role, "bookings.write") ? await db.trip.findMany({ where: { deletedAt: null, id: { not: b.tripId }, status: { in: ["OPEN", "FULL"] } }, orderBy: { departDate: "asc" } }) : [];
+  const otherTrips = can(user.role, "bookings.write") ? await db.trip.findMany({ where: { deletedAt: null, id: { not: b.tripId }, status: { in: ["OPEN", "FULL"] } }, orderBy: [{ departDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }] }) : [];
   const active = b.status === "ACTIVE";
 
   const payFields = (kind: "PAYMENT" | "REFUND") => (
@@ -46,7 +47,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
       <div>
         <h1 className="page-title">حساب الحجز — {fullNameAr(b.pilgrim)}</h1>
         <p className="text-sm text-brand-mid">
-          <Link className="underline" href={`/pilgrims/${b.pilgrimId}`}>ملف المعتمر</Link> · <Link className="underline" href={`/trips/${b.tripId}`}>{b.trip.tripNo} {b.trip.name}</Link>
+          <Link className="underline" href={`/pilgrims/${b.pilgrimId}`}>ملف المعتمر</Link> · <Link className="underline" href={`/trips/${b.tripId}`}>{tripLabel(b.trip)}</Link>
           {b.agent && ` · الوكيل: ${b.agent.name}`} · الحالة: {b.status === "ACTIVE" ? "فعّال" : b.status === "CANCELLED" ? `ملغى (${b.cancelReason})` : "منقول إلى رحلة أخرى"}
         </p>
       </div>
@@ -118,7 +119,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
         <section className="card space-y-2">
           <h2 className="font-bold">نقل المعتمر إلى رحلة أخرى</h2>
           <MoneyForm action={move.bind(null, b.id)} submit="نقل">
-            <div><label className="label">الرحلة</label><select name="tripId" className="input w-64">{otherTrips.map((t) => <option key={t.id} value={t.id}>{t.tripNo} — {t.name} ({formatDate(t.departDate)})</option>)}</select></div>
+            <div><label className="label">الرحلة</label><select name="tripId" className="input w-64">{otherTrips.map((t) => <option key={t.id} value={t.id}>{tripLabel(t)}{t.departDate ? ` (${formatDate(t.departDate)})` : ""}</option>)}</select></div>
           </MoneyForm>
           <p className="text-xs text-brand-mid">تنتقل الدفعات والسعر مع الحجز، ويبقى الحجز القديم في السجل بحالة «منقول».</p>
         </section>

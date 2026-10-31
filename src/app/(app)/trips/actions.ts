@@ -7,6 +7,8 @@ import { autoSeat, validateSeat } from "@/domain/seating";
 import { overlapWarning } from "@/server/trips";
 import { getSetting } from "@/server/settings";
 import { parseDate } from "@/domain/dates";
+import { parseTripIdentity } from "@/domain/tripFields";
+import { auditChanges } from "@/server/audit";
 
 export type TripActionState = { error?: string; warning?: string; ok?: boolean };
 
@@ -149,11 +151,34 @@ export async function setTripHotels(tripId: string, f: FormData) {
 export async function saveAsProgram(tripId: string) {
   await requirePermission("programs.write");
   const t = await db.trip.findFirstOrThrow({ where: { id: tripId }, include: { buses: true } });
-  const days = Math.round((t.returnDate.getTime() - t.departDate.getTime()) / 86400000);
+  // duration only when both dates are known; otherwise keep the template default (10 days)
+  const days = t.departDate && t.returnDate ? Math.round((t.returnDate.getTime() - t.departDate.getTime()) / 86400000) : undefined;
   await db.program.create({ data: {
     name: t.name, transportType: t.transportType, nightsMakkah: t.nightsMakkah, nightsMadinah: t.nightsMadinah, firstCity: t.firstCity,
     makkahHotelId: t.makkahHotelId, madinahHotelId: t.madinahHotelId, capacity: t.capacity,
-    busCount: t.buses.length, seatsPerBus: t.buses[0]?.seatCount ?? 48, durationDays: days,
+    busCount: t.buses.length, seatsPerBus: t.buses[0]?.seatCount ?? 48, ...(days != null ? { durationDays: days } : {}),
   } });
   revalidatePath("/programs");
+}
+
+/** Edits only the three optional identity fields of a trip: code, departure date, return date. Empty values are stored as NULL and every change is audited. */
+export async function updateTripBasics(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  return guarded("trips.write", async (u) => {
+    const id = parseTripIdentity({ tripNo: s(f, "tripNo"), departDate: s(f, "departDate"), returnDate: s(f, "returnDate") });
+    if (!id.ok) return { error: id.error };
+    if (id.tripNo && (await db.trip.findFirst({ where: { tripNo: id.tripNo, NOT: { id: tripId } } }))) return { error: "رقم الرحلة مستخدم" };
+    try {
+      await db.$transaction(async (tx) => {
+        const before = await tx.trip.findUniqueOrThrow({ where: { id: tripId } });
+        const after = await tx.trip.update({ where: { id: tripId }, data: { tripNo: id.tripNo, departDate: id.departDate, returnDate: id.returnDate } });
+        await auditChanges(tx, u, "Trip", tripId, before, after, ["tripNo", "departDate", "returnDate"]);
+      });
+    } catch (e) {
+      if ((e as { code?: string }).code === "P2002") return { error: "رقم الرحلة مستخدم" };
+      throw e;
+    }
+    touch(tripId);
+    revalidatePath("/trips");
+    return { ok: true };
+  });
 }

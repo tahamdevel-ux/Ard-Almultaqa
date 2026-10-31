@@ -5,13 +5,14 @@ import { can } from "@/lib/permissions";
 import { canSeeTrip, loadTripDetail } from "@/server/trips";
 import { fullNameAr } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
+import { dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { SmallForm } from "@/components/SmallForm";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS, VISA_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
 import { saveTripPrices } from "../../bookings/[id]/actions";
 import { balance, formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { saveAsProgram, setTripHotels, addBooking, addBus, addCar, addFlight, createCompanionGroup, dissolveGroup, removeBooking, setAirAssignment, setVisa } from "../actions";
+import { updateTripBasics, saveAsProgram, setTripHotels, addBooking, addBus, addCar, addFlight, createCompanionGroup, dissolveGroup, removeBooking, setAirAssignment, setVisa } from "../actions";
 
 export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePage("trips.view");
@@ -39,8 +40,8 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="page-title">{trip.tripNo} — {trip.name}</h1>
-          <p className="text-sm text-brand-mid">{TRANSPORT_LABELS[trip.transportType]} · {formatDate(trip.departDate)} ← {formatDate(trip.returnDate)} · {TRIP_STATUS_LABELS[trip.status]}{trip.supervisor && ` · المشرف: ${trip.supervisor.name}`}</p>
+          <h1 className="page-title">{tripLabel(trip)}</h1>
+          <p className="text-sm text-brand-mid">{TRANSPORT_LABELS[trip.transportType]} · {dateRangeLabel(trip.departDate, trip.returnDate)} · {TRIP_STATUS_LABELS[trip.status]}{trip.supervisor && ` · المشرف: ${trip.supervisor.name}`}</p>
         </div>
         {can(user.role, "outputs.view") && (
           <div className="flex flex-wrap gap-2 text-sm">
@@ -70,6 +71,18 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
         ))}
       </div>
       {counter.over && <p className="alert-bad">⚠ عدد المسجلين تجاوز السعة القصوى للرحلة</p>}
+
+      {w && (
+        <section className="card space-y-2">
+          <h2 className="font-bold">رقم الرحلة والتواريخ</h2>
+          <SmallForm action={updateTripBasics.bind(null, trip.id)} submit="حفظ" fields={[
+            { name: "tripNo", label: "رقم الرحلة", ltr: true, defaultValue: trip.tripNo ?? "" },
+            { name: "departDate", label: "تاريخ الذهاب", ltr: true, placeholder: "DD/MM/YYYY", defaultValue: formatDate(trip.departDate) },
+            { name: "returnDate", label: "تاريخ العودة", ltr: true, placeholder: "DD/MM/YYYY", defaultValue: formatDate(trip.returnDate) },
+          ]} />
+          <p className="text-xs text-brand-mid">الحقول الثلاثة اختيارية ويمكن تركها فارغة.</p>
+        </section>
+      )}
 
       <section className="card space-y-2">
         <h2 className="font-bold">الفنادق والإقامة</h2>
