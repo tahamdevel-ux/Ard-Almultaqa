@@ -3,7 +3,6 @@ import { db } from "./db";
 import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
 import { checkPayment, paidTotal } from "@/domain/money";
-import { isSqlite } from "./dbkind";
 
 type Tx = Prisma.TransactionClient;
 export type Result = { ok: true; id?: string; receiptNo?: number } | { ok: false; error: string };
@@ -49,10 +48,8 @@ export async function addPayment(
     if ("error" in chk) return fail(chk.error);
     if (input.kind === "PAYMENT" && b.priceAmount != null && chk.credited > b.priceAmount - paidTotal(b.payments.map((x) => ({ kind: x.kind, credited: Number(x.credited) }))) + 0.01)
       return fail("المبلغ أكبر من المتبقي على الحجز");
-    // PostgreSQL assigns receiptNo from a sequence; the SQLite test database has no such column default.
-    const receiptNo = isSqlite() ? ((await tx.payment.aggregate({ _max: { receiptNo: true } }))._max.receiptNo ?? 0) + 1 : undefined;
     const p = await tx.payment.create({ data: {
-      ...(receiptNo ? { receiptNo } : {}), bookingId, kind: input.kind, amount: input.amount, currency: input.currency, exchangeRate: input.currency === b.priceCurrency ? null : input.rate ?? null,
+      bookingId, kind: input.kind, amount: input.amount, currency: input.currency, exchangeRate: input.currency === b.priceCurrency ? null : input.rate ?? null,
       credited: chk.credited, method: input.method, paidAt: input.paidAt,
       note: input.note || null, reason: input.reason || null, receivedById: user.id, receivedByName: user.name } });
     await auditChanges(tx, user, "Payment", p.id, {}, { kind: p.kind, amount: p.amount, currency: p.currency, receiptNo: p.receiptNo, bookingId, exchangeRate: p.exchangeRate, credited: p.credited.toString() }, ["kind", "amount", "currency", "receiptNo", "bookingId", "exchangeRate", "credited"]);

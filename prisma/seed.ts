@@ -3,9 +3,6 @@ import argon2 from "argon2";
 import { autoAssignRooms } from "../src/domain/rooming";
 
 const db = new PrismaClient();
-const sqlite = (process.env.DATABASE_URL ?? "").startsWith("file:");
-let receipt = 0; // SQLite has no sequence default for Payment.receiptNo
-const rn = () => (sqlite ? { receiptNo: ++receipt } : {});
 const d = (s: string) => new Date(s + "T00:00:00Z");
 const hash = (p: string) => argon2.hash(p, { type: argon2.argon2id });
 
@@ -98,8 +95,8 @@ async function main() {
         const usd = full ? d4 : Math.round(d4 / 2);
         const inDinar = i % 3 === 0;
         await db.payment.create({ data: inDinar
-          ? { ...rn(), bookingId: b.id, amount: usd * 1400, currency: "IQD", exchangeRate: 1400, credited: usd, method: "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name }
-          : { ...rn(), bookingId: b.id, amount: usd, currency: "USD", credited: usd, method: i % 2 ? "TRANSFER" : "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name } });
+          ? { bookingId: b.id, amount: usd * 1400, currency: "IQD", exchangeRate: 1400, credited: usd, method: "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name }
+          : { bookingId: b.id, amount: usd, currency: "USD", credited: usd, method: i % 2 ? "TRANSFER" : "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name } });
       }
     }
   }

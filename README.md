@@ -24,20 +24,6 @@ Seed users (password from `SEED_ADMIN_PASSWORD`, default `ChangeMe123` — **cha
 PDFs use headless Chromium through Playwright. If it is missing: `npx playwright install chromium`
 (or set `CHROMIUM_PATH`).
 
-## Quick local test with SQLite (no PostgreSQL install)
-
-For trying the app on a laptop without installing PostgreSQL. **Testing only — production and the normal dev setup use PostgreSQL.**
-
-```bash
-npm install
-npm run dev:sqlite          # generates a SQLite schema, creates prisma/dev.db, seeds demo data, starts http://localhost:3000
-```
-
-Log in as `admin` / `ChangeMe123` (also `reg`, `housing`, `acc`, `sup`). The database is the single file `prisma/dev.db`;
-re-running the command recreates it from scratch. Switching back to PostgreSQL: `npm run sqlite:reset-client`, then use `npm run dev`
-with a normal `DATABASE_URL`. PDFs still need `npx playwright install chromium`.
-The SQLite schema is derived automatically from `prisma/schema.prisma` (`scripts/make-sqlite-schema.mjs`); the 8 browser tests pass on it.
-
 ## Tests
 
 ```bash
@@ -58,6 +44,11 @@ npm run lint      # type-check
 | `CHROMIUM_PATH` | optional path to Chromium for PDF generation |
 
 Production (docker compose): `DOMAIN`, `DB_PASSWORD`, `APP_SECRET`, `BACKUP_PASSPHRASE`, optional `RCLONE_REMOTE` — see `.env.production.example`.
+
+## Deployment: Railway (recommended for beginners)
+
+`docs/RAILWAY.md`: connect the GitHub repo, add PostgreSQL, set `DATABASE_URL`, `APP_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD`,
+`STORAGE_DRIVER=db`. The container runs `deploy/start.sh` (migrations, secret checks, first admin, app) and Railway redeploys on every push.
 
 ## Deployment: DigitalOcean App Platform (auto-deploy on every push)
 
