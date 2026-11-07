@@ -57,8 +57,11 @@ test("trip with no code and no dates: create, list order, pickers, edit + audit,
   await page.goto(`/trips/${landId}`);
   await page.fill("[name=number]", "9");
   await page.click("button:has-text('إضافة باص')");
-  await page.fill("[name=passportNo]", "A10000137");
-  await page.click("button:has-text('إضافة'):not(:has-text('باص'))");
+  await page.getByRole("button", { name: "إضافة معتمر" }).click();
+  await page.getByLabel("بحث عن معتمر").fill("A10000137");
+  await page.getByRole("dialog").getByRole("button", { name: "إضافة", exact: true }).click();
+  await expect(page.getByRole("dialog").getByText("مضاف").first()).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.locator("table").getByText("A10000137")).toBeVisible();
   expect(await page.locator("body").innerText()).not.toMatch(BAD);
   await page.click("a[href*='/bus/']:has-text('باص 9')");
