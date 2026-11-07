@@ -105,6 +105,19 @@ test("a trip is required for a new pilgrim; profile adds to several trips, skipp
   await expect(page.getByText(/أُضيف لـ 2/)).toBeVisible();
 });
 
+test("header search finds a pilgrim live and shows trips", async ({ page }) => {
+  await login(page, "reg");
+  await fillPilgrim(page, `SRC${RUN}`);
+  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.goto("/dashboard");
+  await page.getByLabel("بحث شامل").fill(`src${RUN}`);
+  const hit = page.getByRole("link", { name: /عبدالله/ }).first();
+  await expect(hit).toBeVisible();
+  await expect(hit).toContainText("المولى");
+  await hit.click();
+  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+});
+
 test("date fields add the slash automatically", async ({ page }) => {
   await login(page, "reg");
   await page.goto("/pilgrims/new");
