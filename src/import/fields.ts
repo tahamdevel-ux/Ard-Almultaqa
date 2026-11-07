@@ -1,6 +1,10 @@
+import { guessMapping } from "./headers";
+
 export interface ImportField { key: string; label: string; required?: boolean; aliases: string[] }
 
 export const IMPORT_FIELDS: ImportField[] = [
+  { key: "fullNameAr", label: "الاسم الكامل (عربي) — يُقسَّم تلقائياً", aliases: [] },
+  { key: "fullNameEn", label: "Full name (English) — split automatically", aliases: [] },
   { key: "firstName", label: "الاسم الأول", required: true, aliases: ["الاسم الاول", "الاسم الأول", "الاسم", "first name", "firstname"] },
   { key: "fatherName", label: "اسم الأب", required: true, aliases: ["اسم الاب", "اسم الأب", "الاب", "الأب", "father"] },
   { key: "grandfatherName", label: "اسم الجد", required: true, aliases: ["اسم الجد", "الجد", "grandfather"] },
@@ -24,18 +28,10 @@ export const IMPORT_FIELDS: ImportField[] = [
   { key: "passportAuthority", label: "جهة الإصدار", aliases: ["جهة الاصدار", "جهة الإصدار", "authority"] },
 ];
 
-const norm = (s: string) => s.toLowerCase().replace(/[\s_\-:]+/g, " ").trim();
-
-/** Guess a column index per field from header text. */
+/** Header-only guess (no cell content); kept for simple callers and tests. */
 export function autoMap(headers: string[]): Record<string, number | null> {
+  const { mapping } = guessMapping(headers, []);
   const out: Record<string, number | null> = {};
-  const used = new Set<number>();
-  for (const f of IMPORT_FIELDS) {
-    const want = [f.label, ...f.aliases].map(norm);
-    let idx = headers.findIndex((h, i) => !used.has(i) && want.includes(norm(h)));
-    if (idx < 0) idx = headers.findIndex((h, i) => !used.has(i) && want.some((w) => w.length > 3 && norm(h) === w));
-    out[f.key] = idx >= 0 ? idx : null;
-    if (idx >= 0) used.add(idx);
-  }
+  for (const f of IMPORT_FIELDS) out[f.key] = mapping[f.key] ?? null;
   return out;
 }

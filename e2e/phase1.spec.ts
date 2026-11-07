@@ -159,14 +159,16 @@ test("import wizard: 200 rows, bad rows reported, duplicates detected", async ({
 
   await login(page, "admin");
   await page.goto("/import");
+  await page.selectOption("#import-trip", { index: 1 });
   await page.setInputFiles("input[type=file]", { name: "p.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buffer });
   await page.click("button:has-text('رفع')");
   await page.click("button:has-text('معاينة وفحص')");
-  await expect(page.getByText("إجمالي الصفوف:")).toContainText("201");
-  await expect(page.getByText("بأخطاء:")).toContainText("6"); // 5 bad phones + 1 in-file duplicate
+  await expect(page.getByText("صفوف المعتمرين:")).toContainText("201");
+  await expect(page.getByText("بأخطاء:")).toContainText("بأخطاء: 1"); // the in-file duplicate; the 5 bad phones are only ignored with a note
+  await expect(page.getByText(/صف فيه قيم تم تجاهلها/)).toBeVisible();
   await page.click("button:has-text('تنفيذ الاستيراد')");
   await expect(page.getByText("تم الاستيراد")).toBeVisible();
-  await expect(page.getByText("أُضيف: 195")).toBeVisible();
+  await expect(page.getByText(/أُضيف: 200/)).toBeVisible();
   const href = await page.locator("a:has-text('تنزيل تقرير الأخطاء')").getAttribute("href");
   const rep = await page.request.get(href!);
   expect(rep.status()).toBe(200);
