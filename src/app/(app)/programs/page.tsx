@@ -4,6 +4,7 @@ import { db } from "@/server/db";
 import { requirePage, requirePermission } from "@/server/auth";
 import { parseTripIdentity } from "@/domain/tripFields";
 import { TRANSPORT_LABELS } from "@/lib/labels";
+import { DateInput } from "@/components/DateInput";
 
 async function createFromProgram(programId: string, form: FormData) {
   "use server";
@@ -51,7 +52,7 @@ export default async function ProgramsPage({ searchParams }: { searchParams: Pro
           </div>
           <form action={createFromProgram.bind(null, p.id)} className="flex flex-wrap items-end gap-2">
             <div><label className="label">رقم الرحلة الجديدة</label><input name="tripNo" className="input w-36" dir="ltr" /></div>
-            <div><label className="label">تاريخ الذهاب</label><input name="departDate" className="input w-36" dir="ltr" placeholder="DD/MM/YYYY" /></div>
+            <div><label className="label">تاريخ الذهاب</label><DateInput name="departDate" className="input w-36" /></div>
             <button className="btn">إنشاء رحلة من القالب</button>
           </form>
         </div>

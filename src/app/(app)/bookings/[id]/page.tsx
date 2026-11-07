@@ -12,6 +12,7 @@ import { balance, formatMoney, paidTotal } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
 import { MoneyForm } from "@/components/MoneyForm";
 import { cancel, move, recordPayment, savePrice } from "./actions";
+import { DateInput } from "@/components/DateInput";
 
 const METHOD = { CASH: "نقداً", TRANSFER: "حوالة", CARD: "بطاقة", OTHER: "أخرى" } as const;
 
@@ -37,7 +38,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
       <div><label className="label">العملة</label><select name="currency" defaultValue={cur} className="input w-24"><option value="USD">دولار</option><option value="IQD">دينار</option></select></div>
       <div><label className="label">سعر الصرف (إن كان بالدينار)</label><input name="rate" type="number" defaultValue={rate} className="input w-28" dir="ltr" /></div>
       <div><label className="label">الطريقة</label><select name="method" className="input w-24">{Object.entries(METHOD).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
-      <div><label className="label">التاريخ</label><input name="paidAt" defaultValue={today} className="input w-28" dir="ltr" /></div>
+      <div><label className="label">التاريخ</label><DateInput name="paidAt" defaultValue={today} className="input w-28" /></div>
       {kind === "REFUND" ? <div><label className="label">السبب *</label><input name="reason" className="input w-40" required /></div> : <div><label className="label">ملاحظة</label><input name="note" className="input w-40" /></div>}
     </>
   );

@@ -13,6 +13,7 @@ import { saveTripPrices } from "../../bookings/[id]/actions";
 import { balance, formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
 import { updateTripBasics, saveAsProgram, setTripHotels, addBooking, addBus, addCar, addFlight, createCompanionGroup, dissolveGroup, removeBooking, setAirAssignment, setVisa } from "../actions";
+import { DateInput } from "@/components/DateInput";
 
 export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePage("trips.view");
@@ -77,8 +78,8 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
           <h2 className="font-bold">رقم الرحلة والتواريخ</h2>
           <SmallForm action={updateTripBasics.bind(null, trip.id)} submit="حفظ" fields={[
             { name: "tripNo", label: "رقم الرحلة", ltr: true, defaultValue: trip.tripNo ?? "" },
-            { name: "departDate", label: "تاريخ الذهاب", ltr: true, placeholder: "DD/MM/YYYY", defaultValue: formatDate(trip.departDate) },
-            { name: "returnDate", label: "تاريخ العودة", ltr: true, placeholder: "DD/MM/YYYY", defaultValue: formatDate(trip.returnDate) },
+            { name: "departDate", label: "تاريخ الذهاب", ltr: true, date: true, placeholder: "DD/MM/YYYY", defaultValue: formatDate(trip.departDate) },
+            { name: "returnDate", label: "تاريخ العودة", ltr: true, date: true, placeholder: "DD/MM/YYYY", defaultValue: formatDate(trip.returnDate) },
           ]} />
           <p className="text-xs text-brand-mid">الحقول الثلاثة اختيارية ويمكن تركها فارغة.</p>
         </section>
@@ -180,8 +181,8 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
                       <form action={setVisa.bind(null, trip.id, b.id)} className="flex gap-1">
                         <select name="visaStatus" defaultValue={b.visaStatus} className="input w-28 py-1">{Object.entries(VISA_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
                         <input name="visaNo" defaultValue={b.visaNo ?? ""} dir="ltr" placeholder="رقم التأشيرة" className="input w-28 py-1" />
-                        <input name="visaIssue" defaultValue={formatDate(b.visaIssue)} dir="ltr" placeholder="إصدار" className="input w-24 py-1" aria-label="تاريخ إصدار التأشيرة" />
-                        <input name="visaExpiry" defaultValue={formatDate(b.visaExpiry)} dir="ltr" placeholder="انتهاء" className="input w-24 py-1" aria-label="تاريخ انتهاء التأشيرة" />
+                        <DateInput name="visaIssue" defaultValue={formatDate(b.visaIssue)} placeholder="إصدار" className="input w-24 py-1" aria-label="تاريخ إصدار التأشيرة" />
+                        <DateInput name="visaExpiry" defaultValue={formatDate(b.visaExpiry)} placeholder="انتهاء" className="input w-24 py-1" aria-label="تاريخ انتهاء التأشيرة" />
                         <button className="btn-secondary py-1">حفظ</button>
                       </form>
                     ) : VISA_LABELS[b.visaStatus]}

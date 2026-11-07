@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Field } from "./Field";
 import { GOVERNORATES } from "@/lib/labels";
 import type { ActionState } from "@/server/pilgrims";
+import { DateInput } from "@/components/DateInput";
 
 type V = Record<string, string | boolean | null | undefined>;
 
@@ -24,11 +25,15 @@ export function PilgrimForm({
   }, [state, redirectTo, router]);
   const fe = state.fieldErrors ?? {};
   const v = (k: string) => (values[k] ?? "") as string;
-  const t = (name: string, label: string, opts: { dir?: "ltr"; required?: boolean; type?: string; hint?: string; upper?: boolean } = {}) => (
+  const t = (name: string, label: string, opts: { dir?: "ltr"; required?: boolean; type?: string; hint?: string; upper?: boolean; date?: boolean } = {}) => (
     <Field label={label + (opts.required ? " *" : "")} name={name} error={fe[name]} hint={opts.hint}>
-      <input id={name} name={name} defaultValue={v(name)} type={opts.type ?? "text"} dir={opts.dir}
-        className={"input " + (fe[name] ? "border-red-500" : "") + (opts.upper ? " uppercase" : "")}
-        inputMode={opts.type === "tel" ? "tel" : undefined} />
+      {opts.date ? (
+        <DateInput id={name} name={name} defaultValue={v(name)} className={"input " + (fe[name] ? "border-red-500" : "")} />
+      ) : (
+        <input id={name} name={name} defaultValue={v(name)} type={opts.type ?? "text"} dir={opts.dir}
+          className={"input " + (fe[name] ? "border-red-500" : "") + (opts.upper ? " uppercase" : "")}
+          inputMode={opts.type === "tel" ? "tel" : undefined} />
+      )}
     </Field>
   );
   return (
@@ -49,7 +54,7 @@ export function PilgrimForm({
               <option value="">اختر</option><option value="MALE">ذكر</option><option value="FEMALE">أنثى</option>
             </select>
           </Field>
-          {t("birthDate", "تاريخ الميلاد", { required: true, dir: "ltr", hint: "DD/MM/YYYY" })}
+          {t("birthDate", "تاريخ الميلاد", { required: true, date: true, hint: "DD/MM/YYYY" })}
           {t("motherName", "اسم الأم")}
           <Field label="المحافظة" name="governorate">
             <select id="governorate" name="governorate" defaultValue={v("governorate")} className="input">
@@ -72,8 +77,8 @@ export function PilgrimForm({
           {t("enSurname", "Surname", { required: true, dir: "ltr", upper: true })}
           {t("nationality", "الجنسية", { dir: "ltr" })}
           {t("placeOfBirth", "محل الولادة")}
-          {t("passportIssue", "تاريخ الإصدار", { dir: "ltr", hint: "DD/MM/YYYY" })}
-          {t("passportExpiry", "تاريخ الانتهاء", { required: true, dir: "ltr", hint: "DD/MM/YYYY" })}
+          {t("passportIssue", "تاريخ الإصدار", { date: true, hint: "DD/MM/YYYY" })}
+          {t("passportExpiry", "تاريخ الانتهاء", { required: true, date: true, hint: "DD/MM/YYYY" })}
           {t("passportAuthority", "جهة الإصدار")}
         </div>
       </section>

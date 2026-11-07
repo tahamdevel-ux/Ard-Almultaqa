@@ -82,6 +82,15 @@ test("duplicate passport is blocked with Arabic message", async ({ page }) => {
   await expect(page.getByText("رقم الجواز مسجّل مسبقاً لمعتمر آخر").first()).toBeVisible();
 });
 
+test("date fields add the slash automatically", async ({ page }) => {
+  await login(page, "reg");
+  await page.goto("/pilgrims/new");
+  await page.locator("[name=birthDate]").pressSequentially("15112026");
+  await expect(page.locator("[name=birthDate]")).toHaveValue("15/11/2026");
+  await page.locator("[name=passportExpiry]").pressSequentially("1/2/2030");
+  await expect(page.locator("[name=passportExpiry]")).toHaveValue("01/02/2030");
+});
+
 test("role permissions enforced on pages and routes", async ({ page, request }) => {
   const anon = await request.get("/api/documents/00000000-0000-0000-0000-000000000000", { maxRedirects: 0 });
   expect(anon.status()).toBe(401);

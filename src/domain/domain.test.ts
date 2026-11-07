@@ -220,3 +220,55 @@ describe("optional trip code and dates", () => {
     expect(parseTripIdentity({ returnDate: "soon" })).toMatchObject({ ok: false });
   });
 });
+
+import { maskDateTyping, completeDate, asciiDigits } from "./dateMask";
+
+describe("date typing mask (slash is automatic)", () => {
+  it("keeps growing after the slash was added", () => {
+    expect(maskDateTyping("15/112")).toBe("15/11/2");
+    expect(maskDateTyping("15/11/2026")).toBe("15/11/2026");
+  });
+  it("inserts slashes while typing digits", () => {
+    expect(maskDateTyping("1")).toBe("1");
+    expect(maskDateTyping("15")).toBe("15");
+    expect(maskDateTyping("151")).toBe("15/1");
+    expect(maskDateTyping("1511")).toBe("15/11");
+    expect(maskDateTyping("15112")).toBe("15/11/2");
+    expect(maskDateTyping("15112026")).toBe("15/11/2026");
+  });
+  it("keeps at most 8 digits and drops letters", () => {
+    expect(maskDateTyping("151120261234")).toBe("15/11/2026");
+    expect(maskDateTyping("1a5b1c1")).toBe("15/11");
+    expect(maskDateTyping("")).toBe("");
+  });
+  it("accepts Arabic-Indic digits", () => {
+    expect(asciiDigits("١٥/١١/٢٠٢٦")).toBe("15/11/2026");
+    expect(maskDateTyping("١٥١١٢٠٢٦")).toBe("15/11/2026");
+  });
+  it("accepts typed separators, pasted dates and fixes them", () => {
+    expect(maskDateTyping("15/11/2026")).toBe("15/11/2026");
+    expect(maskDateTyping("15-11-2026")).toBe("15/11/2026");
+    expect(maskDateTyping("15.11.2026")).toBe("15/11/2026");
+    expect(maskDateTyping("15 / 11 / 2026")).toBe("15/11/2026");
+    expect(maskDateTyping("1/")).toBe("01/");
+    expect(maskDateTyping("15/")).toBe("15/");
+    expect(maskDateTyping("15/1")).toBe("15/1");
+    expect(maskDateTyping("15//11")).toBe("15/11");
+  });
+  it("backspacing over a slash does not get stuck", () => {
+    expect(maskDateTyping("15/1")).toBe("15/1");
+    expect(maskDateTyping("15/")).toBe("15/");
+    expect(maskDateTyping("15")).toBe("15");
+  });
+  it("completeDate pads single digits on blur and leaves incomplete input alone", () => {
+    expect(completeDate("5/3/2026")).toBe("05/03/2026");
+    expect(completeDate("15/11/2026")).toBe("15/11/2026");
+    expect(completeDate("15/11")).toBe("15/11");
+    expect(completeDate("15/")).toBe("15");
+    expect(completeDate("")).toBe("");
+  });
+  it("a masked value is accepted by the date parser", () => {
+    expect(parseDate(maskDateTyping("15112026"))).not.toBeNull();
+    expect(parseDate(completeDate("5/3/2026"))).not.toBeNull();
+  });
+});

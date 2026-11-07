@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/server/db";
 import { requirePage, requirePermission } from "@/server/auth";
 import { parseTripIdentity } from "@/domain/tripFields";
+import { DateInput } from "@/components/DateInput";
 
 async function createTrip(form: FormData) {
   "use server";
@@ -33,8 +34,8 @@ export default async function NewTrip({ searchParams }: { searchParams: Promise<
         <div><label className="label">رقم الرحلة</label><input name="tripNo" className="input" dir="ltr" /></div>
         <div><label className="label">اسم البرنامج *</label><input name="name" className="input" required /></div>
         <div><label className="label">النقل</label><select name="transportType" className="input"><option value="LAND">بري</option><option value="AIR">جوي</option></select></div>
-        <div><label className="label">تاريخ الذهاب</label><input name="departDate" className="input" dir="ltr" placeholder="DD/MM/YYYY" /></div>
-        <div><label className="label">تاريخ العودة</label><input name="returnDate" className="input" dir="ltr" placeholder="DD/MM/YYYY" /></div>
+        <div><label className="label">تاريخ الذهاب</label><DateInput name="departDate" className="input" /></div>
+        <div><label className="label">تاريخ العودة</label><DateInput name="returnDate" className="input" /></div>
         <div><label className="label">السعة القصوى</label><input name="capacity" type="number" className="input" dir="ltr" /></div>
         <div><label className="label">ليالي مكة</label><input name="nightsMakkah" type="number" className="input" dir="ltr" /></div>
         <div><label className="label">ليالي المدينة</label><input name="nightsMadinah" type="number" className="input" dir="ltr" /></div>
