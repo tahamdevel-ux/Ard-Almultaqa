@@ -4,18 +4,20 @@ import { useRouter } from "next/navigation";
 import { Field } from "./Field";
 import { GOVERNORATES } from "@/lib/labels";
 import type { ActionState } from "@/server/pilgrims";
+import { TripPicker, type TripChoice } from "@/components/TripPicker";
 import { DateInput } from "@/components/DateInput";
 
 type V = Record<string, string | boolean | null | undefined>;
 
 export function PilgrimForm({
-  action, values = {}, agents, canHealth, redirectTo,
+  action, values = {}, agents, canHealth, redirectTo, trips,
 }: {
   action: (prev: ActionState, form: FormData) => Promise<ActionState>;
   values?: V;
   agents: { id: string; name: string }[];
   canHealth: boolean;
   redirectTo?: boolean;
+  trips?: TripChoice[];
 }) {
   const [state, formAction, pending] = useActionState(action, {} as ActionState);
   const router = useRouter();
@@ -107,6 +109,13 @@ export function PilgrimForm({
           <div className="mt-3"><Field label="ملاحظات" name="healthNotes">
             <textarea id="healthNotes" name="healthNotes" defaultValue={v("healthNotes")} className="input" rows={2} />
           </Field></div>
+        </section>
+      )}
+
+      {trips && (
+        <section className="card">
+          <h2 className="mb-3 font-bold">الرحلات * <span className="text-xs font-normal text-brand-mid">(اختر رحلة واحدة على الأقل)</span></h2>
+          <TripPicker trips={trips} error={fe.tripIds} />
         </section>
       )}
 

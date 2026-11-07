@@ -3,14 +3,16 @@ import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
 import { PilgrimForm } from "@/components/PilgrimForm";
 import { savePilgrim } from "../actions";
+import { tripChoices } from "@/server/trips";
 
 export default async function NewPilgrim() {
   const user = await requirePage("pilgrims.write");
+  const trips = await tripChoices();
   const agents = await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
   return (
     <div className="space-y-4">
       <h1 className="page-title">معتمر جديد</h1>
-      <PilgrimForm action={savePilgrim.bind(null, null)} agents={agents} canHealth={can(user.role, "pilgrims.health")} redirectTo values={{ nationality: "IRAQI" }} />
+      <PilgrimForm action={savePilgrim.bind(null, null)} agents={agents} canHealth={can(user.role, "pilgrims.health")} redirectTo trips={trips} values={{ nationality: "IRAQI" }} />
     </div>
   );
 }

@@ -4,8 +4,9 @@ import sharp from "sharp";
 import { db } from "@/server/db";
 import { AuthError, requirePermission } from "@/server/auth";
 import { can } from "@/lib/permissions";
-import { createPilgrim, formToObject, pilgrimSchema, updatePilgrim, zodToState, type ActionState } from "@/server/pilgrims";
+import { createPilgrimWithTrips, formToObject, pilgrimSchema, updatePilgrim, zodToState, type ActionState } from "@/server/pilgrims";
 import { deleteFile, putFile } from "@/server/storage";
+import { addPilgrimToTrips, overlapWarnings, summarizeAdd } from "@/server/bookings";
 
 const HEALTH = ["chronicIllness", "wheelchair", "elderly", "healthNotes"];
 const MAX_UPLOAD = 12 * 1024 * 1024;
@@ -34,7 +35,12 @@ export async function savePilgrim(id: string | null, _prev: ActionState, form: F
       data.mahramId = m.id;
     } else data.mahramId = null;
     if (!canHealth) for (const k of HEALTH) delete data[k];
-    const r = id ? await updatePilgrim(user, id, data as never) : await createPilgrim(user, data as never);
+    let r: ActionState;
+    if (id) r = await updatePilgrim(user, id, data as never);
+    else {
+      await requirePermission("bookings.write");
+      r = await createPilgrimWithTrips(user, data as never, form.getAll("tripIds").map(String).filter(Boolean));
+    }
     if (r.ok) revalidatePath("/pilgrims");
     return r;
   }) as Promise<ActionState>;
@@ -74,4 +80,20 @@ export async function removeDocument(docId: string): Promise<void> {
   await deleteFile(d.storageKey);
   await db.pilgrimDocument.delete({ where: { id: docId } });
   revalidatePath(`/pilgrims/${d.pilgrimId}`);
+}
+
+/** Pilgrim profile: add him to one or more trips at once (overlaps allowed, duplicates skipped). */
+export async function addToTrips(pilgrimId: string, _p: ActionState, form: FormData): Promise<ActionState> {
+  return guard(async () => {
+    await requirePermission("bookings.write");
+    const tripIds = form.getAll("tripIds").map(String).filter(Boolean);
+    if (!tripIds.length) return { error: "اختر رحلة واحدة على الأقل" };
+    const p = await db.pilgrim.findFirst({ where: { id: pilgrimId, deletedAt: null } });
+    if (!p) return { error: "المعتمر غير موجود" };
+    const r = await db.$transaction((tx) => addPilgrimToTrips(tx, pilgrimId, p.agentId, tripIds));
+    const warnings = await overlapWarnings(pilgrimId, r.added);
+    revalidatePath(`/pilgrims/${pilgrimId}`);
+    for (const id of r.added) revalidatePath(`/trips/${id}`, "layout");
+    return { ok: true, message: [summarizeAdd(r), ...warnings.map((w) => `⚠ ${w}`)].join(" — ") };
+  }) as Promise<ActionState>;
 }

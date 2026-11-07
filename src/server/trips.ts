@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { passportExpiryWarning } from "@/domain/passport";
 import { tripsOverlap } from "@/domain/dates";
-import { tripLabel } from "@/lib/tripLabel";
+import { dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { tripCounter } from "@/domain/capacity";
 import { readiness } from "@/domain/readiness";
 import { getSetting } from "./settings";
@@ -53,4 +53,13 @@ export async function overlapWarning(pilgrimId: string, trip: { id: string; depa
 
 export function canSeeTrip(user: { id: string; role: string }, trip: { supervisorId: string | null }) {
   return user.role !== "SUPERVISOR" || trip.supervisorId === user.id;
+}
+
+/** Open trips for pickers: undated trips last; ids in `booked` are shown as already added. */
+export async function tripChoices(booked: string[] = []) {
+  const trips = await db.trip.findMany({
+    where: { deletedAt: null, status: { not: "CANCELLED" } },
+    orderBy: [{ departDate: { sort: "desc", nulls: "last" } }, { name: "asc" }],
+  });
+  return trips.map((t) => ({ id: t.id, label: tripLabel(t), dates: dateRangeLabel(t.departDate, t.returnDate), booked: booked.includes(t.id) }));
 }

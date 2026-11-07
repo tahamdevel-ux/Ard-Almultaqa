@@ -21,6 +21,7 @@ async function fillPilgrim(page: Page, passportNo: string) {
   await f("birthDate", "12/05/1975"); await f("phone", "07701234567");
   await f("passportNo", passportNo); await f("enGivenName", "ABDULLAH"); await f("enFatherName", "SALIM"); await f("enGrandfatherName", "MAHMOOD"); await f("enSurname", "ALMULA");
   await f("passportExpiry", "10/10/2031");
+  await page.locator("[name=tripIds]").first().check();
   await page.click("button:has-text('حفظ')");
 }
 
@@ -80,6 +81,28 @@ test("duplicate passport is blocked with Arabic message", async ({ page }) => {
   await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
   await fillPilgrim(page, passport);
   await expect(page.getByText("رقم الجواز مسجّل مسبقاً لمعتمر آخر").first()).toBeVisible();
+});
+
+test("a trip is required for a new pilgrim; profile adds to several trips, skipping existing", async ({ page }) => {
+  await login(page, "reg");
+  await fillPilgrim(page, `TRP${RUN}`);
+  // fillPilgrim ticks the first trip; untick it to prove the field is required
+  await page.goto("/pilgrims/new");
+  const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
+  await f("firstName", "علي"); await f("fatherName", "سالم"); await f("grandfatherName", "محمود"); await f("familyName", "المولى");
+  await page.selectOption("[name=gender]", "MALE");
+  await f("birthDate", "12/05/1975"); await f("passportNo", `NOT${RUN}`); await f("enGivenName", "ALI"); await f("enSurname", "ALMULA"); await f("passportExpiry", "10/10/2031");
+  await page.click("button:has-text('حفظ')");
+  await expect(page.getByText("اختر رحلة واحدة على الأقل").first()).toBeVisible();
+  // profile of the first pilgrim: first trip already added, add two more
+  await page.goto("/pilgrims?q=" + `TRP${RUN}`);
+  await page.getByRole("link", { name: /المولى/ }).first().click();
+  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.locator("summary:has-text('إضافة لرحلة')").click();
+  const boxes = page.locator("details:has(summary:has-text('إضافة لرحلة')) [name=tripIds]:not([disabled])");
+  await boxes.nth(0).check(); await boxes.nth(1).check();
+  await page.click("button:has-text('إضافة للرحلات المحددة')");
+  await expect(page.getByText(/أُضيف لـ 2/)).toBeVisible();
 });
 
 test("date fields add the slash automatically", async ({ page }) => {

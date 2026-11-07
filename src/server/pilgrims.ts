@@ -6,6 +6,7 @@ import { auditChanges, PILGRIM_AUDITED } from "./audit";
 import { isEmergencyPhone, isIraqiMobile, normalizePhone } from "@/domain/phone";
 import { normalizePassportNo } from "@/domain/passport";
 import { parseDate } from "@/domain/dates";
+import { addPilgrimToTrips } from "./bookings";
 
 const opt = z.string().trim().optional().transform((v) => (v ? v : undefined));
 const dateField = (msg: string) =>
@@ -57,7 +58,7 @@ export function formToObject(form: FormData): Record<string, unknown> {
   return o;
 }
 
-export type ActionState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; id?: string };
+export type ActionState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; id?: string; message?: string };
 
 export function zodToState(e: z.ZodError): ActionState {
   const fieldErrors: Record<string, string> = {};
@@ -91,4 +92,22 @@ export function fullNameAr(p: { firstName: string; fatherName: string; grandfath
 }
 export function fullNameEn(p: { enGivenName: string; enFatherName?: string | null; enGrandfatherName?: string | null; enSurname: string }) {
   return [p.enGivenName, p.enFatherName, p.enGrandfatherName, p.enSurname].filter(Boolean).join(" ");
+}
+
+/** New pilgrim + bookings in one transaction: either everything is saved or nothing. */
+export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInput, tripIds: string[]): Promise<ActionState> {
+  if (tripIds.length === 0) return { error: "اختر رحلة واحدة على الأقل", fieldErrors: { tripIds: "اختر رحلة واحدة على الأقل" } };
+  if (await findByPassport(data.passportNo)) return { error: DUPLICATE_PASSPORT_MSG, fieldErrors: { passportNo: DUPLICATE_PASSPORT_MSG } };
+  try {
+    return await db.$transaction(async (tx) => {
+      const live = await tx.trip.count({ where: { id: { in: tripIds }, deletedAt: null } });
+      if (live !== new Set(tripIds).size) return { error: "إحدى الرحلات المختارة غير موجودة", fieldErrors: { tripIds: "إحدى الرحلات المختارة غير موجودة" } } as ActionState;
+      const p = await tx.pilgrim.create({ data: data as Prisma.PilgrimUncheckedCreateInput });
+      await addPilgrimToTrips(tx, p.id, p.agentId, tripIds);
+      return { ok: true, id: p.id } as ActionState;
+    });
+  } catch (e) {
+    if ((e as { code?: string }).code === "P2002") return { error: DUPLICATE_PASSPORT_MSG, fieldErrors: { passportNo: DUPLICATE_PASSPORT_MSG } };
+    throw e;
+  }
 }
