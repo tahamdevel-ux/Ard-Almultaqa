@@ -66,3 +66,11 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - **Display:** lists sort undated trips after dated ones; an uncoded trip is shown by its name (`tripLabel`); a missing date prints "غير محدد" on screens and is left out of printed header lines (`joinMeta`).
 - **Editing:** the trip page has a small form to fill or clear the three fields; each change is written to the audit log (entity `Trip`).
 - **Not changed:** flight and ticket numbers, every other date, other validation rules and permissions.
+
+## UX batch (branches claude/ux-dates-booking-search → claude/ux-buses → claude/ux-smart-import)
+- **Dates:** every DD/MM/YYYY input adds the slash while typing (`DateInput`, `src/domain/dateMask.ts`).
+- **Trips for a pilgrim:** a new pilgrim must be saved with ≥1 trip (atomic); the profile has "إضافة لرحلة" (multi-select). Overlapping dates are always allowed (warning only); the same trip twice is skipped.
+- **Search:** header live search over pilgrims (AR/EN name, passport, phone), trips, agents, hotels; Arabic-normalised; supervisors only see pilgrims/trips of their own trips.
+- **Trip page popup:** "إضافة معتمر" searches by name/passport/phone, shows his other/previous trips, adds to this trip only.
+- **Buses (land):** bus 1 opens with the trip; a new booking takes the lowest free seat of the first *unnamed* bus; when all unnamed buses are full the next numbered bus opens (same seat count). A bus with a name (`Bus.name`) is manual and never auto-filled. Deleting a bus with pilgrims is refused ("انقل المعتمرين أولاً"); pilgrims move between buses in bulk, groups together. Air trips unchanged.
+- **Import:** a trip is chosen at import time. Header row, sheet and columns are detected automatically (header text first, then cell content); full names are split; dates/gender/nationality/phones are normalised; near-empty rows are ignored; an invalid phone is dropped with a note instead of blocking the pilgrim. Passports already registered are added to the chosen trip without changing their data (option: update data, or skip); those already on the trip are skipped. Visa number, mahram/relation, group, age, client, hotel/room and E-number columns are ignored. No external AI service is used.
