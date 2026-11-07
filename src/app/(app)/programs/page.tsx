@@ -4,6 +4,7 @@ import { db } from "@/server/db";
 import { requirePage, requirePermission } from "@/server/auth";
 import { parseTripIdentity } from "@/domain/tripFields";
 import { TRANSPORT_LABELS } from "@/lib/labels";
+import { ensureFirstBus, withTripLock } from "@/server/buses";
 import { DateInput } from "@/components/DateInput";
 
 async function createFromProgram(programId: string, form: FormData) {
@@ -22,6 +23,8 @@ async function createFromProgram(programId: string, form: FormData) {
     makkahHotelId: p.makkahHotelId, madinahHotelId: p.madinahHotelId, capacity: p.capacity,
   } });
   for (let i = 1; i <= p.busCount; i++) await db.bus.create({ data: { tripId: trip.id, number: String(i), seatCount: p.seatsPerBus } });
+  // the template creates exactly the saved buses; a land template with none still opens with bus 1
+  await withTripLock(db, trip.id, (tx) => ensureFirstBus(tx, trip.id, p.seatsPerBus));
   redirect(`/trips/${trip.id}`);
 }
 async function deleteProgram(id: string) {

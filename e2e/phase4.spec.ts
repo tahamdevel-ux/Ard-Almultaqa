@@ -64,10 +64,8 @@ test("trip with no code and no dates: create, list order, pickers, edit + audit,
   await page.keyboard.press("Escape");
   await expect(page.locator("table").getByText("A10000137")).toBeVisible();
   expect(await page.locator("body").innerText()).not.toMatch(BAD);
-  await page.click("a[href*='/bus/']:has-text('باص 9')");
-  const sel = page.locator("form select[name=bookingId]").first();
-  await sel.selectOption({ index: 1 });
-  await sel.locator("xpath=..").locator("button").click();
+  await page.click("a[href*='/bus/']:has-text('باص 1')");
+  // the new booking was seated automatically on the first general bus (bus 1 opens with the trip)
   await expect(page.locator("body")).toContainText("1 / 48");
 
   // 4) the move-to-another-trip picker renders undated trips without errors

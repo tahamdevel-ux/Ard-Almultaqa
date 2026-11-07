@@ -18,3 +18,8 @@ export function dateRangeLabel(depart: Date | null | undefined, ret: Date | null
   if (!depart && !ret) return "التواريخ غير محددة";
   return `${dateOrNotSet(depart)} ← ${dateOrNotSet(ret)}`;
 }
+
+/** "باص 2" or "باص 2 — باص خالد" when the bus has an optional name. */
+export function busLabel(b: { number: string; name?: string | null }): string {
+  return b.name ? `باص ${b.number} — ${b.name}` : `باص ${b.number}`;
+}

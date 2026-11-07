@@ -5,7 +5,8 @@ import { can } from "@/lib/permissions";
 import { canSeeTrip, loadTripDetail } from "@/server/trips";
 import { fullNameAr } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
-import { dateRangeLabel, tripLabel } from "@/lib/tripLabel";
+import { busLabel, dateRangeLabel, tripLabel } from "@/lib/tripLabel";
+import { DeleteBusButton } from "@/components/BusTools";
 import { AddPilgrimDialog } from "@/components/AddPilgrimDialog";
 import { SmallForm } from "@/components/SmallForm";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS, VISA_LABELS } from "@/lib/labels";
@@ -53,7 +54,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
             <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/id-cards?format=pdf`}>بطاقات المعتمرين PDF</a>
             {trip.transportType === "LAND" && trip.buses.map((b) => (
               <span key={b.id} className="flex gap-1">
-                <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/manifest?bus=${b.id}&format=pdf`}>كشف باص {b.number} PDF</a>
+                <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/manifest?bus=${b.id}&format=pdf`}>كشف {busLabel(b)} PDF</a>
                 <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/manifest?bus=${b.id}&format=xlsx`}>Excel</a>
               </span>
             ))}
@@ -109,12 +110,13 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
             <ul className="space-y-1 text-sm">
               {trip.buses.map((b) => (
                 <li key={b.id}>
-                  <Link className="font-bold text-brand underline" href={`/trips/${trip.id}/bus/${b.id}`}>باص {b.number}</Link>
-                  {" "}— {b.seatCount} مقعد · {b.driverName} <span className="ltr">{b.driverPhone}</span> · {b.company}
+                  <Link className="font-bold text-brand underline" href={`/trips/${trip.id}/bus/${b.id}`}>{busLabel(b)}</Link>
+                  {" "}— {b.seatCount} مقعد{b.driverName ? ` · ${b.driverName}` : ""} {b.driverPhone && <span className="ltr">{b.driverPhone}</span>}{b.company ? ` · ${b.company}` : ""}
+                  {w && <span className="ms-3"><DeleteBusButton tripId={trip.id} busId={b.id} /></span>}
                 </li>
               ))}
             </ul>
-            {w && <SmallForm action={addBus.bind(null, trip.id)} submit="إضافة باص" fields={[{ name: "number", label: "رقم الباص", required: true }, { name: "seatCount", label: "عدد المقاعد", ltr: true, type: "number" }, { name: "driverName", label: "السائق" }, { name: "driverPhone", label: "هاتف السائق", ltr: true }, { name: "company", label: "شركة النقل" }]} />}
+            {w && <SmallForm action={addBus.bind(null, trip.id)} submit="إضافة باص" fields={[{ name: "name", label: "اسم الباص (اختياري)" }, { name: "number", label: "رقم الباص (تلقائي)" }, { name: "seatCount", label: "عدد المقاعد", ltr: true, type: "number" }, { name: "driverName", label: "السائق" }, { name: "driverPhone", label: "هاتف السائق", ltr: true }, { name: "company", label: "شركة النقل" }]} />}
           </>
         ) : (
           <>

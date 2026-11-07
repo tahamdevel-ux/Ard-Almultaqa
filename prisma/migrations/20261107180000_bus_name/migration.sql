@@ -1,0 +1,1 @@
+ALTER TABLE "Bus" ADD COLUMN "name" TEXT;

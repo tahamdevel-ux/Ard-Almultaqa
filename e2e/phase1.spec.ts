@@ -50,12 +50,14 @@ test("full flow: create pilgrim, upload docs, attach to land trip, seat, manifes
   await page.keyboard.press("Escape");
   await expect(page.locator("table").getByText(passport)).toBeVisible();
 
-  // seat
-  await page.click("a[href*='/bus/']:has-text('باص 1')");
-  const free = page.locator("form select[name=bookingId]").first();
-  await free.selectOption({ label: "عبدالله سالم محمود المولى" });
-  await free.locator("xpath=..").locator("button").click();
-  await expect(page.getByText("عبدالله سالم محمود المولى").first()).toBeVisible();
+  // the new booking on a land trip is seated automatically: a seat map shows his name
+  const busHrefs = await page.locator("a[href*='/bus/']").evaluateAll((as) => as.map((a) => (a as HTMLAnchorElement).href));
+  let seated = false;
+  for (const h of busHrefs) {
+    await page.goto(h);
+    if (await page.getByText("عبدالله سالم محمود المولى").count()) { seated = true; break; }
+  }
+  expect(seated).toBe(true);
 
   // manifest PDF
   const tripUrl = page.url().split("/bus/")[0];

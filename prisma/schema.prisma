@@ -240,6 +240,7 @@ model Bus {
   tripId      String
   trip        Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
   number      String
+  name        String? // optional label for a manual/special bus (e.g. "باص خالد"); named buses are never auto-filled
   driverName  String?
   driverPhone String?
   company     String?

@@ -6,6 +6,7 @@ import { normalizePassportNo } from "@/domain/passport";
 import { autoSeat, validateSeat } from "@/domain/seating";
 import { overlapWarning } from "@/server/trips";
 import { addPilgrimToTrips, overlapWarnings } from "@/server/bookings";
+import { moveBookingsToBus } from "@/server/buses";
 import { getSetting } from "@/server/settings";
 import { parseDate } from "@/domain/dates";
 import { parseTripIdentity } from "@/domain/tripFields";
@@ -24,11 +25,39 @@ const touch = (tripId: string) => revalidatePath(`/trips/${tripId}`, "layout");
 
 export async function addBus(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
   return guarded("trips.write", async () => {
-    if (!s(f, "number")) return { error: "رقم الباص مطلوب" };
-    await db.bus.create({ data: { tripId, number: s(f, "number"), driverName: s(f, "driverName") || null, driverPhone: s(f, "driverPhone") || null, company: s(f, "company") || null, seatCount: +s(f, "seatCount") || 48 } });
+    // the number is optional: an empty one becomes the next free number
+    const existing = await db.bus.findMany({ where: { tripId }, select: { number: true } });
+    const next = String(Math.max(0, ...existing.map((x) => (/^\d+$/.test(x.number) ? +x.number : 0))) + 1);
+    const number = s(f, "number") || next;
+    if (existing.some((x) => x.number === number)) return { error: "رقم الباص مستخدم في هذه الرحلة" };
+    await db.bus.create({ data: { tripId, number, name: s(f, "name") || null, driverName: s(f, "driverName") || null, driverPhone: s(f, "driverPhone") || null, company: s(f, "company") || null, seatCount: +s(f, "seatCount") || 48 } });
     touch(tripId); return { ok: true };
   });
 }
+
+/** A bus can only be deleted when nobody sits on it; the user moves the pilgrims first. */
+export async function deleteBus(tripId: string, busId: string): Promise<TripActionState> {
+  return guarded("trips.write", async () => {
+    const bus = await db.bus.findFirst({ where: { id: busId, tripId } });
+    if (!bus) return { error: "الباص غير موجود" };
+    if (await db.seatAssignment.count({ where: { busId } })) return { error: "انقل المعتمرين أولاً" };
+    await db.bus.delete({ where: { id: busId } });
+    touch(tripId); return { ok: true };
+  });
+}
+
+/** Moves one or more pilgrims (their family/companion groups together) to another bus. */
+export async function moveToBus(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  return guarded("seats.write", async () => {
+    const targetBusId = s(f, "targetBusId");
+    const ids = f.getAll("bookingIds").map(String);
+    if (!targetBusId) return { error: "اختر الباص الهدف" };
+    const r = await moveBookingsToBus(tripId, targetBusId, ids);
+    if (!r.ok) return { error: r.error };
+    touch(tripId); return { ok: true, warning: undefined };
+  });
+}
+
 export async function addFlight(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
   return guarded("trips.write", async () => {
     if (!s(f, "flightNo")) return { error: "رقم الرحلة الجوية مطلوب" };

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/server/db";
 import { requirePage, requirePermission } from "@/server/auth";
 import { parseTripIdentity } from "@/domain/tripFields";
+import { ensureFirstBus, withTripLock } from "@/server/buses";
 import { DateInput } from "@/components/DateInput";
 
 async function createTrip(form: FormData) {
@@ -19,6 +20,7 @@ async function createTrip(form: FormData) {
       capacity: +s("capacity") || 0, supervisorId: s("supervisorId") || null,
     },
   });
+  await withTripLock(db, t.id, (tx) => ensureFirstBus(tx, t.id)); // land trips open with bus 1
   redirect(`/trips/${t.id}`);
 }
 

@@ -7,7 +7,7 @@ import { PilgrimForm } from "@/components/PilgrimForm";
 import { DocUpload } from "@/components/DocUpload";
 import { fullNameAr, fullNameEn } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
-import { dateOrNotSet, tripLabel } from "@/lib/tripLabel";
+import { busLabel, dateOrNotSet, tripLabel } from "@/lib/tripLabel";
 import { passportExpiryWarning } from "@/domain/passport";
 import { mahramWarning, ageOn } from "@/domain/mahram";
 import { getSetting } from "@/server/settings";
@@ -102,7 +102,7 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
                 <td className="td">{dateOrNotSet(b.trip.departDate)}</td>
                 <td className="td">{dateOrNotSet(b.trip.returnDate)}</td>
                 <td className="td">{TRIP_STATUS_LABELS[b.trip.status]}</td>
-                <td className="td">{b.seat?.bus ? `باص ${b.seat.bus.number} / ${b.seat.seatNo}` : b.seat?.ticketNo ?? "—"}</td>
+                <td className="td">{b.seat?.bus ? `${busLabel(b.seat.bus)} / ${b.seat.seatNo}` : b.seat?.ticketNo ?? "—"}</td>
                 <td className="td">{VISA_LABELS[b.visaStatus]}</td>
               </tr>
             ))}

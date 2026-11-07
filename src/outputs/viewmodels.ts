@@ -18,7 +18,7 @@ export async function manifestData(tripId: string, busId: string) {
     seat: s.seatNo!, nameAr: fullNameAr(s.booking.pilgrim), nameEn: fullNameEn(s.booking.pilgrim),
     passportNo: s.booking.pilgrim.passportNo, visaNo: s.booking.visaNo ?? "",
   }));
-  return { company, trip, bus, rows, title: `كشف الباص رقم ${bus.number}`, meta: joinMeta(tripMetaParts(trip)) };
+  return { company, trip, bus, rows, title: `كشف الباص رقم ${bus.number}${bus.name ? ` — ${bus.name}` : ""}`, meta: joinMeta(tripMetaParts(trip)) };
 }
 
 export async function flightListData(tripId: string) {

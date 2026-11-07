@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { overlapWarning } from "./trips";
+import { autoSeatNewBooking, withTripLock } from "./buses";
 import { tripLabel } from "@/lib/tripLabel";
 
 type Client = Prisma.TransactionClient | typeof db;
@@ -23,8 +24,12 @@ export async function addPilgrimToTrips(client: Client, pilgrimId: string, agent
     if (!trip) { out.missing.push(tripId); continue; }
     const existing = await client.booking.findUnique({ where: { pilgrimId_tripId: { pilgrimId, tripId } } });
     if (existing && existing.status === "ACTIVE" && !existing.deletedAt) { out.skipped.push(tripId); continue; }
-    if (existing) await client.booking.update({ where: { id: existing.id }, data: { status: "ACTIVE", deletedAt: null, cancelledAt: null, cancelReason: null } });
-    else await client.booking.create({ data: { pilgrimId, tripId, agentId } });
+    await withTripLock(client, tripId, async (tx) => {
+      const booking = existing
+        ? await tx.booking.update({ where: { id: existing.id }, data: { status: "ACTIVE", deletedAt: null, cancelledAt: null, cancelReason: null } })
+        : await tx.booking.create({ data: { pilgrimId, tripId, agentId } });
+      await autoSeatNewBooking(tx, tripId, booking.id); // land trips only
+    });
     out.added.push(tripId);
   }
   return out;

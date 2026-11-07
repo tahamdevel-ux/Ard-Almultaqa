@@ -6,6 +6,8 @@ import { can } from "@/lib/permissions";
 import { canSeeTrip } from "@/server/trips";
 import { fullNameAr } from "@/server/pilgrims";
 import { nonAdjacentGroups, SEATS_PER_ROW } from "@/domain/seating";
+import { busLabel } from "@/lib/tripLabel";
+import { MoveToBusForm } from "@/components/BusTools";
 import { assignSeat, autoSeatBus, clearSeat } from "../../../actions";
 
 export default async function BusPage({ params }: { params: Promise<{ id: string; busId: string }> }) {
@@ -29,10 +31,14 @@ export default async function BusPage({ params }: { params: Promise<{ id: string
   const bad = nonAdjacentGroups(seatMap, [...groupMap].map(([gid, ids]) => ({ id: gid, bookingIds: ids })));
 
   const rows = Math.ceil(bus.seatCount / SEATS_PER_ROW);
+  const allBuses = sw ? await db.bus.findMany({ where: { tripId: id }, include: { _count: { select: { seats: true } } } }) : [];
+  const moveBuses = allBuses.filter((b) => b.id !== busId).map((b) => ({ id: b.id, label: busLabel(b), free: b.seatCount - b._count.seats }));
+  const busById = new Map(allBuses.map((b) => [b.id, b]));
+  const moveRows = bookings.map((b) => ({ bookingId: b.id, name: fullNameAr(b.pilgrim), seatNo: b.seat?.seatNo ?? null, busLabel: b.seat?.busId ? busLabel(busById.get(b.seat.busId) ?? { number: "?" }) : null }));
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="page-title">باص {bus.number} — خريطة المقاعد</h1>
+        <h1 className="page-title">{busLabel(bus)} — خريطة المقاعد</h1>
         <div className="flex gap-2">
           <Link href={`/trips/${id}`} className="btn-secondary">رجوع للرحلة</Link>
           {sw && <form action={autoSeatBus.bind(null, id, busId)}><button className="btn">توزيع تلقائي (العوائل متجاورة)</button></form>}
@@ -70,6 +76,12 @@ export default async function BusPage({ params }: { params: Promise<{ id: string
           </div>
         ))}
       </div>
+    {sw && moveBuses.length > 0 && (
+        <details className="card">
+          <summary className="cursor-pointer font-bold">نقل معتمرين بين الباصات</summary>
+          <div className="mt-3"><MoveToBusForm tripId={id} rows={moveRows} buses={moveBuses} /></div>
+        </details>
+      )}
     </div>
   );
 }
