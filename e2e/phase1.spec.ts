@@ -42,8 +42,12 @@ test("full flow: create pilgrim, upload docs, attach to land trip, seat, manifes
   // attach to trip
   await page.goto("/trips");
   await page.click("text=L-2611");
-  await page.fill("[name=passportNo]", passport);
-  await page.click("button:has-text('إضافة'):not(:has-text('باص'))");
+  await page.getByRole("button", { name: "إضافة معتمر" }).click();
+  await page.getByLabel("بحث عن معتمر").fill(passport.toLowerCase());
+  await expect(page.getByRole("dialog").getByText("A-2612")).toBeVisible(); // his other trip is shown
+  await page.getByRole("dialog").getByRole("button", { name: "إضافة", exact: true }).click();
+  await expect(page.getByRole("dialog").getByText("مضاف").first()).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.locator("table").getByText(passport)).toBeVisible();
 
   // seat

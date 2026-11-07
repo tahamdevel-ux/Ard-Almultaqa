@@ -6,13 +6,14 @@ import { canSeeTrip, loadTripDetail } from "@/server/trips";
 import { fullNameAr } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
 import { dateRangeLabel, tripLabel } from "@/lib/tripLabel";
+import { AddPilgrimDialog } from "@/components/AddPilgrimDialog";
 import { SmallForm } from "@/components/SmallForm";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS, VISA_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
 import { saveTripPrices } from "../../bookings/[id]/actions";
 import { balance, formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { updateTripBasics, saveAsProgram, setTripHotels, addBooking, addBus, addCar, addFlight, createCompanionGroup, dissolveGroup, removeBooking, setAirAssignment, setVisa } from "../actions";
+import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, dissolveGroup, removeBooking, setAirAssignment, setVisa } from "../actions";
 import { DateInput } from "@/components/DateInput";
 
 export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
@@ -146,17 +147,12 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
         </section>
       )}
 
-      {bw && (
-        <section className="card">
-          <h2 className="mb-2 font-bold">إضافة معتمر للرحلة</h2>
-          <SmallForm action={addBooking.bind(null, trip.id)} submit="إضافة" fields={[{ name: "passportNo", label: "رقم الجواز", ltr: true, required: true }]} />
-        </section>
-      )}
 
       <form id="groupform" action={createCompanionGroup.bind(null, trip.id)} />
       <section className="card overflow-x-auto p-0">
         <div className="flex flex-wrap items-center justify-between gap-2 p-3">
           <h2 className="font-bold">المعتمرون ({rows.length})</h2>
+          {bw && <AddPilgrimDialog tripId={trip.id} />}
           {bw && (
             <div className="flex items-center gap-2 text-sm">
               <select form="groupform" name="kind" className="input w-auto"><option value="COMPANIONS">عصبة</option><option value="FAMILY">عائلة</option></select>

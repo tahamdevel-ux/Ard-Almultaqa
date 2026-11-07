@@ -7,7 +7,7 @@ import { dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { fullNameAr, fullNameEn } from "./pilgrims";
 
 export type SearchResults = {
-  pilgrims: { id: string; name: string; sub: string; trips: { id: string; label: string; dates: string; past: boolean }[] }[];
+  pilgrims: { id: string; name: string; sub: string; allTripIds: string[]; trips: { id: string; label: string; dates: string; past: boolean }[] }[];
   trips: { id: string; label: string; sub: string }[];
   agents: { id: string; name: string; sub: string }[];
   hotels: { id: string; name: string; sub: string }[];
@@ -25,36 +25,40 @@ async function matchIds(table: string, cols: string[], tokens: string[], extraWh
   return rows.map((r) => r.id);
 }
 
+
+export async function searchPilgrims(user: SessionUser, tokens: string[]): Promise<SearchResults["pilgrims"]> {
+  const sup = user.role === "SUPERVISOR";
+  const today = new Date();
+  const cols = ["firstName", "fatherName", "grandfatherName", "greatGrandfatherName", "familyName", "enGivenName", "enFatherName", "enGrandfatherName", "enSurname", "passportNo", "phone"];
+  // supervisors only reach pilgrims travelling on the trips assigned to them
+  const restrict = sup
+    ? Prisma.sql`AND "id" IN (SELECT b."pilgrimId" FROM "Booking" b JOIN "Trip" t ON t."id" = b."tripId" WHERE t."supervisorId" = ${user.id} AND b."status" = 'ACTIVE')`
+    : Prisma.empty;
+  const ids = await matchIds("Pilgrim", cols, tokens, restrict);
+  if (!ids.length) return [];
+  const rows = await db.pilgrim.findMany({
+    where: { id: { in: ids } },
+    include: { bookings: { where: { status: "ACTIVE", deletedAt: null, ...(sup ? { trip: { supervisorId: user.id } } : {}) }, include: { trip: true }, orderBy: { createdAt: "desc" } } },
+  });
+  return rows.map((p) => ({
+    id: p.id,
+    name: fullNameAr(p),
+    sub: `${fullNameEn(p)} — ${p.passportNo}${p.phone ? ` — ${p.phone}` : ""}`,
+    allTripIds: p.bookings.map((b) => b.tripId),
+    trips: p.bookings.slice(0, 4).map((b) => ({
+      id: b.tripId, label: tripLabel(b.trip), dates: dateRangeLabel(b.trip.departDate, b.trip.returnDate),
+      past: !!(b.trip.returnDate ?? b.trip.departDate) && (b.trip.returnDate ?? b.trip.departDate)! < today,
+    })),
+  }));
+}
+
 export async function globalSearch(user: SessionUser, q: string): Promise<SearchResults> {
   const tokens = searchTokens(q);
   const out: SearchResults = { pilgrims: [], trips: [], agents: [], hotels: [] };
   if (!tokens.length) return out;
   const sup = user.role === "SUPERVISOR";
-  const today = new Date();
 
-  if (can(user.role, "pilgrims.view")) {
-    const cols = ["firstName", "fatherName", "grandfatherName", "greatGrandfatherName", "familyName", "enGivenName", "enFatherName", "enGrandfatherName", "enSurname", "passportNo", "phone"];
-    // supervisors only reach pilgrims travelling on the trips assigned to them
-    const restrict = sup
-      ? Prisma.sql`AND "id" IN (SELECT b."pilgrimId" FROM "Booking" b JOIN "Trip" t ON t."id" = b."tripId" WHERE t."supervisorId" = ${user.id} AND b."status" = 'ACTIVE')`
-      : Prisma.empty;
-    const ids = await matchIds("Pilgrim", cols, tokens, restrict);
-    if (ids.length) {
-      const rows = await db.pilgrim.findMany({
-        where: { id: { in: ids } },
-        include: { bookings: { where: { status: "ACTIVE", deletedAt: null, ...(sup ? { trip: { supervisorId: user.id } } : {}) }, include: { trip: true }, orderBy: { createdAt: "desc" } } },
-      });
-      out.pilgrims = rows.map((p) => ({
-        id: p.id,
-        name: fullNameAr(p),
-        sub: `${fullNameEn(p)} — ${p.passportNo}${p.phone ? ` — ${p.phone}` : ""}`,
-        trips: p.bookings.slice(0, 4).map((b) => ({
-          id: b.tripId, label: tripLabel(b.trip), dates: dateRangeLabel(b.trip.departDate, b.trip.returnDate),
-          past: !!(b.trip.returnDate ?? b.trip.departDate) && (b.trip.returnDate ?? b.trip.departDate)! < today,
-        })),
-      }));
-    }
-  }
+  if (can(user.role, "pilgrims.view")) out.pilgrims = await searchPilgrims(user, tokens);
 
   if (can(user.role, "trips.view")) {
     const restrict = sup ? Prisma.sql`AND "supervisorId" = ${user.id}` : Prisma.empty;

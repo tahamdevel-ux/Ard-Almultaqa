@@ -5,6 +5,7 @@ import { AuthError, requirePermission, type SessionUser } from "@/server/auth";
 import { normalizePassportNo } from "@/domain/passport";
 import { autoSeat, validateSeat } from "@/domain/seating";
 import { overlapWarning } from "@/server/trips";
+import { addPilgrimToTrips, overlapWarnings } from "@/server/bookings";
 import { getSetting } from "@/server/settings";
 import { parseDate } from "@/domain/dates";
 import { parseTripIdentity } from "@/domain/tripFields";
@@ -41,23 +42,6 @@ export async function addCar(tripId: string, _p: TripActionState, f: FormData): 
     if (!s(f, "label")) return { error: "اسم/رقم السيارة مطلوب" };
     await db.groundCar.create({ data: { tripId, label: s(f, "label"), driverName: s(f, "driverName") || null, driverPhone: s(f, "driverPhone") || null, capacity: +s(f, "capacity") || 4 } });
     touch(tripId); return { ok: true };
-  });
-}
-
-export async function addBooking(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
-  return guarded("bookings.write", async () => {
-    const trip = await db.trip.findFirst({ where: { id: tripId, deletedAt: null } });
-    if (!trip) return { error: "الرحلة غير موجودة" };
-    const passportNo = normalizePassportNo(s(f, "passportNo"));
-    const pilgrim = await db.pilgrim.findFirst({ where: { passportNo, deletedAt: null } });
-    if (!pilgrim) return { error: "لا يوجد معتمر بهذا رقم الجواز. سجّله أولاً من شاشة المعتمرين" };
-    const existing = await db.booking.findUnique({ where: { pilgrimId_tripId: { pilgrimId: pilgrim.id, tripId } } });
-    if (existing && existing.status === "ACTIVE" && !existing.deletedAt) return { error: "المعتمر مضاف مسبقاً لهذه الرحلة" };
-    if (existing) await db.booking.update({ where: { id: existing.id }, data: { status: "ACTIVE", deletedAt: null } });
-    else await db.booking.create({ data: { pilgrimId: pilgrim.id, tripId, agentId: pilgrim.agentId } });
-    const warning = await overlapWarning(pilgrim.id, trip);
-    touch(tripId);
-    return { ok: true, warning: warning ?? undefined };
   });
 }
 
@@ -180,5 +164,19 @@ export async function updateTripBasics(tripId: string, _p: TripActionState, f: F
     touch(tripId);
     revalidatePath("/trips");
     return { ok: true };
+  });
+}
+
+/** Popup on the trip page: add an existing pilgrim to THIS trip only. */
+export async function addExistingPilgrim(tripId: string, pilgrimId: string): Promise<TripActionState> {
+  return guarded("bookings.write", async () => {
+    const pilgrim = await db.pilgrim.findFirst({ where: { id: pilgrimId, deletedAt: null } });
+    if (!pilgrim) return { error: "المعتمر غير موجود" };
+    const r = await db.$transaction((tx) => addPilgrimToTrips(tx, pilgrimId, pilgrim.agentId, [tripId]));
+    if (r.missing.length) return { error: "الرحلة غير موجودة" };
+    if (r.skipped.length) return { error: "المعتمر مضاف مسبقاً لهذه الرحلة" };
+    const warnings = await overlapWarnings(pilgrimId, [tripId]);
+    touch(tripId);
+    return { ok: true, warning: warnings[0]?.replace(/^[^:]*: /, "") };
   });
 }
