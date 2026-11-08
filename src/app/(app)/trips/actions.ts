@@ -209,3 +209,51 @@ export async function addExistingPilgrim(tripId: string, pilgrimId: string): Pro
     return { ok: true, warning: warnings[0]?.replace(/^[^:]*: /, "") };
   });
 }
+
+const TRIP_AUDITED = ["tripNo", "name", "departDate", "returnDate", "capacity", "supervisorId", "status", "nightsMakkah", "nightsMadinah"] as const;
+
+/** Full edit of a trip (from the trips list). The transport type is fixed once the trip exists. */
+export async function updateTrip(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  return guarded("trips.write", async (u) => {
+    const id = parseTripIdentity({ tripNo: s(f, "tripNo"), departDate: s(f, "departDate"), returnDate: s(f, "returnDate") });
+    if (!id.ok) return { error: id.error };
+    if (!s(f, "name")) return { error: "اسم الرحلة مطلوب" };
+    if (id.tripNo && (await db.trip.findFirst({ where: { tripNo: id.tripNo, NOT: { id: tripId } } }))) return { error: "رقم الرحلة مستخدم" };
+    const status = ["OPEN", "FULL", "TRAVELLING", "RETURNED", "CANCELLED"].includes(s(f, "status")) ? (s(f, "status") as "OPEN") : "OPEN";
+    try {
+      await db.$transaction(async (tx) => {
+        const before = await tx.trip.findUniqueOrThrow({ where: { id: tripId } });
+        const after = await tx.trip.update({ where: { id: tripId }, data: {
+          tripNo: id.tripNo, name: s(f, "name"), departDate: id.departDate, returnDate: id.returnDate,
+          capacity: Math.max(0, +s(f, "capacity") || 0), supervisorId: s(f, "supervisorId") || null, status,
+          nightsMakkah: Math.max(0, +s(f, "nightsMakkah") || 0), nightsMadinah: Math.max(0, +s(f, "nightsMadinah") || 0),
+        } });
+        await auditChanges(tx, u, "Trip", tripId, before, after, TRIP_AUDITED);
+      });
+    } catch (e) {
+      if ((e as { code?: string }).code === "P2002") return { error: "رقم الرحلة مستخدم" };
+      throw e;
+    }
+    touch(tripId); revalidatePath("/trips");
+    return { ok: true };
+  });
+}
+
+/** Soft delete, always allowed. Active bookings are cancelled (seats and rooms freed); payments are kept untouched. */
+export async function deleteTrip(tripId: string): Promise<TripActionState> {
+  return guarded("trips.write", async (u) => {
+    const trip = await db.trip.findFirst({ where: { id: tripId, deletedAt: null } });
+    if (!trip) return { error: "الرحلة غير موجودة" };
+    await db.$transaction(async (tx) => {
+      const bookings = await tx.booking.findMany({ where: { tripId, status: "ACTIVE", deletedAt: null }, select: { id: true } });
+      const ids = bookings.map((b) => b.id);
+      await tx.seatAssignment.deleteMany({ where: { bookingId: { in: ids } } });
+      await tx.roomAssignment.deleteMany({ where: { bookingId: { in: ids } } });
+      await tx.booking.updateMany({ where: { id: { in: ids } }, data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: "حذف الرحلة" } });
+      await tx.trip.update({ where: { id: tripId }, data: { deletedAt: new Date() } });
+      await tx.auditLog.create({ data: { userId: u.id, userName: u.name, entity: "Trip", entityId: tripId, field: "deleted", oldValue: trip.name, newValue: `تم الحذف (${ids.length} حجز أُلغي)` } });
+    });
+    revalidatePath("/trips");
+    return { ok: true };
+  });
+}
