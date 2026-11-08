@@ -2,7 +2,7 @@ import type { Currency, PaymentKind, PaymentMethod, Prisma } from "@prisma/clien
 import { db } from "./db";
 import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
-import { checkPayment, paidTotal } from "@/domain/money";
+import { balance, checkPayment, paidTotal } from "@/domain/money";
 
 type Tx = Prisma.TransactionClient;
 export type Result = { ok: true; id?: string; receiptNo?: number } | { ok: false; error: string };
@@ -102,4 +102,70 @@ export async function moveToTrip(user: SessionUser, bookingId: string, targetTri
     await auditChanges(tx, user, "Booking", old.id, { tripId: old.tripId }, { tripId: targetTripId }, ["tripId"]);
     return { ok: true, id: nb.id } as Result;
   });
+}
+
+export interface FamilyMember { bookingId: string; pilgrimName: string; isHead: boolean; price: number | null; currency: Currency; paid: number; balance: number | null; roomType: string | null }
+
+/** Everyone in a FAMILY group (active bookings): each keeps his own booking and price; the family account is their sum. */
+export async function familyAccount(groupId: string) {
+  const g = await db.familyGroup.findUnique({
+    where: { id: groupId },
+    include: { members: { include: { booking: { include: { pilgrim: true, payments: true, trip: true } } } } },
+  });
+  if (!g || g.kind !== "FAMILY") return null;
+  const active = g.members.filter((m) => m.booking.status === "ACTIVE" && !m.booking.deletedAt);
+  const members: FamilyMember[] = active
+    .map((m) => {
+      const b = m.booking;
+      const pays = b.payments.map((x) => ({ kind: x.kind, credited: Number(x.credited) }));
+      const p = b.pilgrim;
+      return { bookingId: b.id, pilgrimName: [p.firstName, p.fatherName, p.grandfatherName, p.familyName].filter(Boolean).join(" "), isHead: m.isHead, price: b.priceAmount, currency: b.priceCurrency, paid: paidTotal(pays), balance: balance(b.priceAmount, pays), roomType: b.roomType };
+    })
+    .sort((a, b) => Number(b.isHead) - Number(a.isHead));
+  const totals = new Map<Currency, { price: number; paid: number; balance: number }>();
+  for (const m of members) {
+    const t = totals.get(m.currency) ?? { price: 0, paid: 0, balance: 0 };
+    t.price += m.price ?? 0; t.paid += m.paid; t.balance += m.balance ?? 0;
+    totals.set(m.currency, t);
+  }
+  return { group: g, tripId: active[0]?.booking.tripId ?? null, members, totals: [...totals].map(([currency, t]) => ({ currency, price: round2(t.price), paid: round2(t.paid), balance: round2(t.balance) })) };
+}
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/**
+ * One payment received for the whole family: split over the members' bookings, head first, each up to what it still owes.
+ * Every member gets his own payment/receipt, so his own account stays correct.
+ */
+export async function addFamilyPayment(
+  user: SessionUser, groupId: string,
+  input: { amount: number; currency: Currency; rate?: number | null; method: PaymentMethod; paidAt: Date; note?: string },
+): Promise<Result> {
+  const fam = await familyAccount(groupId);
+  if (!fam) return fail("الأسرة غير موجودة");
+  const priced = fam.members.filter((m) => m.price != null && m.balance != null && m.balance > 0.005);
+  if (!priced.length) return fail("لا يوجد متبقٍ على أي فرد من الأسرة");
+  if (new Set(priced.map((m) => m.currency)).size > 1) return fail("عملات حجوزات الأسرة مختلفة — سجّل الدفعة على كل فرد");
+  const cur = priced[0].currency;
+  if (!Number.isInteger(input.amount) || input.amount <= 0) return fail("المبلغ يجب أن يكون رقماً صحيحاً أكبر من صفر");
+  if (input.currency !== cur && (!input.rate || input.rate <= 0)) return fail("أدخل سعر الصرف (دينار لكل دولار) وقت التسديد");
+  const rate = input.rate ?? 0;
+  // the most each member can take, in the payment's own currency (whole units)
+  const capacity = (rem: number) => (input.currency === cur ? Math.floor(rem + 0.005) : cur === "USD" ? Math.floor(rem * rate) : Math.floor(rem / rate));
+  const plan: { bookingId: string; amount: number }[] = [];
+  let left = input.amount;
+  for (const m of priced) {
+    if (left <= 0) break;
+    const take = Math.min(left, capacity(m.balance!));
+    if (take > 0) { plan.push({ bookingId: m.bookingId, amount: take }); left -= take; }
+  }
+  if (left > 0) return fail("المبلغ أكبر من المتبقي على الأسرة");
+  const head = fam.members.find((m) => m.isHead);
+  const note = [`دفعة أسرة${head ? ` ${head.pilgrimName}` : ""}`, input.note].filter(Boolean).join(" — ");
+  let firstReceipt: number | undefined;
+  for (const part of plan) {
+    const r = await addPayment(user, part.bookingId, { kind: "PAYMENT", amount: part.amount, currency: input.currency, rate: input.rate, method: input.method, paidAt: input.paidAt, note });
+    if (!r.ok) return r;
+    firstReceipt ??= r.receiptNo;
+  }
+  return { ok: true, receiptNo: firstReceipt };
 }

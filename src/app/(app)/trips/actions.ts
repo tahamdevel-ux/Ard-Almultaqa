@@ -135,14 +135,28 @@ export async function setAirAssignment(tripId: string, bookingId: string, f: For
 export async function createCompanionGroup(tripId: string, f: FormData) {
   await requirePermission("bookings.write");
   const ids = f.getAll("bookingIds").map(String);
+  const kind = s(f, "kind") === "FAMILY" ? "FAMILY" : "COMPANIONS";
   const max = await getSetting("maxCompanionGroup");
-  if (ids.length < 2 || ids.length > max) return;
+  if (ids.length < 2 || (kind === "COMPANIONS" && ids.length > max)) return; // the size limit is for companion groups; a family can be any size
   const bookings = await db.booking.findMany({ where: { id: { in: ids }, tripId, status: "ACTIVE" } });
   if (bookings.length !== ids.length) return;
-  const kind = s(f, "kind") === "FAMILY" ? "FAMILY" : "COMPANIONS";
+  // every family has a head: the chosen one, else the first selected
+  const head = ids.includes(s(f, "headBookingId")) ? s(f, "headBookingId") : ids[0];
   const g = await db.familyGroup.create({ data: { kind, label: s(f, "label") || null } });
   await db.bookingGroupMember.deleteMany({ where: { bookingId: { in: ids } } });
-  await db.bookingGroupMember.createMany({ data: ids.map((bookingId) => ({ bookingId, groupId: g.id })) });
+  await db.bookingGroupMember.createMany({ data: ids.map((bookingId) => ({ bookingId, groupId: g.id, isHead: kind === "FAMILY" && bookingId === head })) });
+  touch(tripId);
+}
+
+/** Makes one member the head of his FAMILY group (exactly one head per family). */
+export async function setFamilyHead(tripId: string, groupId: string, bookingId: string) {
+  await requirePermission("bookings.write");
+  const g = await db.familyGroup.findUnique({ where: { id: groupId }, include: { members: true } });
+  if (!g || g.kind !== "FAMILY" || !g.members.some((m) => m.bookingId === bookingId)) return;
+  await db.$transaction([
+    db.bookingGroupMember.updateMany({ where: { groupId }, data: { isHead: false } }),
+    db.bookingGroupMember.updateMany({ where: { groupId, bookingId }, data: { isHead: true } }),
+  ]);
   touch(tripId);
 }
 export async function dissolveGroup(tripId: string, groupId: string) {

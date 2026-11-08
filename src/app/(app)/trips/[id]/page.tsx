@@ -14,7 +14,7 @@ import { db } from "@/server/db";
 import { saveTripPrices } from "../../bookings/[id]/actions";
 import { balance, formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, dissolveGroup, removeBooking, setAirAssignment, setVisa } from "../actions";
+import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAirAssignment, setVisa } from "../actions";
 import { DateInput } from "@/components/DateInput";
 
 export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
@@ -25,9 +25,10 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
   const { trip, rows, counter } = d;
   if (!canSeeTrip(user, trip)) redirect("/forbidden");
   const w = can(user.role, "trips.write"), bw = can(user.role, "bookings.write"), sw = can(user.role, "seats.write");
-  const groups = new Map<string, { kind: string; members: string[] }>();
+  const groups = new Map<string, { kind: string; members: string[]; head?: string }>();
   for (const r of rows) for (const g of r.booking.groups) {
     const e = groups.get(g.groupId) ?? { kind: g.group.kind, members: [] };
+    if (g.isHead) e.head = r.booking.id;
     e.members.push(r.booking.pilgrim.firstName + " " + r.booking.pilgrim.familyName);
     groups.set(g.groupId, e);
   }
@@ -157,7 +158,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
           {bw && <AddPilgrimDialog tripId={trip.id} />}
           {bw && (
             <div className="flex items-center gap-2 text-sm">
-              <select form="groupform" name="kind" className="input w-auto"><option value="COMPANIONS">عصبة</option><option value="FAMILY">عائلة</option></select>
+              <select form="groupform" name="kind" className="input w-auto"><option value="COMPANIONS">عصبة</option><option value="FAMILY">عائلة (اختر رب الأسرة بالدائرة)</option></select>
               <button form="groupform" className="btn-secondary">اجعل المحددين مجموعة واحدة</button>
             </div>
           )}
@@ -169,10 +170,17 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
               const b = r.booking, gid = groupOf(r);
               return (
                 <tr key={b.id}>
-                  <td className="td">{bw && <input form="groupform" type="checkbox" name="bookingIds" value={b.id} aria-label="تحديد" />}</td>
+                  <td className="td">{bw && <><input form="groupform" type="checkbox" name="bookingIds" value={b.id} aria-label="تحديد" /><label className="mt-1 flex items-center gap-1 text-[11px] text-brand-mid"><input form="groupform" type="radio" name="headBookingId" value={b.id} aria-label="رب الأسرة" />رب</label></>}</td>
                   <td className="td"><Link className="font-bold underline" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link></td>
                   <td className="td ltr">{b.pilgrim.passportNo}</td>
-                  <td className="td">{gid ? <span className="chip chip-gray">{groups.get(gid)!.kind === "COMPANIONS" ? "عصبة" : "عائلة"} ({groups.get(gid)!.members.length})</span> : ""}</td>
+                  <td className="td space-y-1">{gid ? (
+                    <>
+                      <span className="chip chip-gray">{groups.get(gid)!.kind === "COMPANIONS" ? "عصبة" : "عائلة"} ({groups.get(gid)!.members.length})</span>
+                      {groups.get(gid)!.kind === "FAMILY" && (groups.get(gid)!.head === b.id
+                        ? <div><span className="chip chip-ok">رب الأسرة</span>{money && <> <Link className="text-xs underline" href={`/families/${gid}`}>حساب الأسرة</Link></>}</div>
+                        : bw && <form action={setFamilyHead.bind(null, trip.id, gid, b.id)}><button className="text-xs underline">اجعله رب الأسرة</button></form>)}
+                    </>
+                  ) : ""}</td>
                   <td className="td">{r.ready ? <span className="chip chip-ok mb-1">جاهز للسفر</span> : null}{r.missing.filter((m) => m.startsWith("ناقص")).length ? <span className="chip chip-bad whitespace-nowrap" title={r.missing.filter((m) => m.startsWith("ناقص")).join("، ")}>ناقص {r.missing.filter((m) => m.startsWith("ناقص")).length}</span> : <span className="chip chip-ok">مكتملة</span>}</td>
                   <td className="td">
                     {bw ? (

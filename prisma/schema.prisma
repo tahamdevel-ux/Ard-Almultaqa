@@ -306,6 +306,7 @@ model BookingGroupMember {
   booking   Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   groupId   String
   group     FamilyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  isHead    Boolean     @default(false) // head of a FAMILY group: the family's account is shown on his side
   @@unique([bookingId, groupId])
 }
 

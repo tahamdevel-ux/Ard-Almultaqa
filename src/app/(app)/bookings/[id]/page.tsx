@@ -19,7 +19,7 @@ const METHOD = { CASH: "نقداً", TRANSFER: "حوالة", CARD: "بطاقة",
 export default async function BookingPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePage("payments.view");
   const { id } = await params;
-  const b = await db.booking.findUnique({ where: { id }, include: { pilgrim: true, trip: true, agent: true, payments: { orderBy: { receiptNo: "asc" } } } });
+  const b = await db.booking.findUnique({ where: { id }, include: { pilgrim: true, trip: true, agent: true, payments: { orderBy: { receiptNo: "asc" } }, groups: { include: { group: true } } } });
   if (!b) notFound();
   if (!canSeeTrip(user, b.trip)) redirect("/forbidden");
   const rate = await getSetting("usdRate");
@@ -31,6 +31,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
   const today = formatDate(new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())));
   const otherTrips = can(user.role, "bookings.write") ? await db.trip.findMany({ where: { deletedAt: null, id: { not: b.tripId }, status: { in: ["OPEN", "FULL"] } }, orderBy: [{ departDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }] }) : [];
   const active = b.status === "ACTIVE";
+  const family = b.groups.find((g) => g.group.kind === "FAMILY");
 
   const payFields = (kind: "PAYMENT" | "REFUND") => (
     <>
@@ -52,6 +53,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
           {b.agent && ` · الوكيل: ${b.agent.name}`} · الحالة: {b.status === "ACTIVE" ? "فعّال" : b.status === "CANCELLED" ? `ملغى (${b.cancelReason})` : "منقول إلى رحلة أخرى"}
         </p>
       </div>
+      {family && <p className="alert-warn">هذا المعتمر ضمن أسرة — <Link className="underline" href={`/families/${family.groupId}`}>حساب الأسرة{family.isHead ? " (هو رب الأسرة)" : ""}</Link></p>}
       <div className="grid grid-cols-3 gap-3 text-center">
         <div className="card"><div className="text-xs text-brand-mid">السعر</div><div className="text-lg font-bold">{b.priceAmount == null ? "غير محدد" : formatMoney(b.priceAmount, cur)}</div></div>
         <div className="card"><div className="text-xs text-brand-mid">المدفوع (صافي)</div><div className="text-lg font-bold text-green-800">{formatMoney(paid, cur)}</div></div>

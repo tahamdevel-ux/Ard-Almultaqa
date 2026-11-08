@@ -1,0 +1,1 @@
+ALTER TABLE "BookingGroupMember" ADD COLUMN "isHead" BOOLEAN NOT NULL DEFAULT false;
