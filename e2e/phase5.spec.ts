@@ -29,7 +29,8 @@ test("buses: bus 1 opens with the trip, auto-fill, named bus, move, delete refus
   // add a pilgrim: seated on bus 1, not on the named bus
   await page.getByRole("button", { name: "إضافة معتمر" }).click();
   await page.getByLabel("بحث عن معتمر").fill("A10000137");
-  await page.getByRole("dialog").getByRole("button", { name: "إضافة", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "إضافة", exact: true }).first().click();
+  await page.getByRole("dialog").getByRole("button", { name: "تأكيد الإضافة" }).click();
   await expect(page.getByRole("dialog").getByText("مضاف").first()).toBeVisible();
   await page.keyboard.press("Escape");
 

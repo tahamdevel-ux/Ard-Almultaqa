@@ -2,16 +2,19 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addExistingPilgrim } from "@/app/(app)/trips/actions";
+import { AccommodationFields, type AccValues, type HotelOpt } from "@/components/AccommodationFields";
 
 type Hit = { id: string; name: string; sub: string; inThis: boolean; trips: { id: string; label: string; dates: string; past: boolean }[] };
 
-export function AddPilgrimDialog({ tripId }: { tripId: string }) {
+export function AddPilgrimDialog({ tripId, hotels, defaults }: { tripId: string; hotels: HotelOpt[]; defaults: { makkahHotelId: string; madinahHotelId: string } }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const router = useRouter();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<Hit[]>([]);
   const [msg, setMsg] = useState<{ ok?: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [acc, setAcc] = useState<AccValues>({ ...defaults, roomType: "", makkahRoomNo: "", madinahRoomNo: "" });
 
   useEffect(() => {
     if (q.trim().length < 2) { setHits([]); return; }
@@ -27,10 +30,11 @@ export function AddPilgrimDialog({ tripId }: { tripId: string }) {
 
   function add(h: Hit) {
     start(async () => {
-      const r = await addExistingPilgrim(tripId, h.id);
+      const r = await addExistingPilgrim(tripId, h.id, acc);
       if (r.ok) {
         setMsg({ ok: true, text: `أُضيف ${h.name}` + (r.warning ? ` — ⚠ ${r.warning}` : "") });
         setHits((x) => x.map((y) => (y.id === h.id ? { ...y, inThis: true } : y)));
+        setOpenId(null); setAcc({ ...defaults, roomType: "", makkahRoomNo: "", madinahRoomNo: "" });
         router.refresh();
       } else setMsg({ text: r.error ?? "تعذّرت الإضافة" });
     });
@@ -55,8 +59,17 @@ export function AddPilgrimDialog({ tripId }: { tripId: string }) {
                     <div className="text-sm font-bold">{h.name}</div>
                     <div className="ltr text-xs text-brand-mid">{h.sub}</div>
                   </div>
-                  {h.inThis ? <span className="chip chip-ok">مضاف</span> : <button type="button" className="btn" disabled={pending} onClick={() => add(h)}>إضافة</button>}
+                  {h.inThis ? <span className="chip chip-ok">مضاف</span> : openId === h.id
+                    ? <button type="button" className="btn-secondary" onClick={() => setOpenId(null)}>إلغاء</button>
+                    : <button type="button" className="btn" onClick={() => { setOpenId(h.id); setMsg(null); }}>إضافة</button>}
                 </div>
+                {openId === h.id && !h.inThis && (
+                  <div className="mt-2 space-y-2 rounded bg-canvas p-2">
+                    <p className="text-xs font-bold text-brand-mid">التسكين (اختياري): فندق كل مدينة ونوع الغرفة ورقمها</p>
+                    <AccommodationFields hotels={hotels} values={acc} onChange={setAcc} idPrefix={"d" + h.id} />
+                    <button type="button" className="btn" disabled={pending} onClick={() => add(h)}>تأكيد الإضافة</button>
+                  </div>
+                )}
                 <div className="mt-1 flex flex-wrap gap-1">
                   {h.trips.map((t) => <span key={t.id} className={"chip " + (t.past ? "" : "chip-ok")}>{t.label} · {t.dates}{t.past ? " · سافر سابقاً" : ""}</span>)}
                 </div>

@@ -21,7 +21,7 @@ async function loadRoomState(tripId: string, city: City) {
     include: { assignments: { include: { booking: { include: { pilgrim: { select: { gender: true } }, groups: true } } } } },
   });
   return rooms.map((r) => ({
-    id: r.id, roomNo: r.roomNo, beds: r.beds,
+    id: r.id, roomNo: r.roomNo, beds: r.beds, hotelId: r.hotelId,
     occupants: r.assignments.map((a): Occupant => ({ bookingId: a.bookingId, gender: a.booking.pilgrim.gender, groupIds: a.booking.groups.map((g) => g.groupId) })),
   }));
 }
@@ -83,8 +83,20 @@ export async function autoAssign(tripId: string, city: City): Promise<RoomingRes
     const bookings = await db.booking.findMany({
       where: { tripId, status: "ACTIVE", deletedAt: null }, include: { pilgrim: { select: { gender: true } }, groups: true }, orderBy: { createdAt: "asc" },
     });
-    const people = bookings.filter((b) => !housed.has(b.id)).map((b): Occupant => ({ bookingId: b.id, gender: b.pilgrim.gender, groupIds: b.groups.map((g) => g.groupId) }));
-    const r = autoAssignRooms(rooms, people);
+    const pref = (b: (typeof bookings)[number]) => (city === "MAKKAH" ? b.makkahHotelId : b.madinahHotelId);
+    const people = bookings.filter((b) => !housed.has(b.id)).map((b) => ({ occ: { bookingId: b.id, gender: b.pilgrim.gender, groupIds: b.groups.map((g) => g.groupId) } as Occupant, hotel: pref(b) }));
+    // pilgrims who chose their own hotel are placed only in rooms of that hotel; the rest can use any room
+    const assignments = new Map<string, string>(); const unplaced: string[] = []; const splitGroups: string[] = [];
+    const hotelsInUse = [...new Set(people.map((p) => p.hotel).filter((h): h is string => !!h))];
+    for (const hotel of [...hotelsInUse, null]) {
+      const batch = people.filter((p) => (p.hotel ?? null) === hotel).map((p) => p.occ);
+      if (!batch.length) continue;
+      const pool = rooms.filter((rm) => hotel == null || rm.hotelId === hotel).map((rm) => ({ ...rm, occupants: [...rm.occupants, ...[...assignments].filter(([, rid]) => rid === rm.id).map(([bid]) => people.find((p) => p.occ.bookingId === bid)!.occ)] }));
+      const res = autoAssignRooms(pool, batch);
+      res.assignments.forEach((rid, bid) => assignments.set(bid, rid));
+      unplaced.push(...res.unplaced); splitGroups.push(...res.splitGroups);
+    }
+    const r = { assignments, unplaced, splitGroups };
     await db.$transaction([...r.assignments].map(([bookingId, roomId]) => db.roomAssignment.create({ data: { bookingId, roomId, city } })));
     touch(tripId);
     const notes = [];

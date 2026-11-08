@@ -7,6 +7,7 @@ import { autoSeat, validateSeat } from "@/domain/seating";
 import { overlapWarning } from "@/server/trips";
 import { addPilgrimToTrips, overlapWarnings } from "@/server/bookings";
 import { moveBookingsToBus } from "@/server/buses";
+import { applyAccommodation, accommodationFromForm, type Accommodation } from "@/server/accommodation";
 import { getSetting } from "@/server/settings";
 import { parseDate } from "@/domain/dates";
 import { parseTripIdentity } from "@/domain/tripFields";
@@ -210,17 +211,39 @@ export async function updateTripBasics(tripId: string, _p: TripActionState, f: F
   });
 }
 
-/** Popup on the trip page: add an existing pilgrim to THIS trip only. */
-export async function addExistingPilgrim(tripId: string, pilgrimId: string): Promise<TripActionState> {
+/** Popup on the trip page: add an existing pilgrim to THIS trip only, optionally with his own hotels / room type / rooms. */
+export async function addExistingPilgrim(tripId: string, pilgrimId: string, acc?: Accommodation): Promise<TripActionState> {
   return guarded("bookings.write", async () => {
     const pilgrim = await db.pilgrim.findFirst({ where: { id: pilgrimId, deletedAt: null } });
     if (!pilgrim) return { error: "المعتمر غير موجود" };
+    const before = await db.booking.findUnique({ where: { pilgrimId_tripId: { pilgrimId, tripId } } });
     const r = await db.$transaction((tx) => addPilgrimToTrips(tx, pilgrimId, pilgrim.agentId, [tripId]));
     if (r.missing.length) return { error: "الرحلة غير موجودة" };
     if (r.skipped.length) return { error: "المعتمر مضاف مسبقاً لهذه الرحلة" };
+    const wantsAcc = !!acc && Object.values(acc).some((v) => !!v);
+    if (wantsAcc) {
+      const booking = await db.booking.findUniqueOrThrow({ where: { pilgrimId_tripId: { pilgrimId, tripId } } });
+      const res = await applyAccommodation(tripId, booking.id, acc!);
+      if (!res.ok) {
+        // keep the add atomic from the user's point of view: undo it
+        if (before) { await db.seatAssignment.deleteMany({ where: { bookingId: booking.id } }); await db.booking.update({ where: { id: booking.id }, data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: "تراجع عن الإضافة" } }); }
+        else await db.booking.delete({ where: { id: booking.id } });
+        return { error: res.error };
+      }
+    }
     const warnings = await overlapWarnings(pilgrimId, [tripId]);
     touch(tripId);
     return { ok: true, warning: warnings[0]?.replace(/^[^:]*: /, "") };
+  });
+}
+
+/** Edit one pilgrim's hotels / room type / rooms from the trip page. */
+export async function setAccommodation(tripId: string, bookingId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  const perm = (await requirePermission("rooming.write").then(() => "rooming.write" as const).catch(() => "bookings.write" as const));
+  return guarded(perm, async () => {
+    const r = await applyAccommodation(tripId, bookingId, accommodationFromForm(f));
+    touch(tripId); revalidatePath(`/trips/${tripId}/rooming`);
+    return r.ok ? { ok: true } : { error: r.error };
   });
 }
 

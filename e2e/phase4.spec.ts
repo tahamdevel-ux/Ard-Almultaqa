@@ -59,7 +59,8 @@ test("trip with no code and no dates: create, list order, pickers, edit + audit,
   await page.click("button:has-text('إضافة باص')");
   await page.getByRole("button", { name: "إضافة معتمر" }).click();
   await page.getByLabel("بحث عن معتمر").fill("A10000137");
-  await page.getByRole("dialog").getByRole("button", { name: "إضافة", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "إضافة", exact: true }).first().click();
+  await page.getByRole("dialog").getByRole("button", { name: "تأكيد الإضافة" }).click();
   await expect(page.getByRole("dialog").getByText("مضاف").first()).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.locator("table").getByText("A10000137")).toBeVisible();

@@ -22,7 +22,8 @@ test("trips list: edit and delete from the list; pilgrims list is grouped by tri
   // add one pilgrim so the group shows up in the pilgrims list
   await page.getByRole("button", { name: "إضافة معتمر" }).click();
   await page.getByLabel("بحث عن معتمر").fill("A10000137");
-  await page.getByRole("dialog").getByRole("button", { name: "إضافة", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "إضافة", exact: true }).first().click();
+  await page.getByRole("dialog").getByRole("button", { name: "تأكيد الإضافة" }).click();
   await expect(page.getByRole("dialog").getByText("مضاف").first()).toBeVisible();
   await page.keyboard.press("Escape");
 
@@ -49,4 +50,68 @@ test("trips list: edit and delete from the list; pilgrims list is grouped by tri
   await page.goto("/pilgrims?q=A10000137");
   await expect(page.locator("tbody tr th", { hasText: name })).toHaveCount(0);
   await expect(page.getByText("A10000137").first()).toBeVisible();
+});
+
+async function newPilgrim(page: Page, passport: string, fullName: string, tripName: string) {
+  await page.goto("/pilgrims/new");
+  const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
+  await f("fullNameAr", fullName); await f("familyName", "الاختبار");
+  await page.selectOption("[name=gender]", "MALE");
+  await f("birthDate", "12/05/1975"); await f("passportNo", passport);
+  await f("enGivenName", "TEST"); await f("enSurname", "FAMILY"); await f("passportExpiry", "10/10/2031");
+  await page.locator("label", { hasText: tripName }).locator("input[name=tripIds]").check();
+  await page.click("button:has-text('حفظ')");
+  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+}
+
+test("accommodation with hotel and room, family head and family account", async ({ page }) => {
+  await login(page, "admin");
+  const tripName = `عائلة ${RUN}`;
+  await page.goto("/trips/new");
+  await page.fill("[name=name]", tripName); await page.selectOption("[name=transportType]", "AIR");
+  await page.click("button:has-text('إنشاء')");
+  await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  const tripUrl = page.url();
+  await page.fill("#price-QUAD", "1000");
+  await page.click("button:has-text('حفظ الأسعار')");
+
+  // accommodation chosen while adding an existing pilgrim (seeded A10000137)
+  await page.getByRole("button", { name: "إضافة معتمر" }).click();
+  await page.getByLabel("بحث عن معتمر").fill("A10000137");
+  await page.getByRole("dialog").getByRole("button", { name: "إضافة", exact: true }).first().click();
+  const dlg = page.getByRole("dialog");
+  const mk = dlg.locator("select[name=makkahHotelId]");
+  await mk.selectOption({ index: 1 });
+  await dlg.locator("select[name=roomType]").selectOption("QUAD");
+  await dlg.locator("input[name=makkahRoomNo]").fill("501");
+  await dlg.getByRole("button", { name: "تأكيد الإضافة" }).click();
+  await expect(dlg.getByText("مضاف").first()).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.reload();
+  await expect(page.locator("tbody tr", { hasText: "A10000137" })).toContainText("/ 501");
+
+  // a family of two with a head
+  await newPilgrim(page, `FA${RUN}1`, "رب الأسرة سالم محمود", tripName);
+  await newPilgrim(page, `FA${RUN}2`, "فرد الأسرة سالم محمود", tripName);
+  await page.goto(tripUrl);
+  const rowHead = page.locator("tbody tr", { hasText: `FA${RUN}1` }), rowMember = page.locator("tbody tr", { hasText: `FA${RUN}2` });
+  for (const row of [rowHead, rowMember]) { // room type on both so each has the trip's price
+    await row.locator("details summary").click();
+    await row.locator("select[name=roomType]").selectOption("QUAD");
+    await row.getByRole("button", { name: "حفظ التسكين" }).click();
+    await expect(row.getByText("تم", { exact: true })).toBeVisible();
+  }
+  await page.reload();
+  await rowHead.locator("input[name=bookingIds]").check();
+  await rowMember.locator("input[name=bookingIds]").check();
+  await rowHead.locator("input[name=headBookingId]").check();
+  await page.selectOption("select[name=kind]", "FAMILY");
+  await page.click("button:has-text('اجعل المحددين مجموعة واحدة')");
+  await expect(page.locator(".chip", { hasText: "رب الأسرة" }).first()).toBeVisible();
+  await page.getByRole("link", { name: "حساب الأسرة" }).click();
+  await expect(page.getByText("$2,000").first()).toBeVisible();
+  await page.fill("[name=amount]", "1500");
+  await page.click("button:has-text('تسجيل دفعة الأسرة')");
+  await expect(page.getByText(/^تم/)).toBeVisible();
+  await expect(page.getByText("$500").first()).toBeVisible(); // family remaining
 });

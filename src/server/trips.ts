@@ -19,6 +19,7 @@ export async function loadTripDetail(tripId: string) {
       seat: { include: { bus: true, car: true } },
       groups: { include: { group: true } },
       payments: true,
+      rooms: { include: { room: { include: { hotel: true } } } },
     },
     orderBy: { createdAt: "asc" },
   });
