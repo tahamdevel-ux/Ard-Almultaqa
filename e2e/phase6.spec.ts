@@ -115,3 +115,29 @@ test("accommodation with hotel and room, family head and family account", async 
   await expect(page.getByText(/^تم/)).toBeVisible();
   await expect(page.getByText("$500").first()).toBeVisible(); // family remaining
 });
+
+test("new pilgrim page: hotel, room type and room number per selected trip", async ({ page }) => {
+  await login(page, "admin");
+  const tripName = `تسكين عند الإضافة ${RUN}`;
+  await page.goto("/trips/new");
+  await page.fill("[name=name]", tripName); await page.selectOption("[name=transportType]", "AIR");
+  await page.click("button:has-text('إنشاء')");
+  await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  const tripUrl = page.url();
+  const tripId = tripUrl.split("/").pop()!;
+
+  await page.goto("/pilgrims/new");
+  const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
+  await f("fullNameAr", "تسكين سالم محمود"); await f("familyName", "الاختبار");
+  await page.selectOption("[name=gender]", "MALE");
+  await f("birthDate", "12/05/1975"); await f("passportNo", `ACC${RUN}`);
+  await f("enGivenName", "TEST"); await f("enSurname", "ROOM"); await f("passportExpiry", "10/10/2031");
+  await page.locator("label", { hasText: tripName }).locator("input[name=tripIds]").check();
+  await page.locator(`select[name="makkahHotelId__${tripId}"]`).selectOption({ index: 1 });
+  await page.locator(`select[name="roomType__${tripId}"]`).selectOption("DOUBLE");
+  await page.locator(`input[name="makkahRoomNo__${tripId}"]`).fill("808");
+  await page.click("button:has-text('حفظ')");
+  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.goto(tripUrl);
+  await expect(page.locator("tbody tr", { hasText: `ACC${RUN}` })).toContainText("/ 808");
+});

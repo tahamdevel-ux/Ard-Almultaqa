@@ -13,6 +13,15 @@ export type AccResult = { ok: true } | { ok: false; error: string };
 
 const CITY_LABEL: Record<City, string> = { MAKKAH: "مكة", MADINAH: "المدينة" };
 
+/** Per-trip accommodation inside one form: field names carry the trip id (e.g. makkahRoomNo__<tripId>). */
+export function accommodationForTrip(f: FormData, tripId: string): Accommodation | undefined {
+  const g = (k: string) => String(f.get(`${k}__${tripId}`) ?? "").trim();
+  const a: Accommodation = { makkahHotelId: g("makkahHotelId") || null, madinahHotelId: g("madinahHotelId") || null, roomType: g("roomType") || null, makkahRoomNo: g("makkahRoomNo"), madinahRoomNo: g("madinahRoomNo") };
+  return a.roomType || a.makkahRoomNo || a.madinahRoomNo ? a : undefined; // hotels alone (= the defaults) need no extra work
+}
+
+export class AccommodationError extends Error {}
+
 /** Read the accommodation fields out of a form (names: makkahHotelId, madinahHotelId, roomType, makkahRoomNo, madinahRoomNo). */
 export function accommodationFromForm(f: FormData): Accommodation {
   const g = (k: string) => String(f.get(k) ?? "").trim();
@@ -47,8 +56,8 @@ async function placeInRoom(tx: Tx, tripId: string, bookingId: string, city: City
  * The room type also sets the booking's price from the trip's price list when the booking has none.
  * All-or-nothing: any problem (room full, wrong gender mix, room in another hotel) changes nothing.
  */
-export async function applyAccommodation(tripId: string, bookingId: string, a: Accommodation): Promise<AccResult> {
-  return withTripLock(db, tripId, async (tx) => {
+export async function applyAccommodation(tripId: string, bookingId: string, a: Accommodation, client: Tx | typeof db = db): Promise<AccResult> {
+  return withTripLock(client, tripId, async (tx) => {
     const b = await tx.booking.findFirst({ where: { id: bookingId, tripId, status: "ACTIVE", deletedAt: null } });
     if (!b) return { ok: false, error: "الحجز غير موجود" } as AccResult;
     const trip = await tx.trip.findUniqueOrThrow({ where: { id: tripId } });

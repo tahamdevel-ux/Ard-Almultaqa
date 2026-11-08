@@ -7,6 +7,7 @@ import { isEmergencyPhone, isIraqiMobile, normalizePhone } from "@/domain/phone"
 import { normalizePassportNo } from "@/domain/passport";
 import { parseDate } from "@/domain/dates";
 import { addPilgrimToTrips } from "./bookings";
+import { applyAccommodation, AccommodationError, type Accommodation } from "./accommodation";
 
 const opt = z.string().trim().optional().transform((v) => (v ? v : undefined));
 const dateField = (msg: string) =>
@@ -95,7 +96,7 @@ export function fullNameEn(p: { enGivenName: string; enFatherName?: string | nul
 }
 
 /** New pilgrim + bookings in one transaction: either everything is saved or nothing. */
-export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInput, tripIds: string[]): Promise<ActionState> {
+export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInput, tripIds: string[], acc: Record<string, Accommodation | undefined> = {}): Promise<ActionState> {
   if (tripIds.length === 0) return { error: "اختر رحلة واحدة على الأقل", fieldErrors: { tripIds: "اختر رحلة واحدة على الأقل" } };
   if (await findByPassport(data.passportNo)) return { error: DUPLICATE_PASSPORT_MSG, fieldErrors: { passportNo: DUPLICATE_PASSPORT_MSG } };
   try {
@@ -104,9 +105,17 @@ export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInp
       if (live !== new Set(tripIds).size) return { error: "إحدى الرحلات المختارة غير موجودة", fieldErrors: { tripIds: "إحدى الرحلات المختارة غير موجودة" } } as ActionState;
       const p = await tx.pilgrim.create({ data: data as Prisma.PilgrimUncheckedCreateInput });
       await addPilgrimToTrips(tx, p.id, p.agentId, tripIds);
+      for (const tripId of tripIds) {
+        const a = acc[tripId];
+        if (!a) continue;
+        const booking = await tx.booking.findUniqueOrThrow({ where: { pilgrimId_tripId: { pilgrimId: p.id, tripId } } });
+        const r = await applyAccommodation(tripId, booking.id, a, tx);
+        if (!r.ok) throw new AccommodationError(r.error); // rolls back the pilgrim and every booking
+      }
       return { ok: true, id: p.id } as ActionState;
     });
   } catch (e) {
+    if (e instanceof AccommodationError) return { error: e.message, fieldErrors: { tripIds: e.message } };
     if ((e as { code?: string }).code === "P2002") return { error: DUPLICATE_PASSPORT_MSG, fieldErrors: { passportNo: DUPLICATE_PASSPORT_MSG } };
     throw e;
   }

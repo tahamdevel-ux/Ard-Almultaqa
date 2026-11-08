@@ -62,5 +62,11 @@ export async function tripChoices(booked: string[] = []) {
     where: { deletedAt: null, status: { not: "CANCELLED" } },
     orderBy: [{ departDate: { sort: "desc", nulls: "last" } }, { name: "asc" }],
   });
-  return trips.map((t) => ({ id: t.id, label: tripLabel(t), dates: dateRangeLabel(t.departDate, t.returnDate), booked: booked.includes(t.id) }));
+  return trips.map((t) => ({ id: t.id, label: tripLabel(t), dates: dateRangeLabel(t.departDate, t.returnDate), booked: booked.includes(t.id), makkahHotelId: t.makkahHotelId ?? "", madinahHotelId: t.madinahHotelId ?? "" }));
+}
+
+/** Hotels for the accommodation pickers. */
+export async function hotelOptions() {
+  const hotels = await db.hotel.findMany({ where: { deletedAt: null }, orderBy: { officialName: "asc" } });
+  return hotels.map((h) => ({ id: h.id, name: h.localName ?? h.officialName, city: h.city as "MAKKAH" | "MADINAH" }));
 }

@@ -14,7 +14,7 @@ import { getSetting } from "@/server/settings";
 import { DOC_LABELS, TRANSPORT_LABELS, TRIP_STATUS_LABELS, VISA_LABELS } from "@/lib/labels";
 import { removeDocument, savePilgrim, uploadDocument, addToTrips } from "../actions";
 import { AddToTripsForm } from "@/components/TripPicker";
-import { tripChoices } from "@/server/trips";
+import { hotelOptions, tripChoices } from "@/server/trips";
 
 export default async function PilgrimPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePage("pilgrims.view");
@@ -28,6 +28,7 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
   const [minMonths, mahramSettings] = await Promise.all([getSetting("passportMinMonths"), getSetting("mahram")]);
   const canWrite = can(user.role, "pilgrims.write");
   const canBook = can(user.role, "bookings.write");
+  const hotels = canBook ? await hotelOptions() : [];
   const addable = canBook ? await tripChoices(p.bookings.filter((b) => b.status === "ACTIVE").map((b) => b.tripId)) : [];
   const canHealth = can(user.role, "pilgrims.health");
   const canDocs = can(user.role, "documents.view");
@@ -114,7 +115,7 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
       {canBook && (
         <details className="card">
           <summary className="cursor-pointer font-bold">إضافة لرحلة</summary>
-          <div className="mt-3"><AddToTripsForm action={addToTrips.bind(null, p.id)} trips={addable} /></div>
+          <div className="mt-3"><AddToTripsForm action={addToTrips.bind(null, p.id)} trips={addable} hotels={hotels} /></div>
         </details>
       )}
 

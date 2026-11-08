@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { db } from "./db";
 import { applyAccommodation } from "./accommodation";
 import { addPilgrimToTrips } from "./bookings";
+import { createPilgrimWithTrips, pilgrimSchema } from "./pilgrims";
 
 const D = (s: string) => new Date(s + "T00:00:00Z");
 async function wipe() {
@@ -62,5 +63,26 @@ describe("accommodation when adding a pilgrim", () => {
     expect(await db.roomAssignment.count({ where: { bookingId: b.id } })).toBe(1);
     await applyAccommodation(t.id, b.id, { madinahHotelId: h.id, roomType: "DOUBLE", madinahRoomNo: "" });
     expect(await db.roomAssignment.count({ where: { bookingId: b.id } })).toBe(0);
+  });
+});
+
+describe("accommodation while creating a pilgrim", () => {
+  const data = (no: string) => pilgrimSchema.parse({ firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980", passportNo: no, enGivenName: "A", enSurname: "B", passportExpiry: "01/01/2035" });
+  const user = { id: "x", role: "ADMIN" } as never;
+
+  it("creates the pilgrim, the booking and the room together", async () => {
+    const h = await db.hotel.create({ data: { officialName: "H", city: "MAKKAH" } });
+    const t = await db.trip.create({ data: { name: "رحلة", transportType: "AIR", capacity: 10 } });
+    const r = await createPilgrimWithTrips(user, data("NEWACC1"), [t.id], { [t.id]: { makkahHotelId: h.id, roomType: "TRIPLE", makkahRoomNo: "12" } });
+    expect(r.ok).toBe(true);
+    expect(await db.room.count({ where: { tripId: t.id, roomNo: "12", hotelId: h.id } })).toBe(1);
+  });
+
+  it("a bad room rolls back the pilgrim and the booking", async () => {
+    const h = await db.hotel.create({ data: { officialName: "H", city: "MAKKAH" } });
+    const t = await db.trip.create({ data: { name: "رحلة", transportType: "AIR", capacity: 10 } });
+    const r = await createPilgrimWithTrips(user, data("NEWACC2"), [t.id], { [t.id]: { makkahHotelId: h.id, makkahRoomNo: "12" } }); // no room type for a new room
+    expect(r.ok).toBeFalsy(); expect(r.fieldErrors?.tripIds).toBeTruthy();
+    expect(await db.pilgrim.count()).toBe(0); expect(await db.booking.count()).toBe(0); expect(await db.room.count()).toBe(0);
   });
 });

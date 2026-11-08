@@ -7,17 +7,17 @@ export type AccValues = { makkahHotelId: string; madinahHotelId: string; roomTyp
 const TYPES = [["", "—"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"]];
 
 /** Hotel per city, room type and room numbers for one pilgrim. Names match accommodationFromForm(). */
-export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc" }: { hotels: HotelOpt[]; values: AccValues; onChange?: (v: AccValues) => void; idPrefix?: string }) {
+export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc", nameSuffix = "" }: { hotels: HotelOpt[]; values: AccValues; onChange?: (v: AccValues) => void; idPrefix?: string; nameSuffix?: string }) {
   const set = (k: keyof AccValues) => (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => onChange?.({ ...values, [k]: e.target.value });
   const sel = (k: "makkahHotelId" | "madinahHotelId", city: "MAKKAH" | "MADINAH", label: string) => (
     <div><label className="label" htmlFor={`${idPrefix}-${k}`}>{label}</label>
-      <select id={`${idPrefix}-${k}`} name={k} className="input" {...(onChange ? { value: values[k], onChange: set(k) } : { defaultValue: values[k] })}>
+      <select id={`${idPrefix}-${k}`} name={k + nameSuffix} className="input" {...(onChange ? { value: values[k], onChange: set(k) } : { defaultValue: values[k] })}>
         <option value="">— فندق الرحلة —</option>{hotels.filter((h) => h.city === city).map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
       </select></div>
   );
   const room = (k: "makkahRoomNo" | "madinahRoomNo", label: string) => (
     <div><label className="label" htmlFor={`${idPrefix}-${k}`}>{label}</label>
-      <input id={`${idPrefix}-${k}`} name={k} className="input" dir="ltr" {...(onChange ? { value: values[k], onChange: set(k) } : { defaultValue: values[k] })} /></div>
+      <input id={`${idPrefix}-${k}`} name={k + nameSuffix} className="input" dir="ltr" {...(onChange ? { value: values[k], onChange: set(k) } : { defaultValue: values[k] })} /></div>
   );
   return (
     <div className="grid gap-2 sm:grid-cols-2">
@@ -26,7 +26,7 @@ export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc"
       {sel("madinahHotelId", "MADINAH", "فندق المدينة")}
       {room("madinahRoomNo", "رقم غرفة المدينة")}
       <div><label className="label" htmlFor={`${idPrefix}-roomType`}>نوع الغرفة</label>
-        <select id={`${idPrefix}-roomType`} name="roomType" className="input" {...(onChange ? { value: values.roomType, onChange: set("roomType") } : { defaultValue: values.roomType })}>
+        <select id={`${idPrefix}-roomType`} name={"roomType" + nameSuffix} className="input" {...(onChange ? { value: values.roomType, onChange: set("roomType") } : { defaultValue: values.roomType })}>
           {TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select></div>
     </div>

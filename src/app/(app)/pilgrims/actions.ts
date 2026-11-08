@@ -7,6 +7,7 @@ import { can } from "@/lib/permissions";
 import { createPilgrimWithTrips, formToObject, pilgrimSchema, updatePilgrim, zodToState, type ActionState } from "@/server/pilgrims";
 import { deleteFile, putFile } from "@/server/storage";
 import { splitTripleName } from "@/import/values";
+import { accommodationForTrip, applyAccommodation, AccommodationError } from "@/server/accommodation";
 import { addPilgrimToTrips, overlapWarnings, summarizeAdd } from "@/server/bookings";
 
 const HEALTH = ["chronicIllness", "wheelchair", "elderly", "healthNotes"];
@@ -47,7 +48,8 @@ export async function savePilgrim(id: string | null, _prev: ActionState, form: F
     if (id) r = await updatePilgrim(user, id, data as never);
     else {
       await requirePermission("bookings.write");
-      r = await createPilgrimWithTrips(user, data as never, form.getAll("tripIds").map(String).filter(Boolean));
+      const tripIds = form.getAll("tripIds").map(String).filter(Boolean);
+      r = await createPilgrimWithTrips(user, data as never, tripIds, Object.fromEntries(tripIds.map((t) => [t, accommodationForTrip(form, t)])));
     }
     if (r.ok) revalidatePath("/pilgrims");
     return r;
@@ -98,7 +100,23 @@ export async function addToTrips(pilgrimId: string, _p: ActionState, form: FormD
     if (!tripIds.length) return { error: "اختر رحلة واحدة على الأقل" };
     const p = await db.pilgrim.findFirst({ where: { id: pilgrimId, deletedAt: null } });
     if (!p) return { error: "المعتمر غير موجود" };
-    const r = await db.$transaction((tx) => addPilgrimToTrips(tx, pilgrimId, p.agentId, tripIds));
+    let r;
+    try {
+      r = await db.$transaction(async (tx) => {
+        const res = await addPilgrimToTrips(tx, pilgrimId, p.agentId, tripIds);
+        for (const tripId of res.added) {
+          const a = accommodationForTrip(form, tripId);
+          if (!a) continue;
+          const booking = await tx.booking.findUniqueOrThrow({ where: { pilgrimId_tripId: { pilgrimId, tripId } } });
+          const ar = await applyAccommodation(tripId, booking.id, a, tx);
+          if (!ar.ok) throw new AccommodationError(ar.error);
+        }
+        return res;
+      });
+    } catch (e) {
+      if (e instanceof AccommodationError) return { error: e.message };
+      throw e;
+    }
     const warnings = await overlapWarnings(pilgrimId, r.added);
     revalidatePath(`/pilgrims/${pilgrimId}`);
     for (const id of r.added) revalidatePath(`/trips/${id}`, "layout");

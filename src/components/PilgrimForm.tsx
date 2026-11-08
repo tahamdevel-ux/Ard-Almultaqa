@@ -5,13 +5,14 @@ import { Field } from "./Field";
 import { GOVERNORATES } from "@/lib/labels";
 import type { ActionState } from "@/server/pilgrims";
 import { TripPicker, type TripChoice } from "@/components/TripPicker";
+import type { HotelOpt } from "@/components/AccommodationFields";
 import { DigitsInput } from "@/components/DigitsInput";
 import { DateInput } from "@/components/DateInput";
 
 type V = Record<string, string | boolean | null | undefined>;
 
 export function PilgrimForm({
-  action, values = {}, agents, canHealth, redirectTo, trips,
+  action, values = {}, agents, canHealth, redirectTo, trips, hotels,
 }: {
   action: (prev: ActionState, form: FormData) => Promise<ActionState>;
   values?: V;
@@ -19,6 +20,7 @@ export function PilgrimForm({
   canHealth: boolean;
   redirectTo?: boolean;
   trips?: TripChoice[];
+  hotels?: HotelOpt[];
 }) {
   const [state, formAction, pending] = useActionState(action, {} as ActionState);
   const router = useRouter();
@@ -120,7 +122,7 @@ export function PilgrimForm({
       {trips && (
         <section className="card">
           <h2 className="mb-3 font-bold">الرحلات * <span className="text-xs font-normal text-brand-mid">(اختر رحلة واحدة على الأقل)</span></h2>
-          <TripPicker trips={trips} error={fe.tripIds} />
+          <TripPicker trips={trips} error={fe.tripIds} hotels={hotels} />
         </section>
       )}
 
