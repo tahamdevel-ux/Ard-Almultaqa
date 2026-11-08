@@ -6,6 +6,7 @@ import { AuthError, requirePermission } from "@/server/auth";
 import { can } from "@/lib/permissions";
 import { createPilgrimWithTrips, formToObject, pilgrimSchema, updatePilgrim, zodToState, type ActionState } from "@/server/pilgrims";
 import { deleteFile, putFile } from "@/server/storage";
+import { splitTripleName } from "@/import/values";
 import { addPilgrimToTrips, overlapWarnings, summarizeAdd } from "@/server/bookings";
 
 const HEALTH = ["chronicIllness", "wheelchair", "elderly", "healthNotes"];
@@ -22,6 +23,13 @@ export async function savePilgrim(id: string | null, _prev: ActionState, form: F
   return guard(async () => {
     const user = await requirePermission("pilgrims.write");
     const raw = formToObject(form);
+    // one "triple name" box -> first / father / grandfather
+    if (typeof raw.fullNameAr === "string") {
+      const n = splitTripleName(raw.fullNameAr);
+      if (!n.first || !n.father) return { error: "تحقّق من الحقول المظللة", fieldErrors: { fullNameAr: "اكتب الاسم الأول واسم الأب على الأقل" } };
+      raw.firstName = n.first; raw.fatherName = n.father; raw.grandfatherName = n.grandfather;
+      delete raw.fullNameAr;
+    }
     const canHealth = can(user.role, "pilgrims.health");
     if (!canHealth) for (const k of HEALTH) delete raw[k];
     const parsed = pilgrimSchema.safeParse(raw);

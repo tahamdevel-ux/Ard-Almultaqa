@@ -16,9 +16,9 @@ async function login(page: Page, username: string) {
 async function fillPilgrim(page: Page, passportNo: string) {
   await page.goto("/pilgrims/new");
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
-  await f("firstName", "عبدالله"); await f("fatherName", "سالم"); await f("grandfatherName", "محمود"); await f("familyName", "المولى");
+  await f("fullNameAr", "عبدالله سالم محمود"); await f("familyName", "المولى");
   await page.selectOption("[name=gender]", "MALE");
-  await f("birthDate", "12/05/1975"); await f("phone", "07701234567");
+  await f("birthDate", "12/05/1975"); await page.locator("[name=phone]").pressSequentially("077012345678999"); await expect(page.locator("[name=phone]")).toHaveValue("07701234567");
   await f("passportNo", passportNo); await f("enGivenName", "ABDULLAH"); await f("enFatherName", "SALIM"); await f("enGrandfatherName", "MAHMOOD"); await f("enSurname", "ALMULA");
   await f("passportExpiry", "10/10/2031");
   await page.locator("[name=tripIds]").first().check();
@@ -72,7 +72,7 @@ test("full flow: create pilgrim, upload docs, attach to land trip, seat, manifes
   // edit name -> audit
   await page.goto(`/pilgrims?q=${passport}`);
   await page.click(`text=عبدالله سالم محمود المولى`);
-  await page.fill("[name=firstName]", "عبدالرحمن");
+  await page.fill("[name=fullNameAr]", "عبدالرحمن سالم محمود");
   await page.click("button:has-text('حفظ')");
   await expect(page.getByText("تم الحفظ")).toBeVisible();
   await page.goto(`/audit?q=عبدالرحمن`);
@@ -95,7 +95,7 @@ test("a trip is required for a new pilgrim; profile adds to several trips, skipp
   // fillPilgrim ticks the first trip; untick it to prove the field is required
   await page.goto("/pilgrims/new");
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
-  await f("firstName", "علي"); await f("fatherName", "سالم"); await f("grandfatherName", "محمود"); await f("familyName", "المولى");
+  await f("fullNameAr", "علي سالم محمود"); await f("familyName", "المولى");
   await page.selectOption("[name=gender]", "MALE");
   await f("birthDate", "12/05/1975"); await f("passportNo", `NOT${RUN}`); await f("enGivenName", "ALI"); await f("enSurname", "ALMULA"); await f("passportExpiry", "10/10/2031");
   await page.click("button:has-text('حفظ')");

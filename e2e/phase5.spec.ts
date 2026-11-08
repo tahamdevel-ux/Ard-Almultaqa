@@ -73,7 +73,7 @@ test("smart import: header on row 4, (A)/(E) headers, mixed dates, junk rows, ex
   // pilgrim 3 already exists (registered by hand earlier)
   await page.goto("/pilgrims/new");
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
-  await f("firstName", "قديم"); await f("fatherName", "أ"); await f("grandfatherName", "ب"); await f("familyName", "ج");
+  await f("fullNameAr", "قديم أ ب"); await f("familyName", "ج");
   await page.selectOption("[name=gender]", "MALE"); await f("birthDate", "01/01/1970"); await f("passportNo", `SM${RUN}3`);
   await f("enGivenName", "OLD"); await f("enSurname", "ONE"); await f("passportExpiry", "01/01/2031");
   await page.locator("[name=tripIds]").first().check();

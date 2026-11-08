@@ -100,3 +100,13 @@ export function splitFullName(full: string, lang: "ar" | "en"): SplitName {
   if (tokens.length > 4) out.greatGrandfather = tokens.slice(3, -1).join(" ");
   return out;
 }
+
+/**
+ * The form's single "triple name" box: first, father, grandfather. Compound names stay together
+ * ("عبد الله", "صلاح الدين"). More than three words: the rest goes to the grandfather. Two words are accepted
+ * (grandfather stays empty); one word is rejected by the caller.
+ */
+export function splitTripleName(full: string): { first: string; father: string; grandfather: string } {
+  const t = glue(full.replace(/\s+/g, " ").trim().split(" ").filter(Boolean), "ar");
+  return { first: t[0] ?? "", father: t[1] ?? "", grandfather: t.slice(2).join(" ") };
+}

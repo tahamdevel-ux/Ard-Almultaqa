@@ -5,6 +5,7 @@ import { Field } from "./Field";
 import { GOVERNORATES } from "@/lib/labels";
 import type { ActionState } from "@/server/pilgrims";
 import { TripPicker, type TripChoice } from "@/components/TripPicker";
+import { DigitsInput } from "@/components/DigitsInput";
 import { DateInput } from "@/components/DateInput";
 
 type V = Record<string, string | boolean | null | undefined>;
@@ -27,9 +28,11 @@ export function PilgrimForm({
   }, [state, redirectTo, router]);
   const fe = state.fieldErrors ?? {};
   const v = (k: string) => (values[k] ?? "") as string;
-  const t = (name: string, label: string, opts: { dir?: "ltr"; required?: boolean; type?: string; hint?: string; upper?: boolean; date?: boolean } = {}) => (
+  const t = (name: string, label: string, opts: { dir?: "ltr"; required?: boolean; type?: string; hint?: string; upper?: boolean; date?: boolean; digits?: number } = {}) => (
     <Field label={label + (opts.required ? " *" : "")} name={name} error={fe[name]} hint={opts.hint}>
-      {opts.date ? (
+      {opts.digits ? (
+        <DigitsInput id={name} name={name} defaultValue={v(name)} maxDigits={opts.digits} className={"input " + (fe[name] ? "border-red-500" : "")} />
+      ) : opts.date ? (
         <DateInput id={name} name={name} defaultValue={v(name)} className={"input " + (fe[name] ? "border-red-500" : "")} />
       ) : (
         <input id={name} name={name} defaultValue={v(name)} type={opts.type ?? "text"} dir={opts.dir}
@@ -46,11 +49,13 @@ export function PilgrimForm({
       <section className="card">
         <h2 className="mb-3 font-bold">البيانات الشخصية (بالعربي)</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {t("firstName", "الاسم الأول", { required: true })}
-          {t("fatherName", "اسم الأب", { required: true })}
-          {t("grandfatherName", "اسم الجد", { required: true })}
-          {t("greatGrandfatherName", "اسم أبو الجد")}
+          <div className="sm:col-span-2">
+            <Field label="الاسم الثلاثي *" name="fullNameAr" error={fe.fullNameAr ?? fe.firstName ?? fe.fatherName ?? fe.grandfatherName} hint="الاسم الأول واسم الأب واسم الجد في خانة واحدة">
+              <input id="fullNameAr" name="fullNameAr" defaultValue={[v("firstName"), v("fatherName"), v("grandfatherName")].filter(Boolean).join(" ")} className={"input " + (fe.fullNameAr || fe.firstName ? "border-red-500" : "")} />
+            </Field>
+          </div>
           {t("familyName", "اللقب", { required: true })}
+          {t("greatGrandfatherName", "اسم أبو الجد")}
           <Field label="الجنس *" name="gender" error={fe.gender}>
             <select id="gender" name="gender" defaultValue={v("gender")} className="input">
               <option value="">اختر</option><option value="MALE">ذكر</option><option value="FEMALE">أنثى</option>
@@ -64,7 +69,7 @@ export function PilgrimForm({
             </select>
           </Field>
           {t("address", "العنوان")}
-          {t("phone", "رقم الهاتف", { dir: "ltr", type: "tel", hint: "07XXXXXXXXX" })}
+          {t("phone", "رقم الهاتف", { digits: 11, hint: "07XXXXXXXXX (11 رقماً)" })}
           {t("emergencyPhone", "هاتف الطوارئ", { dir: "ltr", type: "tel" })}
         </div>
       </section>

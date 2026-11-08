@@ -15,7 +15,7 @@ const dateField = (msg: string) =>
 export const pilgrimSchema = z.object({
   firstName: z.string().trim().min(1, "الاسم الأول مطلوب"),
   fatherName: z.string().trim().min(1, "اسم الأب مطلوب"),
-  grandfatherName: z.string().trim().min(1, "اسم الجد مطلوب"),
+  grandfatherName: z.string().trim().optional().transform((v) => v ?? ""), // optional: a two-word name is accepted
   greatGrandfatherName: opt,
   familyName: z.string().trim().min(1, "اللقب مطلوب"),
   gender: z.enum(["MALE", "FEMALE"], { message: "الجنس مطلوب" }),
@@ -88,7 +88,7 @@ export async function updatePilgrim(user: SessionUser, id: string, data: Pilgrim
 }
 
 export function fullNameAr(p: { firstName: string; fatherName: string; grandfatherName: string; familyName: string }) {
-  return `${p.firstName} ${p.fatherName} ${p.grandfatherName} ${p.familyName}`;
+  return [p.firstName, p.fatherName, p.grandfatherName, p.familyName].filter(Boolean).join(" ");
 }
 export function fullNameEn(p: { enGivenName: string; enFatherName?: string | null; enGrandfatherName?: string | null; enSurname: string }) {
   return [p.enGivenName, p.enFatherName, p.enGrandfatherName, p.enSurname].filter(Boolean).join(" ");

@@ -5,7 +5,7 @@ import { analyzeWorkbook, readWorkbook, errorReport } from "./engine";
 import { analyzeSheet, guessMapping } from "./headers";
 import { autoMap } from "./fields";
 import { buildPreview, commitImport } from "./commit";
-import { normalizeDate, normalizeGender, normalizeImportPhone, normalizeNationality, splitFullName } from "./values";
+import { normalizeDate, normalizeGender, normalizeImportPhone, normalizeNationality, splitFullName, splitTripleName } from "./values";
 import { createPilgrim, pilgrimSchema, updatePilgrim, DUPLICATE_PASSPORT_MSG } from "@/server/pilgrims";
 
 const user = { id: "u1", username: "t", name: "مختبر", role: "ADMIN" as const };
@@ -64,6 +64,15 @@ describe("value normalizers", () => {
     expect(splitFullName("عبد الله سالم محمود المولى", "ar")).toMatchObject({ first: "عبد الله", father: "سالم", grandfather: "محمود", family: "المولى" });
     expect(splitFullName("AHMED ALI HASSAN ALMOSULI", "en")).toMatchObject({ first: "AHMED", father: "ALI", grandfather: "HASSAN", family: "ALMOSULI" });
     expect(splitFullName("أحمد علي حسن محمود الجبوري", "ar")).toMatchObject({ greatGrandfather: "محمود", family: "الجبوري" });
+  });
+});
+
+describe("triple name box", () => {
+  it("splits first / father / grandfather, keeps compound names, accepts two words", () => {
+    expect(splitTripleName("عبد الله سالم محمود")).toEqual({ first: "عبد الله", father: "سالم", grandfather: "محمود" });
+    expect(splitTripleName("صلاح الدين محمد ابراهيم")).toEqual({ first: "صلاح الدين", father: "محمد", grandfather: "ابراهيم" });
+    expect(splitTripleName("علي حسن")).toEqual({ first: "علي", father: "حسن", grandfather: "" });
+    expect(splitTripleName("أحمد علي حسن محمود").grandfather).toBe("حسن محمود");
   });
 });
 
