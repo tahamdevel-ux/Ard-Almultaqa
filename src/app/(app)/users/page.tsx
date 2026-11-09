@@ -1,7 +1,9 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
 import { hashPassword, requirePage, requirePermission } from "@/server/auth";
+import { redirect } from "next/navigation";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
+import { checkPhone } from "@/domain/identity";
 
 async function addUser(form: FormData) {
   "use server";
@@ -10,7 +12,9 @@ async function addUser(form: FormData) {
   const password = String(form.get("password") ?? "");
   const role = String(form.get("role")) as Role;
   if (!username || password.length < 8 || !(role in ROLE_LABELS)) return;
-  await db.user.create({ data: { username, name: String(form.get("name") ?? "").trim() || username, phone: String(form.get("phone") ?? "").trim() || null, passwordHash: await hashPassword(password), role } });
+  const ph = checkPhone(String(form.get("phone") ?? ""));
+  if (ph.error) redirect("/users?error=" + encodeURIComponent(ph.error));
+  await db.user.create({ data: { username, name: String(form.get("name") ?? "").trim() || username, phone: ph.value, passwordHash: await hashPassword(password), role } });
   revalidatePath("/users");
 }
 async function toggleUser(id: string, active: boolean) {
@@ -31,15 +35,17 @@ async function resetPassword(id: string, form: FormData) {
   revalidatePath("/users");
 }
 
-export default async function UsersPage() {
+export default async function UsersPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
   await requirePage("users.manage");
   const users = await db.user.findMany({ orderBy: { createdAt: "asc" } });
   return (
     <div className="space-y-4">
       <h1 className="page-title">المستخدمون والصلاحيات</h1>
+      {error && <p role="alert" className="alert-bad">{error}</p>}
       <form action={addUser} className="card grid gap-3 sm:grid-cols-5">
         <div><label className="label">الاسم</label><input name="name" className="input" /></div>
-        <div><label className="label">الهاتف</label><input name="phone" className="input" dir="ltr" /></div>
+        <div><label className="label">الهاتف</label><input name="phone" className="input" dir="ltr" inputMode="tel" /></div>
         <div><label className="label">اسم المستخدم *</label><input name="username" className="input" dir="ltr" required /></div>
         <div><label className="label">كلمة المرور (8 أحرف+) *</label><input name="password" type="password" minLength={8} className="input" dir="ltr" required /></div>
         <div><label className="label">الدور</label>

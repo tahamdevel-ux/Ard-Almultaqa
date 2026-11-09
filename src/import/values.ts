@@ -1,7 +1,7 @@
 import { asciiDigits } from "@/domain/dateMask";
 import { formatDate } from "@/domain/dates";
 import { normalizeSearch } from "@/domain/searchNorm";
-import { isIraqiMobile, normalizePhone } from "@/domain/phone";
+import { normalizePhone, validatePhone } from "@/domain/identity";
 
 export type Cell = string | number | boolean | Date | null;
 
@@ -54,15 +54,19 @@ export function normalizeNationality(v: Cell | undefined): string {
   return raw.toUpperCase();
 }
 
-/** 7701234567, +9647701234567, 009647701234567, ٠٧٧٠… -> 07701234567; null when it cannot be a valid Iraqi mobile. */
+/** Normalizes an Iraqi (07…) or Saudi (05…) mobile; Excel often drops the leading zero, which is restored. Null when invalid. */
 export function normalizeImportPhone(v: Cell | undefined): string | null {
   if (v == null) return null;
-  let d = asciiDigits(typeof v === "number" ? String(Math.round(v)) : String(v)).replace(/\D/g, "");
-  if (!d) return null;
-  if (d.startsWith("00964")) d = d.slice(5); else if (d.startsWith("964")) d = d.slice(3);
-  if (d.length === 10 && d.startsWith("7")) d = "0" + d;
-  const p = normalizePhone(d);
-  return isIraqiMobile(p) ? p : null;
+  let n = normalizePhone(typeof v === "number" ? String(Math.round(v)) : String(v));
+  const bare = /^964(7\d{9})$/.exec(n) ?? /^966(5\d{8})$/.exec(n);
+  if (bare) n = "0" + bare[1];
+  if (/^7\d{9}$/.test(n) || /^5\d{8}$/.test(n)) n = "0" + n;
+  return validatePhone(n) ? null : n;
+}
+
+/** Passport type from a "Passport Type" column: foreign / أجنبي -> FOREIGN, anything else IRAQI. */
+export function normalizePassportType(v: Cell | undefined): "IRAQI" | "FOREIGN" {
+  return /foreign|اجنب/.test(normalizeSearch(text(v))) ? "FOREIGN" : "IRAQI";
 }
 
 const hasArabic = (s: string) => /[؀-ۿ]/.test(s);

@@ -5,9 +5,10 @@ import { AccommodationFields, type HotelOpt } from "@/components/AccommodationFi
 export type TripChoice = { id: string; label: string; dates: string; booked?: boolean; makkahHotelId?: string; madinahHotelId?: string };
 
 /** Multi-select of trips as checkboxes (name="tripIds"). */
-export function TripPicker({ trips, error, hotels }: { trips: TripChoice[]; error?: string; hotels?: HotelOpt[] }) {
+export function TripPicker({ trips, error, hotels, initial }: { trips: TripChoice[]; error?: string; hotels?: HotelOpt[]; initial?: Record<string, string | string[]> }) {
   const [q, setQ] = useState("");
-  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const first = initial?.tripIds;
+  const [checked, setChecked] = useState<Set<string>>(new Set(Array.isArray(first) ? first : first ? [first] : []));
   const shown = trips.filter((t) => !q || (t.label + " " + t.dates).includes(q));
   return (
     <fieldset className="space-y-2">
@@ -16,7 +17,7 @@ export function TripPicker({ trips, error, hotels }: { trips: TripChoice[]; erro
         {shown.map((t) => (
           <div key={t.id}>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="tripIds" value={t.id} disabled={t.booked}
+              <input type="checkbox" name="tripIds" value={t.id} disabled={t.booked} defaultChecked={checked.has(t.id)}
                 onChange={(e) => setChecked((c) => { const n = new Set(c); if (e.target.checked) n.add(t.id); else n.delete(t.id); return n; })} />
               <span className="font-bold">{t.label}</span>
               <span className="ltr text-xs text-brand-mid">{t.dates}</span>
@@ -26,7 +27,7 @@ export function TripPicker({ trips, error, hotels }: { trips: TripChoice[]; erro
               <div className="my-2 space-y-1 rounded bg-canvas p-2">
                 <p className="text-xs font-bold text-brand-mid">التسكين في هذه الرحلة (اختياري): فندق كل مدينة ونوع الغرفة ورقمها</p>
                 <AccommodationFields hotels={hotels} idPrefix={"p" + t.id} nameSuffix={"__" + t.id}
-                  values={{ makkahHotelId: t.makkahHotelId ?? "", madinahHotelId: t.madinahHotelId ?? "", roomType: "", makkahRoomNo: "", madinahRoomNo: "" }} />
+                  values={{ makkahHotelId: (initial?.["makkahHotelId__" + t.id] as string) ?? t.makkahHotelId ?? "", madinahHotelId: (initial?.["madinahHotelId__" + t.id] as string) ?? t.madinahHotelId ?? "", roomType: (initial?.["roomType__" + t.id] as string) ?? "", makkahRoomNo: (initial?.["makkahRoomNo__" + t.id] as string) ?? "", madinahRoomNo: (initial?.["madinahRoomNo__" + t.id] as string) ?? "" }} />
               </div>
             )}
           </div>

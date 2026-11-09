@@ -73,7 +73,7 @@ describe("accommodation while creating a pilgrim", () => {
   it("creates the pilgrim, the booking and the room together", async () => {
     const h = await db.hotel.create({ data: { officialName: "H", city: "MAKKAH" } });
     const t = await db.trip.create({ data: { name: "رحلة", transportType: "AIR", capacity: 10 } });
-    const r = await createPilgrimWithTrips(user, data("NEWACC1"), [t.id], { [t.id]: { makkahHotelId: h.id, roomType: "TRIPLE", makkahRoomNo: "12" } });
+    const r = await createPilgrimWithTrips(user, data("A22222221"), [t.id], { [t.id]: { makkahHotelId: h.id, roomType: "TRIPLE", makkahRoomNo: "12" } });
     expect(r.ok).toBe(true);
     expect(await db.room.count({ where: { tripId: t.id, roomNo: "12", hotelId: h.id } })).toBe(1);
   });
@@ -81,7 +81,7 @@ describe("accommodation while creating a pilgrim", () => {
   it("a bad room rolls back the pilgrim and the booking", async () => {
     const h = await db.hotel.create({ data: { officialName: "H", city: "MAKKAH" } });
     const t = await db.trip.create({ data: { name: "رحلة", transportType: "AIR", capacity: 10 } });
-    const r = await createPilgrimWithTrips(user, data("NEWACC2"), [t.id], { [t.id]: { makkahHotelId: h.id, makkahRoomNo: "12" } }); // no room type for a new room
+    const r = await createPilgrimWithTrips(user, data("A22222222"), [t.id], { [t.id]: { makkahHotelId: h.id, makkahRoomNo: "12" } }); // no room type for a new room
     expect(r.ok).toBeFalsy(); expect(r.fieldErrors?.tripIds).toBeTruthy();
     expect(await db.pilgrim.count()).toBe(0); expect(await db.booking.count()).toBe(0); expect(await db.room.count()).toBe(0);
   });

@@ -34,6 +34,7 @@ export function nameInfo(h: string): NameInfo | null {
 
 interface Rule { field: string; re: RegExp; not?: RegExp }
 const RULES: Rule[] = [
+  { field: "passportType", re: /passport type|نوع الجواز/ },
   { field: "passportNo", re: /passport( number| no| num)?$|رقم الجواز|^الجواز$|جواز السفر|pass ?no/, not: /type|issue|expiry|date|country|نوع|تاريخ/ },
   { field: "birthDate", re: /birth date|date of birth|^dob$|birthdate|تاريخ الميلاد|^الميلاد$|تولد/ },
   { field: "placeOfBirth", re: /birth place|place of birth|محل الولاده|مكان الولاده|محل الميلاد/ },

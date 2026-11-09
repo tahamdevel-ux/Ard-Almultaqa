@@ -3,8 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import type { SessionUser } from "./auth";
 import { auditChanges, PILGRIM_AUDITED } from "./audit";
-import { isEmergencyPhone, isIraqiMobile, normalizePhone } from "@/domain/phone";
-import { normalizePassportNo } from "@/domain/passport";
+import { normalizePassport, normalizePhone, validatePassport, validatePhone } from "@/domain/identity";
 import { parseDate } from "@/domain/dates";
 import { addPilgrimToTrips } from "./bookings";
 import { applyAccommodation, AccommodationError, type Accommodation } from "./accommodation";
@@ -24,9 +23,10 @@ export const pilgrimSchema = z.object({
   motherName: opt,
   governorate: opt,
   address: opt,
-  phone: opt.refine((v) => !v || isIraqiMobile(v), "رقم الهاتف يجب أن يكون بصيغة 07XXXXXXXXX").transform((v) => (v ? normalizePhone(v) : undefined)),
-  emergencyPhone: opt.refine((v) => !v || isEmergencyPhone(v), "رقم الطوارئ غير صحيح").transform((v) => (v ? normalizePhone(v) : undefined)),
-  passportNo: z.string().trim().min(5, "رقم الجواز مطلوب").transform(normalizePassportNo),
+  phone: opt.transform((v) => (v ? normalizePhone(v) : undefined)),
+  emergencyPhone: opt.transform((v) => (v ? normalizePhone(v) : undefined)),
+  passportType: z.enum(["IRAQI", "FOREIGN"]).default("IRAQI"),
+  passportNo: z.string().trim().min(1, "رقم الجواز مطلوب").transform(normalizePassport),
   enGivenName: z.string().trim().min(1, "الاسم الأول بالإنكليزية مطلوب").transform((v) => v.toUpperCase()),
   enFatherName: opt.transform((v) => v?.toUpperCase()),
   enGrandfatherName: opt.transform((v) => v?.toUpperCase()),
@@ -43,6 +43,14 @@ export const pilgrimSchema = z.object({
   elderly: z.boolean().default(false),
   healthNotes: opt,
   agentId: opt,
+}).superRefine((d, ctx) => {
+  const pe = d.passportNo ? validatePassport(d.passportNo, d.passportType) : null;
+  if (pe) ctx.addIssue({ code: "custom", path: ["passportNo"], message: pe });
+  for (const k of ["phone", "emergencyPhone"] as const) {
+    const v = d[k];
+    const e = v ? validatePhone(v) : null;
+    if (e) ctx.addIssue({ code: "custom", path: [k], message: e });
+  }
 });
 export type PilgrimInput = z.infer<typeof pilgrimSchema>;
 
@@ -59,7 +67,7 @@ export function formToObject(form: FormData): Record<string, unknown> {
   return o;
 }
 
-export type ActionState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; id?: string; message?: string };
+export type ActionState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; id?: string; message?: string; values?: Record<string, string | string[]> };
 
 export function zodToState(e: z.ZodError): ActionState {
   const fieldErrors: Record<string, string> = {};
@@ -119,4 +127,15 @@ export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInp
     if ((e as { code?: string }).code === "P2002") return { error: DUPLICATE_PASSPORT_MSG, fieldErrors: { passportNo: DUPLICATE_PASSPORT_MSG } };
     throw e;
   }
+}
+
+/** What the user typed, so a failed save keeps every field (React clears uncontrolled forms after an action). */
+export function formEcho(form: FormData): Record<string, string | string[]> {
+  const out: Record<string, string | string[]> = {};
+  for (const k of new Set(form.keys())) {
+    const all = form.getAll(k).filter((x): x is string => typeof x === "string");
+    if (!all.length) continue;
+    out[k] = k === "tripIds" || all.length > 1 ? all : all[0];
+  }
+  return out;
 }

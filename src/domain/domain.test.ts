@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizePhone, isIraqiMobile, isEmergencyPhone } from "./phone";
+import { normalizePassport, validatePassport, normalizePhone, validatePhone, checkPhone, checkPhoneList, PASSPORT_ERRORS, PHONE_ERROR } from "./identity";
 import { rangesOverlap, parseDate, formatDate, addMonths, tripsOverlap } from "./dates";
 import { parseTripIdentity } from "./tripFields";
 import { passportExpiryWarning, normalizePassportNo } from "./passport";
@@ -9,20 +9,51 @@ import { autoSeat, validateSeat, nonAdjacentGroups } from "./seating";
 
 const d = (s: string) => new Date(s + "T00:00:00Z");
 
-describe("phone", () => {
-  it("accepts Mosul mobile formats", () => {
-    expect(isIraqiMobile("07701234567")).toBe(true);
-    expect(isIraqiMobile("+9647701234567")).toBe(true);
-    expect(isIraqiMobile("٠٧٧٠١٢٣٤٥٦٧")).toBe(true);
-    expect(normalizePhone("7701234567")).toBe("07701234567");
+describe("phone (Iraq 07 / Saudi 05)", () => {
+  const ok = (raw: string) => validatePhone(normalizePhone(raw)) === null;
+  it("accepts Iraqi and Saudi numbers in all supported spellings", () => {
+    expect(ok("07701234567")).toBe(true);
+    expect(ok("+964 770 123 4567")).toBe(true);
+    expect(ok("00964-770-123-4567")).toBe(true);
+    expect(ok("٠٧٧٠١٢٣٤٥٦٧")).toBe(true);
+    expect(ok("(0770) 123.4567")).toBe(true);
+    expect(ok("0501234567")).toBe(true);
+    expect(ok("+966501234567")).toBe(true);
+    expect(ok("00966 50 123 4567")).toBe(true);
   });
-  it("rejects bad numbers", () => {
-    expect(isIraqiMobile("0770123")).toBe(false);
-    expect(isIraqiMobile("08701234567")).toBe(false);
+  it("normalizes to the local value", () => {
+    expect(normalizePhone("+9647701234567")).toBe("07701234567");
+    expect(normalizePhone("+966501234567")).toBe("0501234567");
+    expect(normalizePhone("۰۷۷۰۱۲۳۴۵۶۷")).toBe("07701234567");
   });
-  it("emergency accepts foreign numbers", () => {
-    expect(isEmergencyPhone("+905551234567")).toBe(true);
-    expect(isEmergencyPhone("abc")).toBe(false);
+  it("rejects everything else with the Arabic message", () => {
+    for (const bad of ["0770123", "08701234567", "050123456", "05012345678", "0770123456", "077012345678", "+905551234567", "abc", "7701234567"]) {
+      expect(validatePhone(normalizePhone(bad)), bad).toBe(PHONE_ERROR);
+    }
+  });
+  it("empty is allowed, lists are validated one by one", () => {
+    expect(checkPhone("  ")).toEqual({ value: null });
+    expect(checkPhone("0770 123 4567")).toEqual({ value: "07701234567" });
+    expect(checkPhoneList("07701234567، 0501234567").values).toEqual(["07701234567", "0501234567"]);
+    expect(checkPhoneList("07701234567 123").error).toBe(PHONE_ERROR);
+  });
+});
+
+describe("passport number", () => {
+  it("normalizes: spaces removed, digits converted, uppercase", () => {
+    expect(normalizePassport(" a 123 456 78 ")).toBe("A12345678");
+    expect(normalizePassport("a١٢٣٤٥٦٧٨")).toBe("A12345678");
+    expect(normalizePassport("a۱۲۳۴۵۶۷۸")).toBe("A12345678");
+    expect(normalizePassport("a12345678")).toBe(normalizePassportNo("A12345678"));
+  });
+  it("Iraqi: one letter + 8 digits", () => {
+    expect(validatePassport("A12345678", "IRAQI")).toBeNull();
+    for (const bad of ["12345678A", "AB1234567", "A1234567", "A123456789", "A1234567X", "N1234567"]) expect(validatePassport(bad, "IRAQI"), bad).toBe(PASSPORT_ERRORS.IRAQI);
+    expect(validatePassport("A12345678")).toBeNull(); // IRAQI is the default
+  });
+  it("Foreign: 6 to 12 letters or digits", () => {
+    for (const good of ["N1234567", "AB1234", "ABCDEFGHIJKL", "123456"]) expect(validatePassport(good, "FOREIGN"), good).toBeNull();
+    for (const bad of ["AB123", "ABCDEFGHIJKLM", "AB-12345", "AB 12345"]) expect(validatePassport(bad, "FOREIGN"), bad).toBe(PASSPORT_ERRORS.FOREIGN);
   });
 });
 

@@ -17,7 +17,7 @@ async function fillPilgrim(page: Page, passportNo: string) {
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
   await f("fullNameAr", "عبدالله سالم محمود"); await f("familyName", "المولى");
   await page.selectOption("[name=gender]", "MALE");
-  await f("birthDate", "12/05/1975"); await page.locator("[name=phone]").pressSequentially("077012345678999"); await expect(page.locator("[name=phone]")).toHaveValue("07701234567");
+  await f("birthDate", "12/05/1975"); await f("phone", "+964 770 123 4567");
   await f("passportNo", passportNo); await f("enGivenName", "ABDULLAH"); await f("enFatherName", "SALIM"); await f("enGrandfatherName", "MAHMOOD"); await f("enSurname", "ALMULA");
   await f("passportExpiry", "10/10/2031");
   await page.locator("[name=tripIds]").first().check();
@@ -26,7 +26,7 @@ async function fillPilgrim(page: Page, passportNo: string) {
 
 test("full flow: create pilgrim, attach to land trip, seat, manifest PDF, audit", async ({ page }) => {
   await login(page, "admin");
-  const passport = `E2E${RUN}`;
+  const passport = `A1${RUN}`;
   await fillPilgrim(page, passport);
   await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
   await expect(page.locator("h1")).toContainText("عبدالله سالم محمود المولى");
@@ -75,7 +75,7 @@ test("full flow: create pilgrim, attach to land trip, seat, manifest PDF, audit"
 
 test("duplicate passport is blocked with Arabic message", async ({ page }) => {
   await login(page, "reg");
-  const passport = `DUP${RUN}`;
+  const passport = `A2${RUN}`;
   await fillPilgrim(page, passport);
   await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
   await fillPilgrim(page, passport);
@@ -84,17 +84,17 @@ test("duplicate passport is blocked with Arabic message", async ({ page }) => {
 
 test("a trip is required for a new pilgrim; profile adds to several trips, skipping existing", async ({ page }) => {
   await login(page, "reg");
-  await fillPilgrim(page, `TRP${RUN}`);
+  await fillPilgrim(page, `A4${RUN}`);
   // fillPilgrim ticks the first trip; untick it to prove the field is required
   await page.goto("/pilgrims/new");
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
   await f("fullNameAr", "علي سالم محمود"); await f("familyName", "المولى");
   await page.selectOption("[name=gender]", "MALE");
-  await f("birthDate", "12/05/1975"); await f("passportNo", `NOT${RUN}`); await f("enGivenName", "ALI"); await f("enSurname", "ALMULA"); await f("passportExpiry", "10/10/2031");
+  await f("birthDate", "12/05/1975"); await f("passportNo", `A3${RUN}`); await f("enGivenName", "ALI"); await f("enSurname", "ALMULA"); await f("passportExpiry", "10/10/2031");
   await page.click("button:has-text('حفظ')");
   await expect(page.getByText("اختر رحلة واحدة على الأقل").first()).toBeVisible();
   // profile of the first pilgrim: first trip already added, add two more
-  await page.goto("/pilgrims?q=" + `TRP${RUN}`);
+  await page.goto("/pilgrims?q=" + `A4${RUN}`);
   await page.getByRole("link", { name: /المولى/ }).first().click();
   await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
   await page.locator("summary:has-text('إضافة لرحلة')").click();
@@ -106,15 +106,39 @@ test("a trip is required for a new pilgrim; profile adds to several trips, skipp
 
 test("header search finds a pilgrim live and shows trips", async ({ page }) => {
   await login(page, "reg");
-  await fillPilgrim(page, `SRC${RUN}`);
+  await fillPilgrim(page, `A5${RUN}`);
   await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
   await page.goto("/dashboard");
-  await page.getByLabel("بحث شامل").fill(`src${RUN}`);
+  await page.getByLabel("بحث شامل").fill(`a5${RUN}`);
   const hit = page.getByRole("link", { name: /عبدالله/ }).first();
   await expect(hit).toBeVisible();
   await expect(hit).toContainText("المولى");
   await hit.click();
   await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+});
+
+test("passport type and phone rules (Iraqi / foreign passport, Iraqi / Saudi phone)", async ({ page }) => {
+  await login(page, "reg");
+  const base = async (passport: string, type: string, phone: string) => {
+    await page.goto("/pilgrims/new");
+    const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
+    await f("fullNameAr", "اختبار جواز سالم"); await f("familyName", "الاختبار");
+    await page.selectOption("[name=gender]", "MALE");
+    await f("birthDate", "12/05/1975"); await f("enGivenName", "TEST"); await f("enSurname", "PASS"); await f("passportExpiry", "10/10/2031");
+    await page.selectOption("[name=passportType]", type);
+    await page.locator("[name=passportNo]").pressSequentially(passport);
+    await f("phone", phone);
+    await page.locator("[name=tripIds]").first().check();
+    await page.click("button:has-text('حفظ')");
+  };
+  await base("n1234567", "IRAQI", "0501234567");
+  await expect(page.getByText("رقم الجواز العراقي يجب أن يكون حرفاً إنكليزياً واحداً و8 أرقام").first()).toBeVisible();
+  await expect(page.locator("[name=passportNo]")).toHaveValue("N1234567"); // shown in uppercase while typing
+  await base("n1234567", "FOREIGN", "12345");
+  await expect(page.getByText("رقم الهاتف يجب أن يكون عراقياً").first()).toBeVisible();
+  await base(`n${RUN}`, "FOREIGN", "+966 50 123 4567");
+  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await expect(page.locator("[name=phone]")).toHaveValue("0501234567");
 });
 
 test("date fields add the slash automatically", async ({ page }) => {
@@ -127,8 +151,8 @@ test("date fields add the slash automatically", async ({ page }) => {
 });
 
 test("role permissions enforced on pages and routes", async ({ page, request }) => {
-  const gone = await request.get("/api/documents/00000000-0000-0000-0000-000000000000", { maxRedirects: 0 });
-  expect(gone.status()).toBe(404); // document uploads were removed
+  const anon = await request.get("/api/trips/00000000-0000-0000-0000-000000000000/outputs/manifest", { maxRedirects: 0 });
+  expect(anon.status()).toBe(401);
   await login(page, "acc");
   await page.goto("/users");
   await expect(page).toHaveURL(/forbidden/);
@@ -136,6 +160,8 @@ test("role permissions enforced on pages and routes", async ({ page, request }) 
   await expect(page).toHaveURL(/forbidden/);
   await page.goto("/pilgrims/new");
   await expect(page).toHaveURL(/forbidden/);
+  expect((await page.request.get("/api/documents/00000000-0000-0000-0000-000000000000")).status()).toBe(404); // document uploads were removed
+  expect((await page.request.get("/api/trips/00000000-0000-0000-0000-000000000000/outputs/id-cards")).status()).toBe(404); // ID cards were removed
 });
 
 test("import wizard: 200 rows, bad rows reported, duplicates detected", async ({ page }) => {
@@ -143,9 +169,9 @@ test("import wizard: 200 rows, bad rows reported, duplicates detected", async ({
   const ws = wb.addWorksheet("Sheet1");
   ws.addRow(["الاسم الأول", "اسم الأب", "اسم الجد", "اللقب", "الجنس", "تاريخ الميلاد", "رقم الجواز", "Given name", "Surname", "تاريخ الانتهاء", "الهاتف"]);
   for (let i = 0; i < 200; i++) {
-    ws.addRow(["سعد", "خالد", "حمد", "النعيمي", "ذكر", "05/04/1970", `IM${RUN}${String(i).padStart(3, "0")}`, "SAAD", "ALNUAIMI", "01/01/2032", i % 40 === 5 ? "999" : "07701234567"]);
+    ws.addRow(["سعد", "خالد", "حمد", "النعيمي", "ذكر", "05/04/1970", `A${RUN.slice(-5)}${String(i).padStart(3, "0")}`, "SAAD", "ALNUAIMI", "01/01/2032", i % 40 === 5 ? "999" : "07701234567"]);
   }
-  ws.addRow(["سعد", "خالد", "حمد", "النعيمي", "ذكر", "05/04/1970", `IM${RUN}000`, "SAAD", "ALNUAIMI", "01/01/2032", "07701234567"]); // dup inside file
+  ws.addRow(["سعد", "خالد", "حمد", "النعيمي", "ذكر", "05/04/1970", `A${RUN.slice(-5)}000`, "SAAD", "ALNUAIMI", "01/01/2032", "07701234567"]); // dup inside file
   const buffer = Buffer.from(await wb.xlsx.writeBuffer());
 
   await login(page, "admin");

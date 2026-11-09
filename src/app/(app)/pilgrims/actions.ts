@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
 import { AuthError, requirePermission } from "@/server/auth";
 import { can } from "@/lib/permissions";
-import { createPilgrimWithTrips, formToObject, pilgrimSchema, updatePilgrim, zodToState, type ActionState } from "@/server/pilgrims";
+import { createPilgrimWithTrips, formEcho, formToObject, pilgrimSchema, updatePilgrim, zodToState, type ActionState } from "@/server/pilgrims";
 import { splitTripleName } from "@/import/values";
 import { accommodationForTrip, applyAccommodation, AccommodationError } from "@/server/accommodation";
 import { addPilgrimToTrips, overlapWarnings, summarizeAdd } from "@/server/bookings";
@@ -17,7 +17,12 @@ async function guard<T>(fn: () => Promise<T>): Promise<T | ActionState> {
   }
 }
 
-export async function savePilgrim(id: string | null, _prev: ActionState, form: FormData): Promise<ActionState> {
+export async function savePilgrim(id: string | null, prev: ActionState, form: FormData): Promise<ActionState> {
+  const r = await savePilgrimInner(id, prev, form);
+  return r.ok ? r : { ...r, values: formEcho(form) };
+}
+
+async function savePilgrimInner(id: string | null, _prev: ActionState, form: FormData): Promise<ActionState> {
   return guard(async () => {
     const user = await requirePermission("pilgrims.write");
     const raw = formToObject(form);

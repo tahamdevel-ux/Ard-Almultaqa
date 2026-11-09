@@ -18,7 +18,7 @@ const H57 = ["[]", "Y", "Passport Number", "Title", "AFull Name", "First Name (A
 
 function row57(i: number, o: { passport?: string; birth?: unknown; issue?: unknown; expiry?: unknown; gender?: string; phone?: unknown; nat?: string; first?: string; third?: string } = {}) {
   const r: unknown[] = Array(57).fill(null);
-  r[0] = i + 1; r[1] = "Y"; r[2] = o.passport ?? `Z${String(5000000 + i)}`;
+  r[0] = i + 1; r[1] = "Y"; r[2] = o.passport ?? `Z${String(50000000 + i)}`;
   r[4] = "تجريب كامل"; r[5] = o.first ?? "تجريب"; r[6] = "علي"; r[7] = o.third ?? "حسن"; r[8] = "الاختبار"; r[9] = "TEST ALI HASSAN ALEKHTIBAR";
   r[10] = "TEST"; r[11] = "ALI"; r[12] = "HASSAN"; r[13] = "ALEKHTIBAR"; r[14] = o.nat ?? "Iraq"; r[15] = "Iraq"; r[16] = "العراق";
   r[17] = o.birth ?? "07-01-1963"; r[19] = o.issue ?? "21-09-2025"; r[20] = o.expiry ?? "20-09-2033"; r[22] = o.gender ?? "Male";
@@ -113,7 +113,7 @@ describe("smart sheet reading", () => {
 
   it("recognises Arabic headers and full-name columns", async () => {
     const head = ["#", "الاسم الكامل", "الاسم بالانكليزي", "رقم الجواز", "الجنس", "تاريخ الميلاد", "تاريخ الانتهاء", "رقم الهاتف"];
-    const rows = [head, [1, "عبد الله سالم محمود المولى", "ABDULLAH SALIM MAHMOOD ALMULA", "A1234567", "ذكر", "05/04/1970", "01/01/2032", 7701234567]];
+    const rows = [head, [1, "عبد الله سالم محمود المولى", "ABDULLAH SALIM MAHMOOD ALMULA", "A12345678", "ذكر", "05/04/1970", "01/01/2032", 7701234567]];
     const [raw] = await book([{ name: "S", rows }]);
     const a = analyzeSheet(raw.name, raw.rows);
     expect(a.mapping.fullNameAr).toBe(1); expect(a.mapping.fullNameEn).toBe(2); expect(a.mapping.passportNo).toBe(3);
@@ -144,10 +144,10 @@ describe("import into a trip", () => {
     const t = await trip();
     const r = await commitImport(user, a.dataRows, a.mapping, t.id, {});
     expect(r.created).toBe(2); expect(r.invalid).toHaveLength(0);
-    const p0 = await db.pilgrim.findUniqueOrThrow({ where: { passportNo: "Z5000000" } });
+    const p0 = await db.pilgrim.findUniqueOrThrow({ where: { passportNo: "Z50000000" } });
     expect(p0.gender).toBe("FEMALE"); expect(p0.phone).toBe("07701234567"); expect(p0.nationality).toBe("IRAQI");
     expect(p0.passportExpiry.getUTCFullYear()).toBe(2028);
-    const p1 = await db.pilgrim.findUniqueOrThrow({ where: { passportNo: "Z5000001" } });
+    const p1 = await db.pilgrim.findUniqueOrThrow({ where: { passportNo: "Z50000001" } });
     expect(p1.phone).toBeNull();
     expect(await db.booking.count({ where: { tripId: t.id } })).toBe(2);
   });
@@ -155,15 +155,15 @@ describe("import into a trip", () => {
   it("existing passports: added to the trip with their data untouched; already on the trip is skipped", async () => {
     const t = await trip(), other = await trip("رحلة أخرى");
     const old = await db.pilgrim.create({ data: { firstName: "قديم", fatherName: "أ", grandfatherName: "ب", familyName: "ج", gender: "MALE", birthDate: new Date("1970-01-01"),
-      passportNo: "Z5000000", enGivenName: "OLD", enSurname: "ONE", passportExpiry: new Date("2030-01-01") } });
+      passportNo: "Z50000000", enGivenName: "OLD", enSurname: "ONE", passportExpiry: new Date("2030-01-01") } });
     const onTrip = await db.pilgrim.create({ data: { firstName: "موجود", fatherName: "أ", grandfatherName: "ب", familyName: "ج", gender: "MALE", birthDate: new Date("1970-01-01"),
-      passportNo: "Z5000001", enGivenName: "HERE", enSurname: "ONE", passportExpiry: new Date("2030-01-01") } });
+      passportNo: "Z50000001", enGivenName: "HERE", enSurname: "ONE", passportExpiry: new Date("2030-01-01") } });
     await db.booking.create({ data: { pilgrimId: onTrip.id, tripId: t.id } });
     await db.booking.create({ data: { pilgrimId: old.id, tripId: other.id } }); // other trips never block
     const [raw] = await book([{ name: "S", rows: [H57, row57(0), row57(1), row57(2)] }]);
     const a = analyzeSheet(raw.name, raw.rows);
     const pv = await buildPreview(a.dataRows, a.mapping, t.id);
-    expect(pv.fresh).toBe(1); expect(pv.existing).toHaveLength(2); expect(pv.existing.find((e) => e.passportNo === "Z5000001")!.onTrip).toBe(true);
+    expect(pv.fresh).toBe(1); expect(pv.existing).toHaveLength(2); expect(pv.existing.find((e) => e.passportNo === "Z50000001")!.onTrip).toBe(true);
     const r = await commitImport(user, a.dataRows, a.mapping, t.id, {});
     expect(r).toMatchObject({ created: 1, addedExisting: 1, alreadyOnTrip: 1, updated: 0 });
     expect((await db.pilgrim.findUniqueOrThrow({ where: { id: old.id } })).firstName).toBe("قديم"); // untouched
@@ -175,7 +175,7 @@ describe("import into a trip", () => {
     const t = await trip();
     const mk = (no: string) => db.pilgrim.create({ data: { firstName: "قديم", fatherName: "أ", grandfatherName: "ب", familyName: "ج", gender: "MALE", birthDate: new Date("1970-01-01"),
       passportNo: no, enGivenName: "OLD", enSurname: "ONE", passportExpiry: new Date("2030-01-01") } });
-    const u = await mk("Z5000000"); const sk = await mk("Z5000001");
+    const u = await mk("Z50000000"); const sk = await mk("Z50000001");
     const [raw] = await book([{ name: "S", rows: [H57, row57(0), row57(1)] }]);
     const a = analyzeSheet(raw.name, raw.rows);
     const rowNos = a.dataRows.map((x) => x.rowNo);
@@ -188,7 +188,7 @@ describe("import into a trip", () => {
 
   it("reports bad rows, in-file duplicates and a missing passport, all-or-nothing otherwise", async () => {
     const t = await trip();
-    const rows = [H57, row57(0), row57(1, { passport: "Z5000000" }), row57(2, { birth: "99-99-9999" }), row57(3, { passport: "" })];
+    const rows = [H57, row57(0), row57(1, { passport: "Z50000000" }), row57(2, { birth: "99-99-9999" }), row57(3, { passport: "" })];
     const [raw] = await book([{ name: "S", rows }]);
     const a = analyzeSheet(raw.name, raw.rows);
     const pv = await buildPreview(a.dataRows, a.mapping, t.id);
@@ -206,12 +206,12 @@ describe("import into a trip", () => {
 });
 
 describe("pilgrim rules", () => {
-  const base = { firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980", passportNo: "x 123 45", enGivenName: "a", enSurname: "b", passportExpiry: "01/01/2032" };
+  const base = { firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980", passportNo: "x 123 456 78", enGivenName: "a", enSurname: "b", passportExpiry: "01/01/2032" };
   it("blocks duplicate passport with Arabic message", async () => {
     const a = pilgrimSchema.parse(base);
-    expect(a.passportNo).toBe("X12345");
+    expect(a.passportNo).toBe("X12345678");
     expect((await createPilgrim(user, a)).ok).toBe(true);
-    const r = await createPilgrim(user, pilgrimSchema.parse({ ...base, passportNo: "x12345" }));
+    const r = await createPilgrim(user, pilgrimSchema.parse({ ...base, passportNo: "x12345678" }));
     expect(r.error).toBe(DUPLICATE_PASSPORT_MSG);
     expect(await db.pilgrim.count()).toBe(1);
   });
@@ -221,16 +221,16 @@ describe("pilgrim rules", () => {
   });
   it("audits name and passport number changes", async () => {
     const created = await createPilgrim(user, pilgrimSchema.parse(base));
-    const r = await updatePilgrim(user, created.id!, pilgrimSchema.parse({ ...base, firstName: "محمود", passportNo: "Z99999" }));
+    const r = await updatePilgrim(user, created.id!, pilgrimSchema.parse({ ...base, firstName: "محمود", passportNo: "Z99999999" }));
     expect(r.ok).toBe(true);
     const logs = await db.auditLog.findMany({ where: { entityId: created.id } });
     expect(logs.map((l) => l.field).sort()).toEqual(["firstName", "passportNo"]);
-    expect(logs.find((l) => l.field === "passportNo")).toMatchObject({ oldValue: "X12345", newValue: "Z99999", userName: "مختبر" });
+    expect(logs.find((l) => l.field === "passportNo")).toMatchObject({ oldValue: "X12345678", newValue: "Z99999999", userName: "مختبر" });
   });
   it("cannot change passport to one already used", async () => {
     await createPilgrim(user, pilgrimSchema.parse(base));
-    const b = await createPilgrim(user, pilgrimSchema.parse({ ...base, passportNo: "Q77777" }));
-    const r = await updatePilgrim(user, b.id!, pilgrimSchema.parse({ ...base, passportNo: "X12345" }));
+    const b = await createPilgrim(user, pilgrimSchema.parse({ ...base, passportNo: "Q77777777" }));
+    const r = await updatePilgrim(user, b.id!, pilgrimSchema.parse({ ...base, passportNo: "X12345678" }));
     expect(r.error).toBe(DUPLICATE_PASSPORT_MSG);
   });
 });

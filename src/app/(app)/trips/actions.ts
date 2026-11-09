@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
 import { AuthError, requirePermission, type SessionUser } from "@/server/auth";
 import { normalizePassportNo } from "@/domain/passport";
+import { checkPhone } from "@/domain/identity";
 import { autoSeat, validateSeat } from "@/domain/seating";
 import { overlapWarning } from "@/server/trips";
 import { addPilgrimToTrips, overlapWarnings } from "@/server/bookings";
@@ -29,9 +30,11 @@ export async function addBus(tripId: string, _p: TripActionState, f: FormData): 
     // the number is optional: an empty one becomes the next free number
     const existing = await db.bus.findMany({ where: { tripId }, select: { number: true } });
     const next = String(Math.max(0, ...existing.map((x) => (/^\d+$/.test(x.number) ? +x.number : 0))) + 1);
+    const ph = checkPhone(s(f, "driverPhone"));
+    if (ph.error) return { error: ph.error };
     const number = s(f, "number") || next;
     if (existing.some((x) => x.number === number)) return { error: "رقم الباص مستخدم في هذه الرحلة" };
-    await db.bus.create({ data: { tripId, number, name: s(f, "name") || null, driverName: s(f, "driverName") || null, driverPhone: s(f, "driverPhone") || null, company: s(f, "company") || null, seatCount: +s(f, "seatCount") || 48 } });
+    await db.bus.create({ data: { tripId, number, name: s(f, "name") || null, driverName: s(f, "driverName") || null, driverPhone: ph.value, company: s(f, "company") || null, seatCount: +s(f, "seatCount") || 48 } });
     touch(tripId); return { ok: true };
   });
 }
@@ -70,7 +73,9 @@ export async function addFlight(tripId: string, _p: TripActionState, f: FormData
 export async function addCar(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
   return guarded("trips.write", async () => {
     if (!s(f, "label")) return { error: "اسم/رقم السيارة مطلوب" };
-    await db.groundCar.create({ data: { tripId, label: s(f, "label"), driverName: s(f, "driverName") || null, driverPhone: s(f, "driverPhone") || null, capacity: +s(f, "capacity") || 4 } });
+    const ph = checkPhone(s(f, "driverPhone"));
+    if (ph.error) return { error: ph.error };
+    await db.groundCar.create({ data: { tripId, label: s(f, "label"), driverName: s(f, "driverName") || null, driverPhone: ph.value, capacity: +s(f, "capacity") || 4 } });
     touch(tripId); return { ok: true };
   });
 }

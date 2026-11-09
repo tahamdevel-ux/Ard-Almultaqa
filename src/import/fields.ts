@@ -16,6 +16,7 @@ export const IMPORT_FIELDS: ImportField[] = [
   { key: "address", label: "العنوان", aliases: ["العنوان", "السكن", "address"] },
   { key: "phone", label: "الهاتف", aliases: ["الهاتف", "رقم الهاتف", "موبايل", "phone", "mobile"] },
   { key: "emergencyPhone", label: "هاتف الطوارئ", aliases: ["هاتف الطوارئ", "هاتف الطوارىء", "emergency"] },
+  { key: "passportType", label: "نوع الجواز (عراقي/أجنبي)", aliases: ["نوع الجواز", "passport type"] },
   { key: "passportNo", label: "رقم الجواز", required: true, aliases: ["رقم الجواز", "الجواز", "passport", "passport no", "passport number"] },
   { key: "enGivenName", label: "Given name", required: true, aliases: ["given name", "given", "first name en", "الاسم بالانكليزي", "الاسم بالإنكليزي"] },
   { key: "enFatherName", label: "Father name", aliases: ["father name", "father en"] },

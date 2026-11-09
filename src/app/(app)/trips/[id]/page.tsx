@@ -117,7 +117,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
                 </li>
               ))}
             </ul>
-            {w && <SmallForm action={addBus.bind(null, trip.id)} submit="إضافة باص" fields={[{ name: "name", label: "اسم الباص (اختياري)" }, { name: "number", label: "رقم الباص (تلقائي)" }, { name: "seatCount", label: "عدد المقاعد", ltr: true, type: "number" }, { name: "driverName", label: "السائق" }, { name: "driverPhone", label: "هاتف السائق", ltr: true }, { name: "company", label: "شركة النقل" }]} />}
+            {w && <SmallForm action={addBus.bind(null, trip.id)} submit="إضافة باص" fields={[{ name: "name", label: "اسم الباص (اختياري)" }, { name: "number", label: "رقم الباص (تلقائي)" }, { name: "seatCount", label: "عدد المقاعد", ltr: true, type: "number" }, { name: "driverName", label: "السائق" }, { name: "driverPhone", label: "هاتف السائق", ltr: true, type: "tel" }, { name: "company", label: "شركة النقل" }]} />}
           </>
         ) : (
           <>
@@ -128,7 +128,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
             {w && (
               <div className="space-y-2">
                 <SmallForm action={addFlight.bind(null, trip.id)} submit="إضافة رحلة جوية" fields={[{ name: "flightNo", label: "رقم الرحلة", ltr: true, required: true }, { name: "airline", label: "الشركة" }, { name: "departAt", label: "الإقلاع", type: "datetime-local", ltr: true }, { name: "arriveAt", label: "الوصول", type: "datetime-local", ltr: true }, { name: "ticketCount", label: "عدد التذاكر", type: "number", ltr: true }]} />
-                <SmallForm action={addCar.bind(null, trip.id)} submit="إضافة سيارة" fields={[{ name: "label", label: "السيارة", required: true }, { name: "driverName", label: "السائق" }, { name: "driverPhone", label: "هاتف", ltr: true }, { name: "capacity", label: "الركاب", type: "number", ltr: true }]} />
+                <SmallForm action={addCar.bind(null, trip.id)} submit="إضافة سيارة" fields={[{ name: "label", label: "السيارة", required: true }, { name: "driverName", label: "السائق" }, { name: "driverPhone", label: "هاتف", ltr: true, type: "tel" }, { name: "capacity", label: "الركاب", type: "number", ltr: true }]} />
               </div>
             )}
           </>

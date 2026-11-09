@@ -15,7 +15,7 @@ export function SmallForm({ action, fields, submit }: { action: (p: TripActionSt
           {f.date ? (
             <DateInput id={f.name + submit} name={f.name} required={f.required} placeholder={f.placeholder} defaultValue={f.defaultValue} className="input w-36" />
           ) : (
-            <input id={f.name + submit} name={f.name} type={f.type ?? "text"} dir={f.ltr ? "ltr" : undefined} required={f.required}
+            <input id={f.name + submit} name={f.name} type={f.type ?? "text"} inputMode={f.type === "tel" ? "tel" : undefined} dir={f.ltr ? "ltr" : undefined} required={f.required}
               placeholder={f.placeholder} defaultValue={f.defaultValue} className="input w-36" />
           )}
         </div>

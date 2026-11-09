@@ -63,7 +63,7 @@ test("smart import: header on row 4, (A)/(E) headers, mixed dates, junk rows, ex
   ws.addRow(["[]", "Y", "Passport Number", "AFull Name", "First Name (A)", "Father Name (A)", "Third Name (A)", "Last Name (A)", "First Name (E)", "Father Name (E)", "Third Name (E)", "Last Name (E)",
     "Nationality", "Birth Date", "Issue Date", "Expiry Date", "Gender", "Mahram", "Visa Number", "Phone"]);
   const mk = (i: number, extra: Partial<Record<number, unknown>> = {}) => {
-    const r: unknown[] = [i, "Y", `SM${RUN}${i}`, "تجريب كامل", "تجريب", "علي", "حسن", "الاختبار", "TEST", "ALI", "HASSAN", "ALEKHTIBAR", "Iraq", "07-01-1963", new Date(Date.UTC(2025, 8, 21)), "20-09-2033", i % 2 ? "Male" : "Female", "ignored", "123", 7701234567];
+    const r: unknown[] = [i, "Y", `A${RUN}${i}`, "تجريب كامل", "تجريب", "علي", "حسن", "الاختبار", "TEST", "ALI", "HASSAN", "ALEKHTIBAR", "Iraq", "07-01-1963", new Date(Date.UTC(2025, 8, 21)), "20-09-2033", i % 2 ? "Male" : "Female", "ignored", "123", 7701234567];
     for (const [k, v] of Object.entries(extra)) r[+k] = v;
     return r;
   };
@@ -75,7 +75,7 @@ test("smart import: header on row 4, (A)/(E) headers, mixed dates, junk rows, ex
   await page.goto("/pilgrims/new");
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
   await f("fullNameAr", "قديم أ ب"); await f("familyName", "ج");
-  await page.selectOption("[name=gender]", "MALE"); await f("birthDate", "01/01/1970"); await f("passportNo", `SM${RUN}3`);
+  await page.selectOption("[name=gender]", "MALE"); await f("birthDate", "01/01/1970"); await f("passportNo", `A${RUN}3`);
   await f("enGivenName", "OLD"); await f("enSurname", "ONE"); await f("passportExpiry", "01/01/2031");
   await page.locator("[name=tripIds]").first().check();
   await page.click("button:has-text('حفظ')");
@@ -106,6 +106,6 @@ test("smart import: header on row 4, (A)/(E) headers, mixed dates, junk rows, ex
   await page.goto(tripUrl);
   await expect(page.getByText("المعتمرون (3)")).toBeVisible();
   // the existing pilgrim's data was not changed
-  await page.goto(`/pilgrims?q=SM${RUN}3`);
+  await page.goto(`/pilgrims?q=A${RUN}3`);
   await expect(page.getByText("قديم").first()).toBeVisible();
 });

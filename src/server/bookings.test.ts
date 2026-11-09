@@ -21,21 +21,21 @@ const data = (no: string) => pilgrimSchema.parse({
 
 describe("pilgrim creation with trips", () => {
   it("requires at least one trip and saves nothing without it", async () => {
-    const r = await createPilgrimWithTrips(user, data("AAA111"), []);
+    const r = await createPilgrimWithTrips(user, data("A11111111"), []);
     expect(r.fieldErrors?.tripIds).toBeTruthy();
     expect(await db.pilgrim.count()).toBe(0);
   });
 
   it("creates the pilgrim and all bookings together", async () => {
     const t1 = await trip("أ", "2026-12-01", "2026-12-10"); const t2 = await trip("ب");
-    const r = await createPilgrimWithTrips(user, data("AAA112"), [t1.id, t2.id]);
+    const r = await createPilgrimWithTrips(user, data("A11111112"), [t1.id, t2.id]);
     expect(r.ok).toBe(true);
     expect(await db.booking.count({ where: { pilgrimId: r.id } })).toBe(2);
   });
 
   it("rolls back the pilgrim if a trip does not exist", async () => {
     const t1 = await trip("أ");
-    const r = await createPilgrimWithTrips(user, data("AAA113"), [t1.id, "00000000-0000-0000-0000-000000000000"]);
+    const r = await createPilgrimWithTrips(user, data("A11111113"), [t1.id, "00000000-0000-0000-0000-000000000000"]);
     expect(r.ok).toBeFalsy();
     expect(await db.pilgrim.count()).toBe(0);
   });
@@ -44,7 +44,7 @@ describe("pilgrim creation with trips", () => {
 describe("adding an existing pilgrim to trips", () => {
   it("allows overlapping trips (warning only) but never the same trip twice", async () => {
     const t1 = await trip("أ", "2026-12-01", "2026-12-10"); const t2 = await trip("ب", "2026-12-05", "2026-12-15"); const t3 = await trip("ج");
-    const p = await db.pilgrim.create({ data: { ...data("AAA114"), } as never });
+    const p = await db.pilgrim.create({ data: { ...data("A11111114"), } as never });
     const r1 = await addPilgrimToTrips(db, p.id, null, [t1.id, t2.id]);
     expect(r1.added).toHaveLength(2);
     expect(await overlapWarning(p.id, t2)).toBeTruthy();
@@ -56,7 +56,7 @@ describe("adding an existing pilgrim to trips", () => {
 
   it("reactivates a cancelled booking on the same trip", async () => {
     const t = await trip("أ");
-    const p = await db.pilgrim.create({ data: { ...data("AAA115") } as never });
+    const p = await db.pilgrim.create({ data: { ...data("A11111115") } as never });
     await db.booking.create({ data: { pilgrimId: p.id, tripId: t.id, status: "CANCELLED", cancelReason: "x", cancelledAt: new Date() } });
     const r = await addPilgrimToTrips(db, p.id, null, [t.id]);
     expect(r.added).toEqual([t.id]);

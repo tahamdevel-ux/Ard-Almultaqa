@@ -1,18 +1,22 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
 import { requirePage, requirePermission } from "@/server/auth";
+import { redirect } from "next/navigation";
 import { can } from "@/lib/permissions";
+import { checkPhoneList } from "@/domain/identity";
 
 async function addAgent(form: FormData) {
   "use server";
   await requirePermission("agents.write");
   const name = String(form.get("name") ?? "").trim();
   if (!name) return;
+  const ph = checkPhoneList(String(form.get("phones") ?? ""));
+  if (ph.error) redirect("/agents?error=" + encodeURIComponent(ph.error));
   await db.agent.create({
     data: {
       name,
       officeName: String(form.get("officeName") ?? "").trim() || null,
-      phones: String(form.get("phones") ?? "").split(/[,،\s]+/).filter(Boolean),
+      phones: ph.values,
       address: String(form.get("address") ?? "").trim() || null,
       commissionType: form.get("commissionType") === "FIXED_WHOLESALE" ? "FIXED_WHOLESALE" : "PERCENT",
       commissionValue: Number(form.get("commissionValue") ?? 0) || 0,
@@ -28,18 +32,20 @@ async function deleteAgent(id: string) {
   revalidatePath("/agents");
 }
 
-export default async function AgentsPage() {
+export default async function AgentsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const { error } = await searchParams;
   const user = await requirePage("agents.view");
   const agents = await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, include: { _count: { select: { pilgrims: true } } } });
   const w = can(user.role, "agents.write");
   return (
     <div className="space-y-4">
       <h1 className="page-title">الوكلاء</h1>
+      {error && <p role="alert" className="alert-bad">{error}</p>}
       {w && (
         <form action={addAgent} className="card grid gap-3 sm:grid-cols-3">
           <div><label className="label">اسم الوكيل *</label><input name="name" className="input" required /></div>
           <div><label className="label">اسم المكتب</label><input name="officeName" className="input" /></div>
-          <div><label className="label">الهواتف</label><input name="phones" className="input" dir="ltr" /></div>
+          <div><label className="label">الهواتف</label><input name="phones" className="input" dir="ltr" inputMode="tel" /></div>
           <div><label className="label">العنوان</label><input name="address" className="input" /></div>
           <div><label className="label">نوع العمولة</label>
             <select name="commissionType" className="input"><option value="PERCENT">نسبة %</option><option value="FIXED_WHOLESALE">سعر جملة ثابت</option></select></div>

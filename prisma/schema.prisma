@@ -144,6 +144,11 @@ model FamilyGroup {
   members   BookingGroupMember[]
 }
 
+enum PassportType {
+  IRAQI
+  FOREIGN
+}
+
 model Pilgrim {
   id             String    @id @default(uuid())
   // Arabic
@@ -161,6 +166,7 @@ model Pilgrim {
   emergencyPhone String?
   // Passport (English as printed)
   passportNo     String    @unique
+  passportType   PassportType @default(IRAQI)
   enGivenName    String
   enFatherName   String?
   enGrandfatherName String?

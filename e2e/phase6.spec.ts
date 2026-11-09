@@ -91,10 +91,10 @@ test("accommodation with hotel and room, family head and family account", async 
   await expect(page.locator("tbody tr", { hasText: "A10000137" })).toContainText("/ 501");
 
   // a family of two with a head
-  await newPilgrim(page, `FA${RUN}1`, "رب الأسرة سالم محمود", tripName);
-  await newPilgrim(page, `FA${RUN}2`, "فرد الأسرة سالم محمود", tripName);
+  await newPilgrim(page, `A${RUN}1`, "رب الأسرة سالم محمود", tripName);
+  await newPilgrim(page, `A${RUN}2`, "فرد الأسرة سالم محمود", tripName);
   await page.goto(tripUrl);
-  const rowHead = page.locator("tbody tr", { hasText: `FA${RUN}1` }), rowMember = page.locator("tbody tr", { hasText: `FA${RUN}2` });
+  const rowHead = page.locator("tbody tr", { hasText: `A${RUN}1` }), rowMember = page.locator("tbody tr", { hasText: `A${RUN}2` });
   for (const row of [rowHead, rowMember]) { // room type on both so each has the trip's price
     await row.locator("details summary").click();
     await row.locator("select[name=roomType]").selectOption("QUAD");
@@ -130,7 +130,7 @@ test("new pilgrim page: hotel, room type and room number per selected trip", asy
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
   await f("fullNameAr", "تسكين سالم محمود"); await f("familyName", "الاختبار");
   await page.selectOption("[name=gender]", "MALE");
-  await f("birthDate", "12/05/1975"); await f("passportNo", `ACC${RUN}`);
+  await f("birthDate", "12/05/1975"); await f("passportNo", `A${RUN}3`);
   await f("enGivenName", "TEST"); await f("enSurname", "ROOM"); await f("passportExpiry", "10/10/2031");
   await page.locator("label", { hasText: tripName }).locator("input[name=tripIds]").check();
   await page.locator(`select[name="makkahHotelId__${tripId}"]`).selectOption({ index: 1 });
@@ -139,5 +139,5 @@ test("new pilgrim page: hotel, room type and room number per selected trip", asy
   await page.click("button:has-text('حفظ')");
   await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
   await page.goto(tripUrl);
-  await expect(page.locator("tbody tr", { hasText: `ACC${RUN}` })).toContainText("/ 808");
+  await expect(page.locator("tbody tr", { hasText: `A${RUN}3` })).toContainText("/ 808");
 });

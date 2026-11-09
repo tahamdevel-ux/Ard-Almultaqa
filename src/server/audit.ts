@@ -35,7 +35,7 @@ export async function auditChanges(
 
 export const PILGRIM_AUDITED = [
   "firstName", "fatherName", "grandfatherName", "greatGrandfatherName", "familyName",
-  "passportNo", "enGivenName", "enFatherName", "enGrandfatherName", "enSurname",
+  "passportNo", "passportType", "enGivenName", "enFatherName", "enGrandfatherName", "enSurname",
   "nationality", "placeOfBirth", "passportIssue", "passportExpiry", "passportAuthority",
-  "birthDate", "gender", "phone",
+  "birthDate", "gender", "phone", "emergencyPhone",
 ] as const;

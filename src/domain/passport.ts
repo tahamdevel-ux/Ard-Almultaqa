@@ -1,8 +1,6 @@
 import { addMonths } from "./dates";
 
-export function normalizePassportNo(raw: string): string {
-  return raw.replace(/\s+/g, "").toUpperCase();
-}
+export { normalizePassport as normalizePassportNo } from "./identity";
 
 /** Warn when the passport expires before (returnDate + minMonths). A trip without a return date is skipped silently. */
 export function passportExpiryWarning(expiry: Date, returnDate: Date | null | undefined, minMonths = 6): string | null {

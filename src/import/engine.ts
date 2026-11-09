@@ -1,9 +1,9 @@
 import ExcelJS from "exceljs";
 import { pilgrimSchema } from "@/server/pilgrims";
-import { normalizePassportNo } from "@/domain/passport";
+import { normalizePassport } from "@/domain/identity";
 import { IMPORT_FIELDS } from "./fields";
 import { analyzeSheet, type Mapping, type SheetAnalysis } from "./headers";
-import { isBlank, normalizeDate, normalizeGender, normalizeImportPhone, normalizeNationality, splitFullName, text, type Cell } from "./values";
+import { isBlank, normalizeDate, normalizeGender, normalizeImportPhone, normalizeNationality, normalizePassportType, splitFullName, text, type Cell } from "./values";
 
 export const MAX_ROWS = 5000;
 export const MAX_BYTES = 5 * 1024 * 1024;
@@ -79,10 +79,11 @@ export function validateRows(rows: { rowNo: number; cells: Cell[] }[], mapping: 
         raw[k] = d ?? text(v); // keep the original text so the error message shows what was wrong
       } else if (k === "gender") raw[k] = normalizeGender(v) ?? text(v);
       else if (k === "nationality") raw[k] = normalizeNationality(v);
+      else if (k === "passportType") raw[k] = normalizePassportType(v);
       else if (k === "phone" || k === "emergencyPhone") {
         const p = normalizeImportPhone(v);
         if (p) raw[k] = p; else notes.push(`${labelOf(k)} غير صالح وتم تجاهله`);
-      } else if (k === "passportNo") raw[k] = normalizePassportNo(typeof v === "number" ? String(v) : text(v));
+      } else if (k === "passportNo") raw[k] = normalizePassport(typeof v === "number" ? String(v) : text(v));
       else raw[k] = text(v);
     }
     // full names fill only the parts the sheet doesn't give separately

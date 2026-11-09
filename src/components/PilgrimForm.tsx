@@ -6,7 +6,7 @@ import { GOVERNORATES } from "@/lib/labels";
 import type { ActionState } from "@/server/pilgrims";
 import { TripPicker, type TripChoice } from "@/components/TripPicker";
 import type { HotelOpt } from "@/components/AccommodationFields";
-import { DigitsInput } from "@/components/DigitsInput";
+import { PassportInput, PhoneInput } from "@/components/PhoneInput";
 import { DateInput } from "@/components/DateInput";
 
 type V = Record<string, string | boolean | null | undefined>;
@@ -29,11 +29,15 @@ export function PilgrimForm({
     else if (state.ok) router.refresh();
   }, [state, redirectTo, router]);
   const fe = state.fieldErrors ?? {};
-  const v = (k: string) => (values[k] ?? "") as string;
-  const t = (name: string, label: string, opts: { dir?: "ltr"; required?: boolean; type?: string; hint?: string; upper?: boolean; date?: boolean; digits?: number } = {}) => (
+  const echo = state.values; // typed values survive a failed save
+  const v = (k: string) => ((echo ? (echo[k] as string | undefined) : undefined) ?? values[k] ?? "") as string;
+  const checked = (k: string) => (echo ? echo[k] === "on" : !!values[k]);
+  const t = (name: string, label: string, opts: { dir?: "ltr"; required?: boolean; type?: string; hint?: string; upper?: boolean; date?: boolean; kind?: "phone" | "passport" } = {}) => (
     <Field label={label + (opts.required ? " *" : "")} name={name} error={fe[name]} hint={opts.hint}>
-      {opts.digits ? (
-        <DigitsInput id={name} name={name} defaultValue={v(name)} maxDigits={opts.digits} className={"input " + (fe[name] ? "border-red-500" : "")} />
+      {opts.kind === "phone" ? (
+        <PhoneInput id={name} name={name} defaultValue={v(name)} className={"input " + (fe[name] ? "border-red-500" : "")} />
+      ) : opts.kind === "passport" ? (
+        <PassportInput id={name} name={name} defaultValue={v(name)} className={"input uppercase " + (fe[name] ? "border-red-500" : "")} />
       ) : opts.date ? (
         <DateInput id={name} name={name} defaultValue={v(name)} className={"input " + (fe[name] ? "border-red-500" : "")} />
       ) : (
@@ -53,7 +57,7 @@ export function PilgrimForm({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2">
             <Field label="الاسم الثلاثي *" name="fullNameAr" error={fe.fullNameAr ?? fe.firstName ?? fe.fatherName ?? fe.grandfatherName} hint="الاسم الأول واسم الأب واسم الجد في خانة واحدة">
-              <input id="fullNameAr" name="fullNameAr" defaultValue={[v("firstName"), v("fatherName"), v("grandfatherName")].filter(Boolean).join(" ")} className={"input " + (fe.fullNameAr || fe.firstName ? "border-red-500" : "")} />
+              <input id="fullNameAr" name="fullNameAr" defaultValue={echo ? v("fullNameAr") : [v("firstName"), v("fatherName"), v("grandfatherName")].filter(Boolean).join(" ")} className={"input " + (fe.fullNameAr || fe.firstName ? "border-red-500" : "")} />
             </Field>
           </div>
           {t("familyName", "اللقب", { required: true })}
@@ -71,15 +75,20 @@ export function PilgrimForm({
             </select>
           </Field>
           {t("address", "العنوان")}
-          {t("phone", "رقم الهاتف", { digits: 11, hint: "07XXXXXXXXX (11 رقماً)" })}
-          {t("emergencyPhone", "هاتف الطوارئ", { dir: "ltr", type: "tel" })}
+          {t("phone", "رقم الهاتف", { kind: "phone", hint: "عراقي: 07XXXXXXXXX (11 رقم) · سعودي: 05XXXXXXXX (10 أرقام)" })}
+          {t("emergencyPhone", "هاتف الطوارئ", { kind: "phone", hint: "عراقي 07… أو سعودي 05…" })}
         </div>
       </section>
 
       <section className="card">
         <h2 className="mb-3 font-bold">الجواز (كما هو مطبوع بالإنكليزية)</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {t("passportNo", "رقم الجواز", { required: true, dir: "ltr", upper: true })}
+          <Field label="نوع الجواز" name="passportType" error={fe.passportType}>
+            <select id="passportType" name="passportType" defaultValue={v("passportType") || "IRAQI"} className="input">
+              <option value="IRAQI">عراقي</option><option value="FOREIGN">أجنبي</option>
+            </select>
+          </Field>
+          {t("passportNo", "رقم الجواز", { required: true, kind: "passport", hint: "عراقي: حرف + 8 أرقام مثل A12345678" })}
           {t("enGivenName", "Given name", { required: true, dir: "ltr", upper: true })}
           {t("enFatherName", "Father name", { dir: "ltr", upper: true })}
           {t("enGrandfatherName", "Grandfather name", { dir: "ltr", upper: true })}
@@ -110,7 +119,7 @@ export function PilgrimForm({
           <h2 className="mb-3 font-bold">الحالة الصحية</h2>
           <div className="flex flex-wrap gap-4 text-sm">
             {([["chronicIllness", "مرض مزمن"], ["wheelchair", "كرسي متحرك"], ["elderly", "كبير سن"]] as const).map(([k, l]) => (
-              <label key={k} className="flex items-center gap-2"><input type="checkbox" name={k} defaultChecked={!!values[k]} /> {l}</label>
+              <label key={k} className="flex items-center gap-2"><input type="checkbox" name={k} defaultChecked={checked(k)} /> {l}</label>
             ))}
           </div>
           <div className="mt-3"><Field label="ملاحظات" name="healthNotes">
@@ -122,7 +131,7 @@ export function PilgrimForm({
       {trips && (
         <section className="card">
           <h2 className="mb-3 font-bold">الرحلات * <span className="text-xs font-normal text-brand-mid">(اختر رحلة واحدة على الأقل)</span></h2>
-          <TripPicker trips={trips} error={fe.tripIds} hotels={hotels} />
+          <TripPicker trips={trips} error={fe.tripIds} hotels={hotels} initial={echo} />
         </section>
       )}
 

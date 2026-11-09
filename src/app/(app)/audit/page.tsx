@@ -3,7 +3,7 @@ import { requirePage } from "@/server/auth";
 
 const FIELD_LABELS: Record<string, string> = {
   firstName: "الاسم الأول", fatherName: "اسم الأب", grandfatherName: "اسم الجد", greatGrandfatherName: "أبو الجد", familyName: "اللقب",
-  passportNo: "رقم الجواز", enGivenName: "Given name", enFatherName: "Father name", enGrandfatherName: "Grandfather name", enSurname: "Surname",
+  passportType: "نوع الجواز", passportNo: "رقم الجواز", enGivenName: "Given name", enFatherName: "Father name", enGrandfatherName: "Grandfather name", enSurname: "Surname",
   nationality: "الجنسية", placeOfBirth: "محل الولادة", passportIssue: "إصدار الجواز", passportExpiry: "انتهاء الجواز",
   passportAuthority: "جهة الإصدار", tripNo: "رقم الرحلة", departDate: "تاريخ الذهاب", returnDate: "تاريخ العودة", birthDate: "تاريخ الميلاد", gender: "الجنس", phone: "الهاتف",
 };
