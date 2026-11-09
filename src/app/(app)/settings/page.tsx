@@ -15,13 +15,14 @@ async function save(form: FormData) {
   await setSetting("mahram", { enabled: form.get("mahramEnabled") === "on", minAge: Math.max(0, +s("mahramMinAge") || 12) });
   await setSetting("usdRate", Math.max(1, +s("usdRate") || 1400));
   await setSetting("maxCompanionGroup", Math.max(2, +s("maxCompanionGroup") || 4));
+  await setSetting("officeRoomCapacity", Math.min(10, Math.max(1, +s("officeRoomCapacity") || 4)));
   revalidatePath("/settings");
 }
 
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const { error } = await searchParams;
   await requirePage("settings.manage");
-  const [company, months, mahram, maxGroup, usdRate] = await Promise.all([getSetting("company"), getSetting("passportMinMonths"), getSetting("mahram"), getSetting("maxCompanionGroup"), getSetting("usdRate")]);
+  const [company, months, mahram, maxGroup, usdRate, officeCap] = await Promise.all([getSetting("company"), getSetting("passportMinMonths"), getSetting("mahram"), getSetting("maxCompanionGroup"), getSetting("usdRate"), getSetting("officeRoomCapacity")]);
   return (
     <div className="space-y-4">
       <h1 className="page-title">الإعدادات</h1>
@@ -32,6 +33,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         <div><label className="label">الهواتف</label><input name="phones" defaultValue={company.phones} className="input" dir="ltr" inputMode="tel" /></div>
         <div><label className="label">تنبيه انتهاء الجواز: أقل من (أشهر) بعد تاريخ العودة</label><input name="passportMinMonths" type="number" defaultValue={months} className="input" dir="ltr" /></div>
         <div><label className="label">أكبر عدد في العصبة</label><input name="maxCompanionGroup" type="number" defaultValue={maxGroup} className="input" dir="ltr" /></div>
+        <div><label className="label">سعة غرفة المكتب لحجز بلا نوع غرفة</label><input name="officeRoomCapacity" type="number" min={1} max={10} defaultValue={officeCap} className="input" dir="ltr" /></div>
         <div><label className="label">سعر الصرف المقترح (دينار لكل دولار) — يُعدَّل عند كل دفعة</label><input name="usdRate" type="number" defaultValue={usdRate} className="input" dir="ltr" /></div>
         <div className="space-y-1">
           <label className="flex items-center gap-2 text-sm font-bold"><input type="checkbox" name="mahramEnabled" defaultChecked={mahram.enabled} /> تفعيل تنبيه «معتمرة بدون محرم»</label>

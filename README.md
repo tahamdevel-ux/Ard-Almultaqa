@@ -116,7 +116,7 @@ of the real screens with fake data (forms do not save; PDF/Excel links open real
 
 ## Roles
 
-ADMIN (everything), REGISTRATION (pilgrims, documents, bookings, import — no money screens), HOUSING (hotels, rooming, seats), ACCOUNTANT (prices, payments, receipts, agents and agent statements), SUPERVISOR (only trips assigned to them, incl. health notes).
+ADMIN (everything), REGISTRATION (pilgrims, bookings, import), HOUSING (hotels, rooming, seats), ACCOUNTANT (prices, payments, refunds, receipts, agents and agent statements), SUPERVISOR (only trips assigned to them, incl. health notes). Every role can open the accounts section and record a payment; refunds and price edits are for ADMIN and ACCOUNTANT. Office rooms (internal): ADMIN, REGISTRATION, HOUSING edit; SUPERVISOR views; ACCOUNTANT none.
 
 ## Partner (Nusuk) export template
 

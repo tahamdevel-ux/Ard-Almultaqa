@@ -11,6 +11,7 @@ import { passportExpiryWarning } from "@/domain/passport";
 import { mahramWarning, ageOn } from "@/domain/mahram";
 import { getSetting } from "@/server/settings";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
+import { roomLabel } from "@/domain/officeRooms";
 import { safeReturnTo } from "@/lib/returnTo";
 import { savePilgrim, addToTrips } from "../actions";
 import { AddToTripsForm } from "@/components/TripPicker";
@@ -22,12 +23,13 @@ export default async function PilgrimPage({ params, searchParams }: { params: Pr
   const returnTo = safeReturnTo((await searchParams).returnTo);
   const p = await db.pilgrim.findFirst({
     where: { id, deletedAt: null },
-    include: { mahram: true, bookings: { include: { trip: true, seat: { include: { bus: true } } }, orderBy: { createdAt: "desc" } } },
+    include: { mahram: true, bookings: { include: { trip: true, seat: { include: { bus: true } }, officeMember: { include: { officeRoom: true } } }, orderBy: { createdAt: "desc" } } },
   });
   if (!p) notFound();
   const agents = await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
   const [minMonths, mahramSettings] = await Promise.all([getSetting("passportMinMonths"), getSetting("mahram")]);
   const canWrite = can(user.role, "pilgrims.write");
+  const canOffice = can(user.role, "officeRooms.view");
   const canBook = can(user.role, "bookings.write");
   const hotels = canBook ? await hotelOptions() : [];
   const addable = canBook ? await tripChoices(p.bookings.filter((b) => b.status === "ACTIVE").map((b) => b.tripId)) : [];
@@ -61,7 +63,7 @@ export default async function PilgrimPage({ params, searchParams }: { params: Pr
       <section className="card">
         <h2 className="mb-3 font-bold">الرحلات</h2>
         <table className="w-full">
-          <thead><tr><th className="th">الرحلة</th><th className="th">النوع</th><th className="th">الذهاب</th><th className="th">العودة</th><th className="th">الحالة</th><th className="th">المقعد</th></tr></thead>
+          <thead><tr><th className="th">الرحلة</th><th className="th">النوع</th><th className="th">الذهاب</th><th className="th">العودة</th><th className="th">الحالة</th><th className="th">المقعد</th>{canOffice && <th className="th">غرفة المكتب</th>}</tr></thead>
           <tbody>
             {p.bookings.map((b) => (
               <tr key={b.id}>
@@ -71,9 +73,10 @@ export default async function PilgrimPage({ params, searchParams }: { params: Pr
                 <td className="td">{dateOrNotSet(b.trip.returnDate)}</td>
                 <td className="td">{TRIP_STATUS_LABELS[b.trip.status]}</td>
                 <td className="td">{b.seat?.bus ? `${busLabel(b.seat.bus)} / ${b.seat.seatNo}` : b.seat?.ticketNo ?? "—"}</td>
+                {canOffice && <td className="td" dir="ltr">{b.status === "ACTIVE" && b.officeMember ? roomLabel(b.officeMember.officeRoom) : "—"}</td>}
               </tr>
             ))}
-            {p.bookings.length === 0 && <tr><td className="td text-brand-mid" colSpan={6}>لم يُحجز في أي رحلة</td></tr>}
+            {p.bookings.length === 0 && <tr><td className="td text-brand-mid" colSpan={canOffice ? 7 : 6}>لم يُحجز في أي رحلة</td></tr>}
           </tbody>
         </table>
       </section>

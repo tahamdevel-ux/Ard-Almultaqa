@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
 import { autoAssignRooms } from "../src/domain/rooming";
+import { assignOfficeRooms } from "../src/officeRooms/service";
 
 const db = new PrismaClient();
 const d = (s: string) => new Date(s + "T00:00:00Z");
@@ -24,9 +25,9 @@ async function main() {
 
   if ((await db.agent.count()) === 0) {
     await db.agent.createMany({ data: [
-      { name: "أبو بكر الموصلي", officeName: "مكتب النور للسياحة", phones: ["07701112233"], commissionType: "PERCENT", commissionValue: 5 },
-      { name: "حسام العبيدي", officeName: "مكتب الرافدين", phones: ["07509998877"], commissionType: "FIXED_WHOLESALE", commissionValue: 450000 },
-      { name: "سلوى الطائي", officeName: "مكتب البشائر", phones: ["07712223344"], commissionType: "PERCENT", commissionValue: 7 },
+      { name: "أبو بكر الموصلي", officeName: "مكتب النور للسياحة", phones: ["07701112233"], commissionType: "PERCENT", commissionValue: 5, roomCode: "a" },
+      { name: "حسام العبيدي", officeName: "مكتب الرافدين", phones: ["07509998877"], commissionType: "FIXED_WHOLESALE", commissionValue: 450000, roomCode: "b" },
+      { name: "سلوى الطائي", officeName: "مكتب البشائر", phones: ["07712223344", "0501234567"], commissionType: "PERCENT", commissionValue: 7 }, // no room code: its rooms get plain numbers
     ] });
   }
   const agents = await db.agent.findMany();
@@ -41,8 +42,8 @@ async function main() {
         firstName: first, fatherName: father, grandfatherName: grand, familyName: fam,
         gender: female ? "FEMALE" : "MALE", birthDate: d(`${1950 + (i % 40)}-0${1 + (i % 9)}-1${i % 9}`),
         motherName: FEMALE_FIRST[(i + 2) % FEMALE_FIRST.length], governorate: "نينوى", address: "الموصل",
-        phone: `0770${String(1000000 + i * 7919).slice(0, 7)}`, emergencyPhone: `0750${String(2000000 + i * 4231).slice(0, 7)}`,
-        passportNo: `A${String(10000000 + i * 137)}`, enGivenName: EN[first], enFatherName: EN[father], enGrandfatherName: EN[grand], enSurname: famEn,
+        phone: i === 6 ? "0501234567" /* one Saudi number */ : `0770${String(1000000 + i * 7919).slice(0, 7)}`, emergencyPhone: `0750${String(2000000 + i * 4231).slice(0, 7)}`,
+        passportNo: i === 5 ? "N1234567" : `A${String(10000000 + i * 137)}`, passportType: i === 5 ? "FOREIGN" : "IRAQI" /* one foreign passport */, enGivenName: EN[first], enFatherName: EN[father], enGrandfatherName: EN[grand], enSurname: famEn,
         placeOfBirth: "MOSUL", passportIssue: d("2022-03-15"), passportExpiry: d(i % 10 === 0 ? "2027-01-20" : "2030-03-14"), passportAuthority: "MOSUL",
         agentId: agents[i % agents.length].id, elderly: i % 7 === 0, wheelchair: i % 13 === 0,
       } });
@@ -89,14 +90,17 @@ async function main() {
       await db.tripPrice.createMany({ data: [["SINGLE", Math.round(d2 * 1.5)], ["DOUBLE", d2], ["TRIPLE", d3], ["QUAD", d4], ["QUINT", d5]].map(([roomType, amount]) => ({ tripId: t.id, roomType: roomType as "DOUBLE", amount: amount as number, currency: "USD" as const })) });
       const bookings = await db.booking.findMany({ where: { tripId: t.id }, orderBy: { createdAt: "asc" } });
       for (const [i, b] of bookings.entries()) {
-        await db.booking.update({ where: { id: b.id }, data: { roomType: "QUAD", priceAmount: d4, priceCurrency: "USD" } });
+        const type = i % 10 === 9 ? "SINGLE" : i % 10 === 8 ? "DOUBLE" : i % 10 === 7 ? "TRIPLE" : "QUAD"; // a few singles, doubles and triples among the quads
+        const priceOf = { SINGLE: Math.round(d2 * 1.5), DOUBLE: d2, TRIPLE: d3, QUAD: d4 }[type];
+        await db.booking.update({ where: { id: b.id }, data: { roomType: type, priceAmount: priceOf, priceCurrency: "USD" } });
         if (i % 4 === 3) continue; // some owe everything
         const full = i % 4 === 0;
-        const usd = full ? d4 : Math.round(d4 / 2);
+        const usd = full ? priceOf : Math.round(priceOf / 2);
+        const viaAgent = i % 5 === 2 && !!b.agentId; // some payments came through the agent, the rest directly
         const inDinar = i % 3 === 0;
         await db.payment.create({ data: inDinar
-          ? { bookingId: b.id, amount: usd * 1400, currency: "IQD", exchangeRate: 1400, credited: usd, method: "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name }
-          : { bookingId: b.id, amount: usd, currency: "USD", credited: usd, method: i % 2 ? "TRANSFER" : "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name } });
+          ? { bookingId: b.id, amount: usd * 1400, currency: "IQD", exchangeRate: 1400, credited: usd, method: "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name, source: viaAgent ? "AGENT" : "DIRECT", sourceAgentId: viaAgent ? b.agentId : null }
+          : { bookingId: b.id, amount: usd, currency: "USD", credited: usd, method: i % 2 ? "TRANSFER" : "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name, source: viaAgent ? "AGENT" : "DIRECT", sourceAgentId: viaAgent ? b.agentId : null } });
       }
     }
   }
@@ -110,6 +114,10 @@ async function main() {
         bookings.map((b) => ({ bookingId: b.id, gender: b.pilgrim.gender, groupIds: b.groups.map((g) => g.groupId) })));
       for (const [bookingId, roomId] of r.assignments) await db.roomAssignment.create({ data: { bookingId, roomId, city } });
     }
+  }
+  if ((await db.officeRoom.count()) === 0) {
+    // internal office rooms for every seeded trip (coded rooms for agents a / b, plain numbers for the rest, singles and so on)
+    for (const t of await db.trip.findMany()) await db.$transaction((tx) => assignOfficeRooms(tx, t.id), { timeout: 60000 });
   }
   console.log("seeded demo data; users: admin, reg, housing, acc, sup", process.env.VERCEL ? "" : `(password: ${pw})`);
   void admin;

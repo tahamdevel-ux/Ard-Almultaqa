@@ -8,6 +8,7 @@ export const PERMISSIONS = [
   "prices.write", "payments.view", "payments.record", "payments.write",
   "hotels.view", "hotels.write", "rooming.write", "programs.write",
   "outputs.view",
+  "officeRooms.view", "officeRooms.write", "officeRooms.renumber",
   "import.run",
   "users.manage", "audit.view", "settings.manage",
 ] as const;
@@ -20,11 +21,11 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   REGISTRATION: [
     "dashboard.view", "pilgrims.view", "pilgrims.write", "pilgrims.health",
     "agents.view", "trips.view", "bookings.write", "seats.write", "outputs.view", "import.run", "hotels.view",
-    "payments.view", "payments.record",
+    "payments.view", "payments.record", "officeRooms.view", "officeRooms.write",
   ],
-  HOUSING: ["dashboard.view", "pilgrims.view", "trips.view", "seats.write", "outputs.view", "hotels.view", "hotels.write", "rooming.write", "payments.view", "payments.record"],
+  HOUSING: ["dashboard.view", "pilgrims.view", "trips.view", "seats.write", "outputs.view", "hotels.view", "hotels.write", "rooming.write", "payments.view", "payments.record", "officeRooms.view", "officeRooms.write"],
   ACCOUNTANT: ["dashboard.view", "pilgrims.view", "agents.view", "agents.write", "trips.view", "outputs.view", "prices.write", "payments.view", "payments.record", "payments.write"],
-  SUPERVISOR: ["pilgrims.view", "pilgrims.health", "trips.view", "outputs.view", "hotels.view", "payments.view", "payments.record"],
+  SUPERVISOR: ["pilgrims.view", "pilgrims.health", "trips.view", "outputs.view", "hotels.view", "payments.view", "payments.record", "officeRooms.view"],
 };
 
 export function can(role: Role, p: Permission): boolean {

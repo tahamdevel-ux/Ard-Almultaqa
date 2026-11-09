@@ -13,7 +13,7 @@ export function logoDataUri() {
 }
 
 let fontCss: string | null = null;
-function fonts() {
+export function fonts() {
   if (fontCss) return fontCss;
   const dir = path.join(process.cwd(), "public/fonts");
   const face = (w: number) => {
@@ -70,7 +70,8 @@ ${body}
 </body></html>`;
 }
 
-export async function htmlToPdf(html: string): Promise<Buffer> {
+/** `landscape` + `ownLayout`: the HTML lays out its own pages (size from @page, no margins, no browser header/footer). */
+export async function htmlToPdf(html: string, opts: { landscape?: boolean; ownLayout?: boolean } = {}): Promise<Buffer> {
   let launch: Parameters<typeof chromium.launch>[0];
   if (process.env.VERCEL || process.env.USE_SPARTICUZ_CHROMIUM) {
     // Serverless: a compressed Chromium build that fits in a function.
@@ -84,6 +85,7 @@ export async function htmlToPdf(html: string): Promise<Buffer> {
     const page = await browser.newPage();
     await page.setContent(html, { waitUntil: "load" });
     await page.evaluate(() => document.fonts.ready);
+    if (opts.ownLayout) return Buffer.from(await page.pdf({ format: "A4", landscape: !!opts.landscape, printBackground: true, preferCSSPageSize: true, margin: { top: "0", bottom: "0", left: "0", right: "0" } }));
     return Buffer.from(await page.pdf({ format: "A4", printBackground: true, displayHeaderFooter: true,
       headerTemplate: "<span></span>",
       footerTemplate: `<div style="font-size:8px;width:100%;text-align:center"><span class="pageNumber"></span> / <span class="totalPages"></span></div>`,

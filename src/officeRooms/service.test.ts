@@ -90,7 +90,7 @@ describe("office rooms: automatic assignment", () => {
 describe("office rooms: manual changes", () => {
   it("manual move (MANUAL), capacity and lock rules, warnings never move anyone", async () => {
     const t = await trip();
-    const b = [];
+    const b: Awaited<ReturnType<typeof add>>[] = [];
     for (let i = 0; i < 5; i++) b.push(await add(t.id, await pilgrim()));
     const rs = await rooms(t.id);
     const [full, other] = [rs.find((r) => r.members.length === 4)!, rs.find((r) => r.members.length === 1)!];
