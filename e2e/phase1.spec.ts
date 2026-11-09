@@ -12,7 +12,7 @@ async function login(page: Page, username: string) {
   await page.waitForURL("**/dashboard");
 }
 
-async function fillPilgrim(page: Page, passportNo: string) {
+async function fillPilgrim(page: Page, passportNo: string, tripLabel?: string) {
   await page.goto("/pilgrims/new");
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
   await f("fullNameAr", "عبدالله سالم محمود"); await f("familyName", "المولى");
@@ -20,14 +20,15 @@ async function fillPilgrim(page: Page, passportNo: string) {
   await f("birthDate", "12/05/1975"); await f("phone", "+964 770 123 4567");
   await f("passportNo", passportNo); await f("enGivenName", "ABDULLAH"); await f("enFatherName", "SALIM"); await f("enGrandfatherName", "MAHMOOD"); await f("enSurname", "ALMULA");
   await f("passportExpiry", "10/10/2031");
-  await page.locator("[name=tripIds]").first().check();
+  const trip = tripLabel ? page.locator("label", { hasText: tripLabel }).locator("input[name=tripIds]").first() : page.locator("[name=tripIds]").first();
+  await trip.check();
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
 }
 
 test("full flow: create pilgrim, attach to land trip, seat, manifest PDF, audit", async ({ page }) => {
   await login(page, "admin");
   const passport = `A1${RUN}`;
-  await fillPilgrim(page, passport);
+  await fillPilgrim(page, passport, "A-2612");
   await page.waitForURL(/\/pilgrims\?.*saved=/);
   await expect(page.getByText(/^تم حفظ/)).toBeVisible();
   await page.getByRole("link", { name: "عبدالله سالم محمود المولى" }).first().click();

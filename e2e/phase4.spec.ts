@@ -42,14 +42,11 @@ test("trip with no code and no dates: create, list order, pickers, edit + audit,
   await page.click("button:has-text('إنشاء')");
   await expect(page.locator("p.alert-bad")).toContainText("تاريخ العودة لا يمكن أن يسبق");
 
-  // 2) list: undated trips are listed after dated ones, no "null" anywhere
+  // 2) list: newest created first, whatever the dates; no "null" anywhere
   await page.goto("/trips");
   const rows = await page.locator("tbody tr").allInnerTexts();
-  const dated = (t: string) => /\d{2}\/\d{2}\/\d{4}/.test(t);
-  const lastDated = rows.map(dated).lastIndexOf(true);
-  const firstUndated = rows.findIndex((t) => !dated(t));
-  expect(lastDated).toBeGreaterThanOrEqual(0);
-  expect(firstUndated).toBeGreaterThan(lastDated);
+  expect(rows[0]).toContain(airName); // created last
+  expect(rows[1]).toContain(name);
   expect(rows.join("\n")).toContain(name);
   expect(rows.join("\n")).not.toMatch(BAD);
 
