@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
 import { AuthError, requirePermission } from "@/server/auth";
 import { can } from "@/lib/permissions";
-import { createPilgrimWithTrips, formEcho, formToObject, pilgrimSchema, updatePilgrim, zodToState, type ActionState } from "@/server/pilgrims";
+import { createPilgrimWithTrips, formEcho, formToObject, fullNameAr, pilgrimSchema, updatePilgrim, zodToState, type ActionState } from "@/server/pilgrims";
 import { splitTripleName } from "@/import/values";
 import { accommodationForTrip, applyAccommodation, AccommodationError } from "@/server/accommodation";
 import { addPilgrimToTrips, overlapWarnings, summarizeAdd } from "@/server/bookings";
@@ -19,7 +19,11 @@ async function guard<T>(fn: () => Promise<T>): Promise<T | ActionState> {
 
 export async function savePilgrim(id: string | null, prev: ActionState, form: FormData): Promise<ActionState> {
   const r = await savePilgrimInner(id, prev, form);
-  return r.ok ? r : { ...r, values: formEcho(form) };
+  const intent = form.get("intent") === "saveNew" ? "saveNew" as const : "save" as const;
+  const values = formEcho(form);
+  if (!r.ok) return { ...r, values };
+  const p = r.id ? await db.pilgrim.findUnique({ where: { id: r.id } }) : null;
+  return { ...r, intent, values: { tripIds: values.tripIds ?? [], agentId: values.agentId ?? "" }, name: p ? fullNameAr(p) : undefined };
 }
 
 async function savePilgrimInner(id: string | null, _prev: ActionState, form: FormData): Promise<ActionState> {

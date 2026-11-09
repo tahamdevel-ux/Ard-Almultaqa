@@ -67,7 +67,7 @@ export function formToObject(form: FormData): Record<string, unknown> {
   return o;
 }
 
-export type ActionState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; id?: string; message?: string; values?: Record<string, string | string[]> };
+export type ActionState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; id?: string; message?: string; name?: string; intent?: "save" | "saveNew"; values?: Record<string, string | string[]> };
 
 export function zodToState(e: z.ZodError): ActionState {
   const fieldErrors: Record<string, string> = {};

@@ -21,14 +21,17 @@ async function fillPilgrim(page: Page, passportNo: string) {
   await f("passportNo", passportNo); await f("enGivenName", "ABDULLAH"); await f("enFatherName", "SALIM"); await f("enGrandfatherName", "MAHMOOD"); await f("enSurname", "ALMULA");
   await f("passportExpiry", "10/10/2031");
   await page.locator("[name=tripIds]").first().check();
-  await page.click("button:has-text('حفظ')");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
 }
 
 test("full flow: create pilgrim, attach to land trip, seat, manifest PDF, audit", async ({ page }) => {
   await login(page, "admin");
   const passport = `A1${RUN}`;
   await fillPilgrim(page, passport);
-  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.waitForURL(/\/pilgrims\?.*saved=/);
+  await expect(page.getByText(/^تم حفظ/)).toBeVisible();
+  await page.getByRole("link", { name: "عبدالله سالم محمود المولى" }).first().click();
+  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}/);
   await expect(page.locator("h1")).toContainText("عبدالله سالم محمود المولى");
 
   // attach to trip
@@ -66,8 +69,8 @@ test("full flow: create pilgrim, attach to land trip, seat, manifest PDF, audit"
   await page.goto(`/pilgrims?q=${passport}`);
   await page.click(`text=عبدالله سالم محمود المولى`);
   await page.fill("[name=fullNameAr]", "عبدالرحمن سالم محمود");
-  await page.click("button:has-text('حفظ')");
-  await expect(page.getByText("تم الحفظ")).toBeVisible();
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await expect(page.getByText(/^تم حفظ/)).toBeVisible();
   await page.goto(`/audit?q=عبدالرحمن`);
   await expect(page.getByText("الاسم الأول").first()).toBeVisible();
   await expect(page.getByText("عبدالله").first()).toBeVisible();
@@ -77,7 +80,7 @@ test("duplicate passport is blocked with Arabic message", async ({ page }) => {
   await login(page, "reg");
   const passport = `A2${RUN}`;
   await fillPilgrim(page, passport);
-  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.waitForURL(/\/pilgrims\?.*saved=/);
   await fillPilgrim(page, passport);
   await expect(page.getByText("رقم الجواز مسجّل مسبقاً لمعتمر آخر").first()).toBeVisible();
 });
@@ -91,12 +94,12 @@ test("a trip is required for a new pilgrim; profile adds to several trips, skipp
   await f("fullNameAr", "علي سالم محمود"); await f("familyName", "المولى");
   await page.selectOption("[name=gender]", "MALE");
   await f("birthDate", "12/05/1975"); await f("passportNo", `A3${RUN}`); await f("enGivenName", "ALI"); await f("enSurname", "ALMULA"); await f("passportExpiry", "10/10/2031");
-  await page.click("button:has-text('حفظ')");
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.getByText("اختر رحلة واحدة على الأقل").first()).toBeVisible();
   // profile of the first pilgrim: first trip already added, add two more
   await page.goto("/pilgrims?q=" + `A4${RUN}`);
   await page.getByRole("link", { name: /المولى/ }).first().click();
-  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}/);
   await page.locator("summary:has-text('إضافة لرحلة')").click();
   const boxes = page.locator("details:has(summary:has-text('إضافة لرحلة')) [name=tripIds]:not([disabled])");
   await boxes.nth(0).check(); await boxes.nth(1).check();
@@ -107,14 +110,14 @@ test("a trip is required for a new pilgrim; profile adds to several trips, skipp
 test("header search finds a pilgrim live and shows trips", async ({ page }) => {
   await login(page, "reg");
   await fillPilgrim(page, `A5${RUN}`);
-  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.waitForURL(/\/pilgrims\?.*saved=/);
   await page.goto("/dashboard");
   await page.getByLabel("بحث شامل").fill(`a5${RUN}`);
   const hit = page.getByRole("link", { name: /عبدالله/ }).first();
   await expect(hit).toBeVisible();
   await expect(hit).toContainText("المولى");
   await hit.click();
-  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}/);
 });
 
 test("passport type and phone rules (Iraqi / foreign passport, Iraqi / Saudi phone)", async ({ page }) => {
@@ -129,7 +132,7 @@ test("passport type and phone rules (Iraqi / foreign passport, Iraqi / Saudi pho
     await page.locator("[name=passportNo]").pressSequentially(passport);
     await f("phone", phone);
     await page.locator("[name=tripIds]").first().check();
-    await page.click("button:has-text('حفظ')");
+    await page.getByRole("button", { name: "حفظ", exact: true }).click();
   };
   await base("n1234567", "IRAQI", "0501234567");
   await expect(page.getByText("رقم الجواز العراقي يجب أن يكون حرفاً إنكليزياً واحداً و8 أرقام").first()).toBeVisible();
@@ -137,8 +140,54 @@ test("passport type and phone rules (Iraqi / foreign passport, Iraqi / Saudi pho
   await base("n1234567", "FOREIGN", "12345");
   await expect(page.getByText("رقم الهاتف يجب أن يكون عراقياً").first()).toBeVisible();
   await base(`n${RUN}`, "FOREIGN", "+966 50 123 4567");
-  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.waitForURL(/\/pilgrims\?.*saved=/);
+  await page.getByRole("link", { name: /اختبار جواز/ }).first().click();
   await expect(page.locator("[name=phone]")).toHaveValue("0501234567");
+});
+
+test("save buttons: save returns to the list as left, save-and-new keeps trip and agent, errors keep typed values", async ({ page }) => {
+  await login(page, "reg");
+  const fill = async (passport: string) => {
+    const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
+    await f("fullNameAr", "حفظ جديد سالم محمود"); await f("familyName", "المولى");
+    await page.selectOption("[name=gender]", "MALE");
+    await f("birthDate", "12/05/1975"); await f("passportNo", passport);
+    await f("enGivenName", "SAVE"); await f("enSurname", "NEW"); await f("passportExpiry", "10/10/2031");
+  };
+  // the list as the user left it: a search text
+  await page.goto("/pilgrims?q=" + encodeURIComponent("المولى"));
+  await page.getByRole("link", { name: "+ معتمر جديد" }).click();
+  await page.waitForURL(/\/pilgrims\/new\?.*returnTo=/);
+  await fill("A7" + RUN);
+  const trip = page.locator("input[name=tripIds]").nth(1);
+  await trip.check();
+  const tripId = await trip.getAttribute("value");
+  await page.selectOption("[name=agentId]", { index: 1 });
+  const agentId = await page.locator("[name=agentId]").inputValue();
+  // error: duplicate passport of a seeded pilgrim -> stay, keep everything typed
+  await page.fill("[name=passportNo]", "A10000137");
+  await page.getByRole("button", { name: "حفظ وإضافة جديد" }).click();
+  await expect(page.getByText("رقم الجواز مسجّل مسبقاً لمعتمر آخر").first()).toBeVisible();
+  await expect(page.locator("[name=fullNameAr]")).toHaveValue("حفظ جديد سالم محمود");
+  await expect(page.locator("[name=agentId]")).toHaveValue(agentId);
+  await expect(page.locator(`input[name=tripIds][value="${tripId}"]`)).toBeChecked();
+  // save and add new: a new empty form, same trip and agent, toast
+  await page.fill("[name=passportNo]", "A7" + RUN);
+  await page.getByRole("button", { name: "حفظ وإضافة جديد" }).click();
+  await page.waitForURL(/\/pilgrims\/new\?.*saved=/);
+  await expect(page.getByText(/^تم حفظ حفظ جديد/)).toBeVisible();
+  await expect(page.locator("[name=fullNameAr]")).toHaveValue("");
+  await expect(page.locator("[name=agentId]")).toHaveValue(agentId);
+  await expect(page.locator(`input[name=tripIds][value="${tripId}"]`)).toBeChecked();
+  // plain save returns to the list with the same search, toast and highlighted row
+  await fill("A8" + RUN);
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.waitForURL(/\/pilgrims\?.*saved=/);
+  expect(decodeURIComponent(page.url())).toContain("q=المولى");
+  await expect(page.getByText(/^تم حفظ حفظ جديد/)).toBeVisible();
+  await expect(page.locator("tr.saved-row").first()).toBeVisible();
+  // never opens a new form after plain save
+  expect(page.url()).not.toContain("/pilgrims/new");
 });
 
 test("date fields add the slash automatically", async ({ page }) => {

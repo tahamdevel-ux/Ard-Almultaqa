@@ -78,8 +78,8 @@ test("smart import: header on row 4, (A)/(E) headers, mixed dates, junk rows, ex
   await page.selectOption("[name=gender]", "MALE"); await f("birthDate", "01/01/1970"); await f("passportNo", `A${RUN}3`);
   await f("enGivenName", "OLD"); await f("enSurname", "ONE"); await f("passportExpiry", "01/01/2031");
   await page.locator("[name=tripIds]").first().check();
-  await page.click("button:has-text('حفظ')");
-  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.waitForURL(/\/pilgrims\?.*saved=/);
 
   await page.goto("/trips/new");
   await page.fill("[name=name]", `استيراد ذكي ${RUN}`);

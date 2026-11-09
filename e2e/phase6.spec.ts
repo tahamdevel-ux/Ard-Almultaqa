@@ -60,8 +60,8 @@ async function newPilgrim(page: Page, passport: string, fullName: string, tripNa
   await f("birthDate", "12/05/1975"); await f("passportNo", passport);
   await f("enGivenName", "TEST"); await f("enSurname", "FAMILY"); await f("passportExpiry", "10/10/2031");
   await page.locator("label", { hasText: tripName }).locator("input[name=tripIds]").check();
-  await page.click("button:has-text('حفظ')");
-  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.waitForURL(/\/pilgrims\?.*saved=/);
 }
 
 test("accommodation with hotel and room, family head and family account", async ({ page }) => {
@@ -136,8 +136,8 @@ test("new pilgrim page: hotel, room type and room number per selected trip", asy
   await page.locator(`select[name="makkahHotelId__${tripId}"]`).selectOption({ index: 1 });
   await page.locator(`select[name="roomType__${tripId}"]`).selectOption("DOUBLE");
   await page.locator(`input[name="makkahRoomNo__${tripId}"]`).fill("808");
-  await page.click("button:has-text('حفظ')");
-  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.waitForURL(/\/pilgrims\?.*saved=/);
   await page.goto(tripUrl);
   await expect(page.locator("tbody tr", { hasText: `A${RUN}3` })).toContainText("/ 808");
 });

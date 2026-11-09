@@ -33,3 +33,6 @@ input[dir="ltr"], .ltr { direction: ltr; text-align: left; unicode-bidi: plainte
   .alert-warn { @apply rounded-lg border border-gold/40 bg-gold-light px-3 py-2 text-sm font-bold text-gold-dark; }
   .alert-bad { @apply rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-800; }
 }
+
+@keyframes savedRow { 0%, 70% { background-color: #fdf3c8; } 100% { background-color: transparent; } }
+.saved-row { animation: savedRow 3s ease-out; }

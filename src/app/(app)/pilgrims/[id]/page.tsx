@@ -11,13 +11,15 @@ import { passportExpiryWarning } from "@/domain/passport";
 import { mahramWarning, ageOn } from "@/domain/mahram";
 import { getSetting } from "@/server/settings";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
+import { safeReturnTo } from "@/lib/returnTo";
 import { savePilgrim, addToTrips } from "../actions";
 import { AddToTripsForm } from "@/components/TripPicker";
 import { hotelOptions, tripChoices } from "@/server/trips";
 
-export default async function PilgrimPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PilgrimPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ returnTo?: string }> }) {
   const user = await requirePage("pilgrims.view");
   const { id } = await params;
+  const returnTo = safeReturnTo((await searchParams).returnTo);
   const p = await db.pilgrim.findFirst({
     where: { id, deletedAt: null },
     include: { mahram: true, bookings: { include: { trip: true, seat: { include: { bus: true } } }, orderBy: { createdAt: "desc" } } },
@@ -87,7 +89,7 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
         <details className="card" open>
           <summary className="cursor-pointer font-bold">تعديل البيانات</summary>
           <div className="mt-3">
-            <PilgrimForm action={savePilgrim.bind(null, p.id)} values={values} agents={agents} canHealth={canHealth} />
+            <PilgrimForm action={savePilgrim.bind(null, p.id)} values={values} agents={agents} canHealth={canHealth} returnTo={returnTo} />
           </div>
         </details>
       ) : null}

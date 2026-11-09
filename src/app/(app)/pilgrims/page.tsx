@@ -6,12 +6,16 @@ import { fullNameAr, fullNameEn } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
 import { GENDER_LABELS } from "@/lib/labels";
 import { dateRangeLabel, tripLabel } from "@/lib/tripLabel";
+import { Toast } from "@/components/Toast";
 
 const LIMIT = 300;
 
-export default async function PilgrimsPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function PilgrimsPage({ searchParams }: { searchParams: Promise<{ q?: string; saved?: string }> }) {
   const user = await requirePage("pilgrims.view");
-  const { q = "" } = await searchParams;
+  const { q = "", saved } = await searchParams;
+  const listUrl = q ? `/pilgrims?q=${encodeURIComponent(q)}` : "/pilgrims"; // where the user is: Save returns here
+  const rt = `returnTo=${encodeURIComponent(listUrl)}`;
+  const savedPilgrim = saved ? await db.pilgrim.findUnique({ where: { id: saved } }) : null;
   const term = q.trim();
   const where = term
     ? {
@@ -48,17 +52,16 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
   }
   const ordered = [...groups.values()].sort((a, b) => {
     if (!a.trip) return 1; if (!b.trip) return -1;
-    const da = a.trip.departDate?.getTime() ?? null, db_ = b.trip.departDate?.getTime() ?? null;
-    if (da == null && db_ == null) return a.trip.name.localeCompare(b.trip.name, "ar");
-    if (da == null) return 1; if (db_ == null) return -1;
-    return db_ - da;
+    // newest created trip first (same order as everywhere else); ties by id
+    return b.trip.createdAt.getTime() - a.trip.createdAt.getTime() || (a.trip.id < b.trip.id ? 1 : -1);
   });
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="page-title">المعتمرون <span className="text-sm font-normal text-brand-mid">({total})</span></h1>
-        {can(user.role, "pilgrims.write") && <Link href="/pilgrims/new" className="btn">+ معتمر جديد</Link>}
+        {can(user.role, "pilgrims.write") && <Link href={`/pilgrims/new?${rt}`} className="btn">+ معتمر جديد</Link>}
       </div>
+      {savedPilgrim && <Toast text={`تم حفظ ${fullNameAr(savedPilgrim)}`} />}
       <form className="flex gap-2">
         <input name="q" defaultValue={q} placeholder="بحث: رقم الجواز، الاسم بالعربي أو الإنكليزي، الهاتف" className="input" />
         <button className="btn-secondary">بحث</button>
@@ -75,8 +78,8 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
                 </th>
               </tr>
               {g.list.map((p) => (
-                <tr key={p.id} className="hover:bg-canvas">
-                  <td className="td"><Link className="font-bold text-brand underline" href={`/pilgrims/${p.id}`}>{fullNameAr(p)}</Link></td>
+                <tr key={p.id} className={"hover:bg-canvas " + (p.id === saved ? "saved-row" : "")}>
+                  <td className="td"><Link className="font-bold text-brand underline" href={`/pilgrims/${p.id}?${rt}`}>{fullNameAr(p)}</Link></td>
                   <td className="td ltr">{fullNameEn(p)}</td>
                   <td className="td ltr">{p.passportNo}</td>
                   <td className="td">{GENDER_LABELS[p.gender]}</td>

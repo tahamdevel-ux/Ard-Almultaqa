@@ -1,5 +1,6 @@
 "use client";
 import { useActionState, useEffect } from "react";
+import { withParam } from "@/lib/returnTo";
 import { useRouter } from "next/navigation";
 import { Field } from "./Field";
 import { GOVERNORATES } from "@/lib/labels";
@@ -12,22 +13,33 @@ import { DateInput } from "@/components/DateInput";
 type V = Record<string, string | boolean | null | undefined>;
 
 export function PilgrimForm({
-  action, values = {}, agents, canHealth, redirectTo, trips, hotels,
+  action, values = {}, agents, canHealth, trips, hotels, returnTo, initialTripIds,
 }: {
   action: (prev: ActionState, form: FormData) => Promise<ActionState>;
   values?: V;
   agents: { id: string; name: string }[];
   canHealth: boolean;
-  redirectTo?: boolean;
   trips?: TripChoice[];
+  /** internal path of the list as the user left it (already validated) */
+  returnTo?: string | null;
+  initialTripIds?: string[];
   hotels?: HotelOpt[];
 }) {
   const [state, formAction, pending] = useActionState(action, {} as ActionState);
   const router = useRouter();
   useEffect(() => {
-    if (state.ok && redirectTo && state.id) router.push(`/pilgrims/${state.id}`);
-    else if (state.ok) router.refresh();
-  }, [state, redirectTo, router]);
+    if (!state.ok || !state.id) return;
+    if (state.intent === "saveNew") {
+      // a new empty form; the trips and the agent of this one stay selected
+      const q = new URLSearchParams();
+      if (returnTo) q.set("returnTo", returnTo);
+      q.set("saved", state.id);
+      const tr = state.values?.tripIds; const tl = Array.isArray(tr) ? tr : tr ? [tr] : [];
+      if (tl.length) q.set("trips", tl.join(","));
+      const ag = state.values?.agentId; if (typeof ag === "string" && ag) q.set("agent", ag);
+      router.push(`/pilgrims/new?${q.toString()}`);
+    } else router.push(withParam(returnTo ?? "/pilgrims", "saved", state.id));
+  }, [state, returnTo, router]);
   const fe = state.fieldErrors ?? {};
   const echo = state.values; // typed values survive a failed save
   const v = (k: string) => ((echo ? (echo[k] as string | undefined) : undefined) ?? values[k] ?? "") as string;
@@ -50,7 +62,6 @@ export function PilgrimForm({
   return (
     <form action={formAction} className="space-y-6">
       {state.error && <p role="alert" className="alert-bad">{state.error}</p>}
-      {state.ok && !redirectTo && <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800">تم الحفظ</p>}
 
       <section className="card">
         <h2 className="mb-3 font-bold">البيانات الشخصية (بالعربي)</h2>
@@ -63,14 +74,14 @@ export function PilgrimForm({
           {t("familyName", "اللقب", { required: true })}
           {t("greatGrandfatherName", "اسم أبو الجد")}
           <Field label="الجنس *" name="gender" error={fe.gender}>
-            <select id="gender" name="gender" defaultValue={v("gender")} className="input">
+            <select key={"gender" + v("gender")} id="gender" name="gender" defaultValue={v("gender")} className="input">
               <option value="">اختر</option><option value="MALE">ذكر</option><option value="FEMALE">أنثى</option>
             </select>
           </Field>
           {t("birthDate", "تاريخ الميلاد", { required: true, date: true, hint: "DD/MM/YYYY" })}
           {t("motherName", "اسم الأم")}
           <Field label="المحافظة" name="governorate">
-            <select id="governorate" name="governorate" defaultValue={v("governorate")} className="input">
+            <select key={"governorate" + v("governorate")} id="governorate" name="governorate" defaultValue={v("governorate")} className="input">
               <option value="">اختر</option>{GOVERNORATES.map((g) => <option key={g}>{g}</option>)}
             </select>
           </Field>
@@ -84,7 +95,7 @@ export function PilgrimForm({
         <h2 className="mb-3 font-bold">الجواز (كما هو مطبوع بالإنكليزية)</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="نوع الجواز" name="passportType" error={fe.passportType}>
-            <select id="passportType" name="passportType" defaultValue={v("passportType") || "IRAQI"} className="input">
+            <select key={"passportType" + v("passportType")} id="passportType" name="passportType" defaultValue={v("passportType") || "IRAQI"} className="input">
               <option value="IRAQI">عراقي</option><option value="FOREIGN">أجنبي</option>
             </select>
           </Field>
@@ -105,7 +116,7 @@ export function PilgrimForm({
         <h2 className="mb-3 font-bold">الوكيل والمحرم</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="الوكيل" name="agentId">
-            <select id="agentId" name="agentId" defaultValue={v("agentId")} className="input">
+            <select key={"agentId" + v("agentId")} id="agentId" name="agentId" defaultValue={v("agentId")} className="input">
               <option value="">— بدون —</option>{agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </Field>
@@ -131,11 +142,14 @@ export function PilgrimForm({
       {trips && (
         <section className="card">
           <h2 className="mb-3 font-bold">الرحلات * <span className="text-xs font-normal text-brand-mid">(اختر رحلة واحدة على الأقل)</span></h2>
-          <TripPicker trips={trips} error={fe.tripIds} hotels={hotels} initial={echo} />
+          <TripPicker trips={trips} error={fe.tripIds} hotels={hotels} initial={echo ?? (initialTripIds?.length ? { tripIds: initialTripIds } : undefined)} />
         </section>
       )}
 
-      <button className="btn" disabled={pending}>{pending ? "جارٍ الحفظ…" : "حفظ"}</button>
+      <div className="flex flex-wrap gap-2">
+        <button name="intent" value="save" className="btn" disabled={pending}>{pending ? "جارٍ الحفظ…" : "حفظ"}</button>
+        <button name="intent" value="saveNew" className="btn-secondary" disabled={pending}>حفظ وإضافة جديد</button>
+      </div>
     </form>
   );
 }
