@@ -191,7 +191,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
                       const summary = [mkR && `مكة: ${nm(mkR.hotel)} / ${mkR.roomNo}`, mdR && `المدينة: ${nm(mdR.hotel)} / ${mdR.roomNo}`, b.roomType && ROOM_TYPE_LABELS[b.roomType as keyof typeof ROOM_TYPE_LABELS]].filter(Boolean).join(" · ");
                       return accWrite ? (
                         <AccommodationEditor action={setAccommodation.bind(null, trip.id, b.id)} hotels={hotelOpts} summary={summary}
-                          values={{ makkahHotelId: b.makkahHotelId ?? trip.makkahHotelId ?? "", madinahHotelId: b.madinahHotelId ?? trip.madinahHotelId ?? "", roomType: b.roomType ?? "", makkahRoomNo: mkR?.roomNo ?? "", madinahRoomNo: mdR?.roomNo ?? "" }} />
+                          values={{ makkahHotelId: b.makkahHotelId ?? trip.makkahHotelId ?? "", madinahHotelId: b.madinahHotelId ?? trip.madinahHotelId ?? "", roomType: b.roomType ?? "", makkahRoomNo: mkR?.roomNo ?? "", madinahRoomNo: mdR?.roomNo ?? "", officeRoom: b.officeMember ? `${b.officeMember.officeRoom.code ?? ""}${b.officeMember.officeRoom.seq}` : "" }} />
                       ) : <span className="text-sm">{summary}</span>;
                     })()}
                   </td>

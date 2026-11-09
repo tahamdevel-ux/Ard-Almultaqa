@@ -116,7 +116,7 @@ export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInp
       const live = await tx.trip.count({ where: { id: { in: tripIds }, deletedAt: null } });
       if (live !== new Set(tripIds).size) return { error: "إحدى الرحلات المختارة غير موجودة", fieldErrors: { tripIds: "إحدى الرحلات المختارة غير موجودة" } } as ActionState;
       const p = await tx.pilgrim.create({ data: data as Prisma.PilgrimUncheckedCreateInput });
-      await addPilgrimToTrips(tx, p.id, p.agentId, tripIds);
+      await addPilgrimToTrips(tx, p.id, p.agentId, tripIds, { skipOfficeTrips: tripIds.filter((t) => acc[t]?.officeRoom) });
       for (const tripId of tripIds) {
         const a = acc[tripId];
         if (!a) continue;

@@ -20,7 +20,7 @@ export type AddToTripsResult = {
  * booking on that trip is reactivated). Safe to call inside a transaction.
  */
 /** `officeRooms: false` lets a bulk caller (the import) assign all new bookings to office rooms once, at the end. */
-export async function addPilgrimToTrips(client: Client, pilgrimId: string, agentId: string | null, tripIds: string[], opts: { officeRooms?: boolean } = {}): Promise<AddToTripsResult> {
+export async function addPilgrimToTrips(client: Client, pilgrimId: string, agentId: string | null, tripIds: string[], opts: { officeRooms?: boolean; skipOfficeTrips?: string[] } = {}): Promise<AddToTripsResult> {
   const out: AddToTripsResult = { added: [], skipped: [], missing: [] };
   for (const tripId of [...new Set(tripIds)]) {
     const trip = await client.trip.findFirst({ where: { id: tripId, deletedAt: null }, select: { id: true } });
@@ -34,7 +34,7 @@ export async function addPilgrimToTrips(client: Client, pilgrimId: string, agent
         : await tx.booking.create({ data: { pilgrimId, tripId, agentId } });
       bookingId = booking.id;
       await autoSeatNewBooking(tx, tripId, booking.id); // land trips only
-      if (opts.officeRooms !== false) await assignOfficeRooms(tx, tripId, [booking.id]); // internal office room, automatic
+      if (opts.officeRooms !== false && !opts.skipOfficeTrips?.includes(tripId)) await assignOfficeRooms(tx, tripId, [booking.id]); // internal office room, automatic
     });
     out.added.push(tripId);
     (out.bookingIds ??= {})[tripId] = bookingId;

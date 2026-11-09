@@ -6,7 +6,7 @@ import { createPilgrimWithTrips, pilgrimSchema } from "./pilgrims";
 
 const D = (s: string) => new Date(s + "T00:00:00Z");
 async function wipe() {
-  await db.payment.deleteMany(); await db.auditLog.deleteMany(); await db.roomAssignment.deleteMany(); await db.seatAssignment.deleteMany(); await db.room.deleteMany();
+  await db.payment.deleteMany(); await db.auditLog.deleteMany(); await db.officeRoomMember.deleteMany(); await db.officeRoom.deleteMany(); await db.roomAssignment.deleteMany(); await db.seatAssignment.deleteMany(); await db.room.deleteMany();
   await db.bookingGroupMember.deleteMany(); await db.familyGroup.deleteMany(); await db.booking.deleteMany(); await db.bus.deleteMany(); await db.tripPrice.deleteMany();
   await db.trip.deleteMany(); await db.pilgrim.deleteMany(); await db.hotel.deleteMany();
 }
@@ -84,5 +84,43 @@ describe("accommodation while creating a pilgrim", () => {
     const r = await createPilgrimWithTrips(user, data("A22222222"), [t.id], { [t.id]: { makkahHotelId: h.id, makkahRoomNo: "12" } }); // no room type for a new room
     expect(r.ok).toBeFalsy(); expect(r.fieldErrors?.tripIds).toBeTruthy();
     expect(await db.pilgrim.count()).toBe(0); expect(await db.booking.count()).toBe(0); expect(await db.room.count()).toBe(0);
+  });
+});
+
+describe("choosing the internal office room when adding a pilgrim", () => {
+  const data = (no: string) => pilgrimSchema.parse({ firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980", passportNo: no, enGivenName: "A", enSurname: "B", passportExpiry: "01/01/2035" });
+  const user = { id: "x", role: "ADMIN" } as never;
+
+  it("two pilgrims added one after the other with room 1 end up together; no stray room is created", async () => {
+    const t = await db.trip.create({ data: { name: "رحلة", transportType: "AIR", capacity: 10 } });
+    const a = await createPilgrimWithTrips(user, data("A33333331"), [t.id], { [t.id]: { officeRoom: "1" } });
+    const b = await createPilgrimWithTrips(user, data("A33333332"), [t.id], { [t.id]: { officeRoom: "1" } });
+    expect(a.ok && b.ok).toBe(true);
+    const rooms = await db.officeRoom.findMany({ where: { tripId: t.id }, include: { members: true } });
+    expect(rooms).toHaveLength(1);
+    expect(rooms[0]).toMatchObject({ seq: 1, code: null });
+    expect(rooms[0].members).toHaveLength(2);
+    expect(rooms[0].members.every((m) => m.assignedBy === "MANUAL")).toBe(true);
+  });
+
+  it("a full room is refused (nothing saved); a typed label with letters keeps its letters; bad labels are refused", async () => {
+    const t = await db.trip.create({ data: { name: "رحلة", transportType: "AIR", capacity: 10 } });
+    for (let i = 0; i < 4; i++) expect((await createPilgrimWithTrips(user, data(`A4444444${i}`), [t.id], { [t.id]: { officeRoom: "a7" } })).ok).toBe(true);
+    const fifth = await createPilgrimWithTrips(user, data("A44444449"), [t.id], { [t.id]: { officeRoom: "a7" } });
+    expect(fifth.ok).toBeFalsy(); expect(fifth.error).toContain("ممتلئة");
+    expect(await db.pilgrim.count({ where: { passportNo: "A44444449" } })).toBe(0);
+    expect((await db.officeRoom.findMany({ where: { tripId: t.id } })).map((r) => `${r.code}${r.seq}`)).toEqual(["a7"]);
+    expect((await createPilgrimWithTrips(user, data("A55555555"), [t.id], { [t.id]: { officeRoom: "غرفة" } })).ok).toBeFalsy();
+  });
+
+  it("empty = automatic; editing later moves the pilgrim to the typed room", async () => {
+    const t = await db.trip.create({ data: { name: "رحلة", transportType: "AIR", capacity: 10 } });
+    await createPilgrimWithTrips(user, data("A66666661"), [t.id], {});
+    expect(await db.officeRoom.count({ where: { tripId: t.id } })).toBe(1); // placed automatically
+    const p = await db.pilgrim.findFirstOrThrow({ where: { passportNo: "A66666661" } });
+    const bk = await db.booking.findFirstOrThrow({ where: { pilgrimId: p.id, tripId: t.id } });
+    expect((await applyAccommodation(t.id, bk.id, { officeRoom: "9" })).ok).toBe(true);
+    const m = await db.officeRoomMember.findUniqueOrThrow({ where: { bookingId: bk.id }, include: { officeRoom: true } });
+    expect(m.officeRoom.seq).toBe(9);
   });
 });

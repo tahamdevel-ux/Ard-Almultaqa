@@ -54,11 +54,13 @@ export async function loadOfficeState(tx: DbLike, tripId: string): Promise<Offic
 async function recompute(tx: Tx, roomId: string, state: OfficeState) {
   const room = await tx.officeRoom.findUniqueOrThrow({ where: { id: roomId }, include: { members: true } });
   if (!room.members.length) return;
+  // a room someone was put in by hand keeps its label: the staff chose that number
+  const manual = room.members.some((m) => m.assignedBy === "MANUAL");
   const people = room.members.flatMap((m) => { const b = state.bookings.find((x) => x.id === m.bookingId); return b ? [personOf(b)] : []; });
   const category = categoryOf(people);
   const code = codeFor(people, state.ctx);
   const data: Prisma.OfficeRoomUpdateInput = { category };
-  if ((room.code ?? "") !== (code ?? "")) {
+  if (!manual && (room.code ?? "") !== (code ?? "")) {
     const others = await tx.officeRoom.findMany({ where: { tripId: room.tripId, NOT: { id: room.id } }, select: { code: true, seq: true } });
     data.code = code; data.seq = nextSeq(others, code);
   }
@@ -146,4 +148,38 @@ export async function renumberOfficeRooms(tx: Tx, tripId: string) {
   // two steps so the unique (trip, code, seq) never collides while numbers shift
   for (const r of rooms) await tx.officeRoom.update({ where: { id: r.id }, data: { seq: r.seq + 100000 } });
   for (const r of rooms) await tx.officeRoom.update({ where: { id: r.id }, data: { seq: map.get(r.id)! } });
+}
+
+/** "a1" or "2": the label staff type when adding a pilgrim. Letters = an agent code, digits = the number. */
+export function parseRoomLabel(raw: string): { code: string | null; seq: number } | null {
+  const m = /^([a-z]{0,2})(\d{1,4})$/i.exec(raw.trim());
+  return m ? { code: m[1] ? m[1].toLowerCase() : null, seq: Number(m[2]) } : null;
+}
+
+/**
+ * Puts a booking in the office room with this label (created when it does not exist yet), as a MANUAL placement.
+ * Everyone put in "1" ends up together; the room must have a free bed and not be locked.
+ */
+export async function placeInRoomByLabel(tx: Tx, tripId: string, bookingId: string, label: string): Promise<OfficeResult> {
+  const parsed = parseRoomLabel(label);
+  if (!parsed) return fail("رقم غرفة المكتب غير صحيح (مثل 1 أو a3)");
+  const b = await tx.booking.findFirst({ where: { id: bookingId, tripId, status: "ACTIVE", deletedAt: null }, include: bookingInclude });
+  if (!b) return fail("الحجز غير موجود");
+  let room = await tx.officeRoom.findFirst({ where: { tripId, code: parsed.code, seq: parsed.seq }, include: { members: true } });
+  if (room?.members.some((m) => m.bookingId === bookingId)) return { ok: true };
+  if (room?.locked) return fail(`غرفة المكتب ${label} مقفلة`);
+  if (room && room.members.length >= room.capacity) return fail(`غرفة المكتب ${label} ممتلئة`);
+  const state = await loadOfficeState(tx, tripId);
+  const person = personOf(b);
+  if (!room) {
+    const roomType = person.roomType;
+    const created = await tx.officeRoom.create({ data: { tripId, code: parsed.code, seq: parsed.seq, capacity: capacityFor(roomType, state.defaultCapacity), roomType, category: categoryOf([person]) } });
+    room = { ...created, members: [] };
+  }
+  const from = b.officeMember?.officeRoomId ?? null;
+  await tx.officeRoomMember.deleteMany({ where: { bookingId } });
+  await tx.officeRoomMember.create({ data: { officeRoomId: room.id, bookingId, assignedBy: "MANUAL" } });
+  const fresh = await loadOfficeState(tx, tripId);
+  for (const id of [from, room.id]) if (id) await recompute(tx, id, fresh);
+  return { ok: true };
 }

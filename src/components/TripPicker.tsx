@@ -27,7 +27,7 @@ export function TripPicker({ trips, error, hotels, initial }: { trips: TripChoic
               <div className="my-2 space-y-1 rounded bg-canvas p-2">
                 <p className="text-xs font-bold text-brand-mid">التسكين في هذه الرحلة (اختياري): فندق كل مدينة ونوع الغرفة ورقمها</p>
                 <AccommodationFields hotels={hotels} idPrefix={"p" + t.id} nameSuffix={"__" + t.id}
-                  values={{ makkahHotelId: (initial?.["makkahHotelId__" + t.id] as string) ?? t.makkahHotelId ?? "", madinahHotelId: (initial?.["madinahHotelId__" + t.id] as string) ?? t.madinahHotelId ?? "", roomType: (initial?.["roomType__" + t.id] as string) ?? "", makkahRoomNo: (initial?.["makkahRoomNo__" + t.id] as string) ?? "", madinahRoomNo: (initial?.["madinahRoomNo__" + t.id] as string) ?? "" }} />
+                  values={{ makkahHotelId: (initial?.["makkahHotelId__" + t.id] as string) ?? t.makkahHotelId ?? "", madinahHotelId: (initial?.["madinahHotelId__" + t.id] as string) ?? t.madinahHotelId ?? "", roomType: (initial?.["roomType__" + t.id] as string) ?? "", makkahRoomNo: (initial?.["makkahRoomNo__" + t.id] as string) ?? "", madinahRoomNo: (initial?.["madinahRoomNo__" + t.id] as string) ?? "", officeRoom: (initial?.["officeRoom__" + t.id] as string) ?? "" }} />
               </div>
             )}
           </div>
