@@ -422,6 +422,11 @@ model TripPrice {
   @@unique([tripId, roomType])
 }
 
+enum PaymentSource {
+  DIRECT
+  AGENT
+}
+
 model Payment {
   id           String        @id @default(uuid())
   receiptNo    Int           @unique @default(autoincrement())
@@ -438,8 +443,11 @@ model Payment {
   receivedByName String
   note         String?
   reason       String?
+  source       PaymentSource @default(DIRECT) // DIRECT = the pilgrim paid the company; AGENT = paid through an agent
+  sourceAgentId String?
   createdAt    DateTime      @default(now())
   @@index([bookingId])
+  @@index([paidAt])
 }
 
 /// Used only when STORAGE_DRIVER=db (e.g. Vercel preview, where the disk is not persistent).

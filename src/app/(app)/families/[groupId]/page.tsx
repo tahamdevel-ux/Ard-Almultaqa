@@ -12,6 +12,7 @@ import { formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
 import { MoneyForm } from "@/components/MoneyForm";
 import { DateInput } from "@/components/DateInput";
+import { PaymentSourceFields } from "@/components/PaymentSourceFields";
 import { payFamily } from "./actions";
 
 const METHOD = { CASH: "نقداً", TRANSFER: "حوالة", CARD: "بطاقة", OTHER: "أخرى" } as const;
@@ -25,7 +26,8 @@ export default async function FamilyPage({ params }: { params: Promise<{ groupId
   if (!canSeeTrip(user, trip)) redirect("/forbidden");
   const head = fam.members.find((m) => m.isHead);
   const rate = await getSetting("usdRate");
-  const wp = can(user.role, "payments.write");
+  const wp = can(user.role, "payments.record");
+  const agents = await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
   const today = formatDate(new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())));
   const cur = fam.members.find((m) => m.price != null)?.currency ?? "USD";
 
@@ -70,6 +72,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ groupId
             <div><label className="label">سعر الصرف (إن كان بالدينار)</label><input name="rate" type="number" defaultValue={rate} className="input w-28" dir="ltr" /></div>
             <div><label className="label">الطريقة</label><select name="method" className="input w-24">{Object.entries(METHOD).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
             <div><label className="label">التاريخ</label><DateInput name="paidAt" defaultValue={today} className="input w-28" /></div>
+            <PaymentSourceFields agents={agents} />
             <div><label className="label">ملاحظة</label><input name="note" className="input w-40" /></div>
           </MoneyForm>
           <p className="text-xs text-brand-mid">يُوزَّع المبلغ على أفراد الأسرة بدءاً برب الأسرة، كل فرد حتى ما يتبقى عليه، ويحصل كل فرد على وصله الخاص فيبقى حسابه صحيحاً.</p>

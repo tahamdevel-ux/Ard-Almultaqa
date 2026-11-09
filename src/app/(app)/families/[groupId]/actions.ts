@@ -10,12 +10,13 @@ const METHODS = ["CASH", "TRANSFER", "CARD", "OTHER"] as const;
 
 export async function payFamily(groupId: string, _p: FormState, f: FormData): Promise<FormState> {
   try {
-    const u = await requirePermission("payments.write");
+    const u = await requirePermission("payments.record");
     const paidAt = parseDate(s(f, "paidAt"));
     if (!paidAt) return { error: "تاريخ الدفعة غير صحيح (DD/MM/YYYY)" };
     const r = await addFamilyPayment(u, groupId, {
       amount: Number(s(f, "amount").replace(/,/g, "")), currency: s(f, "currency") === "IQD" ? "IQD" : "USD",
-      rate: s(f, "rate") ? Number(s(f, "rate")) : null, method: METHODS.find((m) => m === s(f, "method")) ?? "CASH", paidAt, note: s(f, "note") });
+      rate: s(f, "rate") ? Number(s(f, "rate")) : null, method: METHODS.find((m) => m === s(f, "method")) ?? "CASH", paidAt, note: s(f, "note"),
+      source: s(f, "source") === "AGENT" ? "AGENT" : "DIRECT", sourceAgentId: s(f, "sourceAgentId") || null });
     revalidatePath(`/families/${groupId}`);
     return r.ok ? { ok: true, receiptNo: r.receiptNo } : { error: r.error };
   } catch (e) {

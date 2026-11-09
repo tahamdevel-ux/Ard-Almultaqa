@@ -13,6 +13,7 @@ import { ROOM_TYPE_LABELS } from "@/domain/rooming";
 import { MoneyForm } from "@/components/MoneyForm";
 import { cancel, move, recordPayment, savePrice } from "./actions";
 import { DateInput } from "@/components/DateInput";
+import { PaymentSourceFields } from "@/components/PaymentSourceFields";
 
 const METHOD = { CASH: "نقداً", TRANSFER: "حوالة", CARD: "بطاقة", OTHER: "أخرى" } as const;
 
@@ -27,10 +28,11 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
   const pays = b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }));
   const paid = paidTotal(pays);
   const bal = balance(b.priceAmount, pays);
-  const wp = can(user.role, "payments.write"), wpr = can(user.role, "prices.write");
+  const wp = can(user.role, "payments.write"), wrec = can(user.role, "payments.record"), wpr = can(user.role, "prices.write");
   const today = formatDate(new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())));
   const otherTrips = can(user.role, "bookings.write") ? await db.trip.findMany({ where: { deletedAt: null, id: { not: b.tripId }, status: { in: ["OPEN", "FULL"] } }, orderBy: TRIP_ORDER }) : [];
   const active = b.status === "ACTIVE";
+  const agents = await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
   const family = b.groups.find((g) => g.group.kind === "FAMILY");
 
   const payFields = (kind: "PAYMENT" | "REFUND") => (
@@ -40,7 +42,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
       <div><label className="label">سعر الصرف (إن كان بالدينار)</label><input name="rate" type="number" defaultValue={rate} className="input w-28" dir="ltr" /></div>
       <div><label className="label">الطريقة</label><select name="method" className="input w-24">{Object.entries(METHOD).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
       <div><label className="label">التاريخ</label><DateInput name="paidAt" defaultValue={today} className="input w-28" /></div>
-      {kind === "REFUND" ? <div><label className="label">السبب *</label><input name="reason" className="input w-40" required /></div> : <div><label className="label">ملاحظة</label><input name="note" className="input w-40" /></div>}
+      {kind === "REFUND" ? <div><label className="label">السبب *</label><input name="reason" className="input w-40" required /></div> : <><PaymentSourceFields agents={agents} defaultAgentId={b.agentId} /><div><label className="label">ملاحظة</label><input name="note" className="input w-40" /></div></>}
     </>
   );
 
@@ -92,7 +94,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
         </table>
       </section>
 
-      {wp && active && (
+      {wrec && active && (
         <section className="card space-y-2">
           <h2 className="font-bold">استلام دفعة</h2>
           <MoneyForm action={recordPayment.bind(null, b.id, "PAYMENT")} submit="تسجيل الدفعة">{payFields("PAYMENT")}</MoneyForm>

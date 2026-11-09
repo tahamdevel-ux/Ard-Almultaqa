@@ -29,13 +29,15 @@ export async function savePrice(bookingId: string, _p: FormState, f: FormData): 
 }
 
 export async function recordPayment(bookingId: string, kind: "PAYMENT" | "REFUND", _p: FormState, f: FormData): Promise<FormState> {
-  return guard("payments.write", async (u) => {
+  // anyone may record a new payment; refunds (reason required) are for admin and accountant
+  return guard(kind === "PAYMENT" ? "payments.record" : "payments.write", async (u) => {
     const paidAt = parseDate(s(f, "paidAt"));
     if (!paidAt) return { error: "تاريخ الدفعة غير صحيح (DD/MM/YYYY)" };
     const method = METHODS.find((m) => m === s(f, "method")) ?? "CASH";
     const r = await addPayment(u, bookingId, {
       kind, amount: Number(s(f, "amount").replace(/,/g, "")), currency: s(f, "currency") === "IQD" ? "IQD" : "USD",
-      rate: s(f, "rate") ? Number(s(f, "rate")) : null, method, paidAt, note: s(f, "note"), reason: s(f, "reason") });
+      rate: s(f, "rate") ? Number(s(f, "rate")) : null, method, paidAt, note: s(f, "note"), reason: s(f, "reason"),
+      source: s(f, "source") === "AGENT" ? "AGENT" : "DIRECT", sourceAgentId: s(f, "sourceAgentId") || null });
     touch(bookingId);
     return r.ok ? { ok: true, receiptNo: r.receiptNo } : { error: r.error };
   });

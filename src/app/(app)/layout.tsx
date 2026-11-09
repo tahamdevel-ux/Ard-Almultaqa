@@ -11,6 +11,7 @@ const NAV: { href: string; label: string; perm: Permission; icon: IconName }[] =
   { href: "/dashboard", label: "الرئيسية", perm: "dashboard.view", icon: "home" },
   { href: "/pilgrims", label: "المعتمرون", perm: "pilgrims.view", icon: "users" },
   { href: "/trips", label: "الرحلات", perm: "trips.view", icon: "bus" },
+  { href: "/accounts", label: "الحسابات", perm: "payments.view", icon: "wallet" },
   { href: "/hotels", label: "الفنادق", perm: "hotels.view", icon: "hotel" },
   { href: "/programs", label: "القوالب", perm: "trips.write", icon: "template" },
   { href: "/agents", label: "الوكلاء", perm: "agents.view", icon: "agent" },

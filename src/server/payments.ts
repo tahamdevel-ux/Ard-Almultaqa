@@ -1,4 +1,4 @@
-import type { Currency, PaymentKind, PaymentMethod, Prisma } from "@prisma/client";
+import type { Currency, PaymentKind, PaymentMethod, PaymentSource, Prisma } from "@prisma/client";
 import { db } from "./db";
 import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
@@ -37,8 +37,11 @@ export async function setBookingPrice(
 
 export async function addPayment(
   user: SessionUser, bookingId: string,
-  input: { kind: PaymentKind; amount: number; currency: Currency; rate?: number | null; method: PaymentMethod; paidAt: Date; note?: string; reason?: string },
+  input: { kind: PaymentKind; amount: number; currency: Currency; rate?: number | null; method: PaymentMethod; paidAt: Date; note?: string; reason?: string; source?: PaymentSource; sourceAgentId?: string | null },
 ): Promise<Result> {
+  const source: PaymentSource = input.kind === "PAYMENT" ? input.source ?? "DIRECT" : "DIRECT";
+  if (source === "AGENT" && !input.sourceAgentId) return fail("اختر الوكيل الذي دفع عن طريقه");
+  if (source === "AGENT" && !(await db.agent.findFirst({ where: { id: input.sourceAgentId!, deletedAt: null } }))) return fail("الوكيل غير موجود");
   return db.$transaction(async (tx) => {
     const b = await tx.booking.findUnique({ where: { id: bookingId }, include: { payments: true } });
     if (!b) return fail("الحجز غير موجود");
@@ -51,8 +54,8 @@ export async function addPayment(
     const p = await tx.payment.create({ data: {
       bookingId, kind: input.kind, amount: input.amount, currency: input.currency, exchangeRate: input.currency === b.priceCurrency ? null : input.rate ?? null,
       credited: chk.credited, method: input.method, paidAt: input.paidAt,
-      note: input.note || null, reason: input.reason || null, receivedById: user.id, receivedByName: user.name } });
-    await auditChanges(tx, user, "Payment", p.id, {}, { kind: p.kind, amount: p.amount, currency: p.currency, receiptNo: p.receiptNo, bookingId, exchangeRate: p.exchangeRate, credited: p.credited.toString() }, ["kind", "amount", "currency", "receiptNo", "bookingId", "exchangeRate", "credited"]);
+      note: input.note || null, reason: input.reason || null, source, sourceAgentId: source === "AGENT" ? input.sourceAgentId : null, receivedById: user.id, receivedByName: user.name } });
+    await auditChanges(tx, user, "Payment", p.id, {}, { kind: p.kind, amount: p.amount, currency: p.currency, receiptNo: p.receiptNo, bookingId, exchangeRate: p.exchangeRate, credited: p.credited.toString(), source: p.source, sourceAgentId: p.sourceAgentId }, ["kind", "amount", "currency", "receiptNo", "bookingId", "exchangeRate", "credited", "source", "sourceAgentId"]);
     return { ok: true, id: p.id, receiptNo: p.receiptNo } as Result;
   });
 }
@@ -138,7 +141,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
  */
 export async function addFamilyPayment(
   user: SessionUser, groupId: string,
-  input: { amount: number; currency: Currency; rate?: number | null; method: PaymentMethod; paidAt: Date; note?: string },
+  input: { amount: number; currency: Currency; rate?: number | null; method: PaymentMethod; paidAt: Date; note?: string; source?: PaymentSource; sourceAgentId?: string | null },
 ): Promise<Result> {
   const fam = await familyAccount(groupId);
   if (!fam) return fail("الأسرة غير موجودة");
@@ -163,7 +166,7 @@ export async function addFamilyPayment(
   const note = [`دفعة أسرة${head ? ` ${head.pilgrimName}` : ""}`, input.note].filter(Boolean).join(" — ");
   let firstReceipt: number | undefined;
   for (const part of plan) {
-    const r = await addPayment(user, part.bookingId, { kind: "PAYMENT", amount: part.amount, currency: input.currency, rate: input.rate, method: input.method, paidAt: input.paidAt, note });
+    const r = await addPayment(user, part.bookingId, { kind: "PAYMENT", amount: part.amount, currency: input.currency, rate: input.rate, method: input.method, paidAt: input.paidAt, note, source: input.source, sourceAgentId: input.sourceAgentId });
     if (!r.ok) return r;
     firstReceipt ??= r.receiptNo;
   }

@@ -97,17 +97,64 @@ test("accountant: pay in dinars at a rate, receipt, refund guard, cancel, move, 
   expect(tripId).toBeTruthy();
 });
 
-test("registration and housing cannot see money", async ({ page }) => {
+test("every role sees the accounts; only admin and accountant can refund", async ({ page }) => {
+  for (const user of ["reg", "housing", "sup"]) {
+    await login(page, user);
+    await page.goto("/accounts");
+    await expect(page.getByRole("heading", { name: "الحسابات" })).toBeVisible();
+    await expect(page.getByText("المطلوب").first()).toBeVisible();
+    await expect(page.getByRole("link", { name: "تسجيل دفعة" })).toBeVisible();
+    await page.context().clearCookies();
+  }
   await login(page, "reg");
-  await expect(page.getByText("الأرصدة المستحقة")).toHaveCount(0);
   await page.goto("/trips");
   await page.click("a:has-text('L-2611')");
   await page.waitForURL(/trips\/[0-9a-f-]{36}$/);
-  await expect(page.getByText("أسعار الرحلة")).toHaveCount(0);
-  await expect(page.locator("th", { hasText: "المتبقي" })).toHaveCount(0);
-  const anyBooking = "00000000-0000-0000-0000-000000000000";
-  await page.goto(`/bookings/${anyBooking}`);
-  await expect(page).toHaveURL(/forbidden/);
-  const rec = await page.request.get(`/api/payments/${anyBooking}/receipt`);
-  expect(rec.status()).toBe(403);
+  await expect(page.getByText("أسعار الرحلة")).toBeVisible();      // prices are visible to everyone
+  await expect(page.getByRole("button", { name: "حفظ الأسعار" })).toHaveCount(0); // but only admin/accountant edit them
+  // a payment can be recorded by anyone, a refund form is for admin/accountant only
+  await page.locator("a[href^='/bookings/']").first().click();
+  await expect(page.getByRole("heading", { name: "استلام دفعة" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "استرداد مبلغ" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "إلغاء الحجز" })).toHaveCount(0);
+  await page.context().clearCookies();
+  await login(page, "acc");
+  await page.goto("/accounts");
+  await expect(page.getByRole("link", { name: "تسجيل دفعة" })).toBeVisible();
+});
+
+test("accounts: summary cards, four tabs, drill-down, payment with source", async ({ page }) => {
+  await login(page, "admin");
+  // a priced booking on the seeded land trip
+  await page.goto("/trips");
+  await page.click("a:has-text('L-2611')");
+  await page.waitForURL(/trips\/[0-9a-f-]{36}$/);
+  await page.locator("a[href^='/bookings/']").first().click();
+  await page.waitForURL(/bookings\/[0-9a-f-]{36}$/);
+  const bookingId = page.url().split("/").pop()!;
+  await page.fill("[name=amount]", "100000"); // plenty, so repeated runs on the demo data keep working
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await expect(page.getByText("تم").first()).toBeVisible();
+
+  await page.goto("/accounts");
+  for (const l of ["المطلوب", "المستلم", "الباقي", "عمولات الوكلاء"]) await expect(page.getByText(l, { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "الأقسام" }).getByRole("link", { name: "الرحلات", exact: true })).toBeVisible();
+  // drill down: trip row -> that trip's pilgrims
+  await page.locator("td a", { hasText: "L-2611" }).first().click();
+  await expect(page).toHaveURL(/tab=pilgrims&.*trip=|trip=.*tab=pilgrims/);
+  await expect(page.getByRole("link", { name: "عليهم باقي فقط" })).toBeVisible();
+  await page.getByRole("navigation", { name: "الأقسام" }).getByRole("link", { name: "الوكلاء", exact: true }).click();
+  await expect(page.locator("th", { hasText: "مستلم عن طريقه" })).toBeVisible();
+
+  // record a payment through an agent from the accounts page
+  await page.goto(`/accounts/pay?booking=${bookingId}`);
+  await page.fill("[name=amount]", "250");
+  await page.selectOption("[name=source]", "AGENT");
+  await expect(page.locator("#pay-agent")).toBeVisible(); // the agent is required for this source
+  await page.selectOption("[name=sourceAgentId]", { index: 1 });
+  await page.getByRole("button", { name: "تسجيل الدفعة" }).click();
+  await expect(page.getByText(/تم تسجيل الدفعة — وصل رقم/)).toBeVisible();
+  await page.goto("/accounts?tab=payments");
+  await expect(page.locator("tbody tr").first()).toContainText("عن طريق الوكيل");
+  await expect(page.locator("tbody tr").first()).toContainText("$250");
 });
