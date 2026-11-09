@@ -34,6 +34,7 @@ export function TripPicker({ trips, error, hotels, initial }: { trips: TripChoic
         ))}
         {shown.length === 0 && <p className="text-sm text-brand-mid">لا توجد رحلات</p>}
       </div>
+      {hotels && checked.size === 0 && <p className="rounded bg-canvas px-2 py-1 text-xs text-brand-mid">💡 علّم على الرحلة (المربع بجانب اسمها) وسيظهر تحتها: فندق مكة وفندق المدينة ونوع الغرفة ورقمها.</p>}
       {error && <p className="text-xs font-bold text-red-700" role="alert">{error}</p>}
     </fieldset>
   );
