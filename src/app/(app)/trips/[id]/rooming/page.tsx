@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
 import { canSeeTrip } from "@/server/trips";
-import { fullNameAr } from "@/server/pilgrims";
+import { tripleNameAr } from "@/server/pilgrims";
 import { stayDates, ROOM_TYPE_LABELS } from "@/domain/rooming";
 import { dateOrNotSet, tripLabel } from "@/lib/tripLabel";
 import { RoomingBoard, type BoardRoom } from "@/components/RoomingBoard";
@@ -28,7 +28,7 @@ export default async function RoomingPage({ params, searchParams }: { params: Pr
     db.booking.findMany({ where: { tripId: id, status: "ACTIVE", deletedAt: null }, include: { pilgrim: true, groups: { include: { group: true } }, rooms: { where: { city } } } }),
   ]);
   const person = (b: { id: string; pilgrim: (typeof bookings)[number]["pilgrim"]; groups: (typeof bookings)[number]["groups"] }) => ({
-    bookingId: b.id, name: fullNameAr(b.pilgrim), gender: b.pilgrim.gender,
+    bookingId: b.id, name: tripleNameAr(b.pilgrim), gender: b.pilgrim.gender,
     group: b.groups[0] ? (b.groups[0].group.kind === "COMPANIONS" ? "عصبة" : "عائلة") : undefined,
   });
   const boardRooms: BoardRoom[] = rooms

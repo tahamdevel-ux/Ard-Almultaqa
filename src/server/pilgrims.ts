@@ -99,6 +99,10 @@ export async function updatePilgrim(user: SessionUser, id: string, data: Pilgrim
 export function fullNameAr(p: { firstName: string; fatherName: string; grandfatherName: string; familyName: string }) {
   return [p.firstName, p.fatherName, p.grandfatherName, p.familyName].filter(Boolean).join(" ");
 }
+/** Triple name only (first, father, grandfather): what the rooming lists and boards show. */
+export function tripleNameAr(p: { firstName: string; fatherName: string; grandfatherName: string }) {
+  return [p.firstName, p.fatherName, p.grandfatherName].filter(Boolean).join(" ");
+}
 export function fullNameEn(p: { enGivenName: string; enFatherName?: string | null; enGrandfatherName?: string | null; enSurname: string }) {
   return [p.enGivenName, p.enFatherName, p.enGrandfatherName, p.enSurname].filter(Boolean).join(" ");
 }

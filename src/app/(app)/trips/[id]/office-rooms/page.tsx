@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
 import { canSeeTrip } from "@/server/trips";
-import { fullNameAr } from "@/server/pilgrims";
+import { tripleNameAr } from "@/server/pilgrims";
 import { tripLabel } from "@/lib/tripLabel";
 import { memberWarning, printOrder, roomLabel, roomSummary, type OfficeRoomState } from "@/domain/officeRooms";
 import { ROOM_TYPE_LABELS, type RoomTypeKey } from "@/domain/rooming";
@@ -20,7 +20,7 @@ export default async function OfficeRoomsPage({ params }: { params: Promise<{ id
   const state = await loadOfficeState(db, id);
   const names = new Map(state.bookings.map((b) => [b.id, b] as const));
   const pilgrims = await db.pilgrim.findMany({ where: { id: { in: state.bookings.map((b) => b.pilgrimId) } } });
-  const nameOf = new Map(pilgrims.map((p) => [p.id, fullNameAr(p)]));
+  const nameOf = new Map(pilgrims.map((p) => [p.id, tripleNameAr(p)]));
   const person = (bookingId: string, gender: "MALE" | "FEMALE", group?: string): BoardPerson => ({
     bookingId, gender, name: nameOf.get(names.get(bookingId)!.pilgrimId) ?? "", locked: false, group,
   });

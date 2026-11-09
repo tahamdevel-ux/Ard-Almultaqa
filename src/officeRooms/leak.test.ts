@@ -74,6 +74,12 @@ describe("office rooms never appear in any other output", () => {
     expect(all).not.toContain("غرف المكتب");
   }, 60_000);
 
+  it("rooming lists show the triple name only (no family name)", async () => {
+    const rows = (await roomingData(tripId, "MAKKAH")).rows;
+    expect(rows.length).toBeGreaterThan(0);
+    for (const r of rows) expect(r.nameAr).toMatch(/^معتمر\d ب ج$/);
+  });
+
   it("every Excel output is free of office room labels", async () => {
     const files = [await renderManifest(tripId, busId, "xlsx"), await renderFlightList(tripId, "xlsx"), await renderRooming(tripId, "MAKKAH", "ar", "xlsx"), await renderRooming(tripId, "MAKKAH", "en", "xlsx"), await renderAgentStatement(agentId, undefined, "xlsx")];
     for (const f of files) {

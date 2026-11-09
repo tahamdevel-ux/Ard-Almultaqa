@@ -1,6 +1,6 @@
 import { db } from "@/server/db";
 import { getSetting } from "@/server/settings";
-import { fullNameAr } from "@/server/pilgrims";
+import { tripleNameAr } from "@/server/pilgrims";
 import { dateOrNotSet } from "@/lib/tripLabel";
 import fs from "fs";
 import path from "path";
@@ -35,7 +35,7 @@ export async function renderOfficeRoomsPdf(tripId: string): Promise<Buffer> {
   const trip = await db.trip.findFirstOrThrow({ where: { id: tripId, deletedAt: null }, include: { supervisor: true } });
   const [state, company] = await Promise.all([loadOfficeState(db, tripId), getSetting("company")]);
   const pilgrims = await db.pilgrim.findMany({ where: { id: { in: state.bookings.map((b) => b.pilgrimId) } } });
-  const nameOf = new Map(pilgrims.map((p) => [p.id, fullNameAr(p)]));
+  const nameOf = new Map(pilgrims.map((p) => [p.id, tripleNameAr(p)]));
   const bookingName = new Map(state.bookings.map((b) => [b.id, nameOf.get(b.pilgrimId) ?? ""]));
   const agents = await db.agent.findMany({ where: { roomCode: { not: null } }, orderBy: { roomCode: "asc" } });
   const usedCodes = new Set(state.rooms.map((r) => r.code).filter(Boolean));

@@ -1,6 +1,6 @@
 import { db } from "@/server/db";
 import { getSetting } from "@/server/settings";
-import { fullNameAr, fullNameEn } from "@/server/pilgrims";
+import { fullNameAr, fullNameEn, tripleNameAr } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
 
 export async function manifestData(tripId: string, busId: string) {
@@ -63,7 +63,7 @@ export async function roomingData(tripId: string, city: "MAKKAH" | "MADINAH") {
   const rows: { roomNo: string; typeAr: string; typeEn: string; nameAr: string; nameEn: string; passportNo: string; gender: string }[] = [];
   for (const r of rooms) for (const a of r.assignments) {
     const p = a.booking.pilgrim;
-    rows.push({ roomNo: r.roomNo, typeAr: ROOM_TYPE_LABELS[r.type], typeEn: ROOM_EN[r.type], nameAr: fullNameAr(p), nameEn: fullNameEn(p), passportNo: p.passportNo, gender: p.gender === "MALE" ? "M" : "F" });
+    rows.push({ roomNo: r.roomNo, typeAr: ROOM_TYPE_LABELS[r.type], typeEn: ROOM_EN[r.type], nameAr: tripleNameAr(p), nameEn: fullNameEn(p), passportNo: p.passportNo, gender: p.gender === "MALE" ? "M" : "F" });
   }
   return {
     company, trip, hotel, rows, cityAr: CITY_AR[city], cityEn: CITY_EN[city],
