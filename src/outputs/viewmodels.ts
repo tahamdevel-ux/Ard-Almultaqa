@@ -46,7 +46,7 @@ import { passportExpiryWarning } from "@/domain/passport";
 
 const CITY_AR = { MAKKAH: "مكة المكرمة", MADINAH: "المدينة المنورة" } as const;
 const CITY_EN = { MAKKAH: "Makkah", MADINAH: "Madinah" } as const;
-const ROOM_EN = { DOUBLE: "Double", TRIPLE: "Triple", QUAD: "Quad", QUINT: "Quint" } as const;
+const ROOM_EN = { SINGLE: "Single", DOUBLE: "Double", TRIPLE: "Triple", QUAD: "Quad", QUINT: "Quint" } as const;
 
 export async function roomingData(tripId: string, city: "MAKKAH" | "MADINAH") {
   const [company, trip] = await Promise.all([

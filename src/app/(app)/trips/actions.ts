@@ -8,6 +8,7 @@ import { autoSeat, validateSeat } from "@/domain/seating";
 import { overlapWarning } from "@/server/trips";
 import { addPilgrimToTrips, overlapWarnings } from "@/server/bookings";
 import { moveBookingsToBus } from "@/server/buses";
+import { freeOfficeBeds } from "@/officeRooms/service";
 import { applyAccommodation, accommodationFromForm, type Accommodation } from "@/server/accommodation";
 import { getSetting } from "@/server/settings";
 import { parseDate } from "@/domain/dates";
@@ -85,6 +86,7 @@ export async function removeBooking(tripId: string, bookingId: string) {
   if (await db.payment.count({ where: { bookingId } })) return; // has money: cancel from the account page (reason + refund)
   await db.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: "إزالة من الرحلة" } });
   await db.seatAssignment.deleteMany({ where: { bookingId } });
+  await freeOfficeBeds(db, [bookingId]);
   touch(tripId);
 }
 
@@ -281,6 +283,7 @@ export async function deleteTrip(tripId: string): Promise<TripActionState> {
       const ids = bookings.map((b) => b.id);
       await tx.seatAssignment.deleteMany({ where: { bookingId: { in: ids } } });
       await tx.roomAssignment.deleteMany({ where: { bookingId: { in: ids } } });
+      await freeOfficeBeds(tx, ids);
       await tx.booking.updateMany({ where: { id: { in: ids } }, data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: "حذف الرحلة" } });
       await tx.trip.update({ where: { id: tripId }, data: { deletedAt: new Date() } });
       await tx.auditLog.create({ data: { userId: u.id, userName: u.name, entity: "Trip", entityId: tripId, field: "deleted", oldValue: trip.name, newValue: `تم الحذف (${ids.length} حجز أُلغي)` } });

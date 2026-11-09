@@ -9,7 +9,7 @@ export function RoomingControls({ tripId, city }: { tripId: string; city: "MAKKA
     <div className="card space-y-3">
       <form action={(f) => start(async () => setRes(await addRooms(tripId, city, f)))} className="flex flex-wrap items-end gap-2">
         <div><label className="label" htmlFor="rc-type">نوع الغرفة</label>
-          <select id="rc-type" name="type" className="input w-28"><option value="DOUBLE">ثنائية</option><option value="TRIPLE">ثلاثية</option><option value="QUAD">رباعية</option><option value="QUINT">خماسية</option></select></div>
+          <select id="rc-type" name="type" className="input w-28"><option value="SINGLE">سنكل</option><option value="DOUBLE">ثنائية</option><option value="TRIPLE">ثلاثية</option><option value="QUAD">رباعية</option><option value="QUINT">خماسية</option></select></div>
         <div><label className="label" htmlFor="rc-count">العدد</label><input id="rc-count" name="count" type="number" defaultValue={1} min={1} className="input w-20" dir="ltr" /></div>
         <div><label className="label" htmlFor="rc-prefix">بادئة</label><input id="rc-prefix" name="prefix" className="input w-20" dir="ltr" placeholder="مثلاً 5" /></div>
         <div><label className="label" htmlFor="rc-start">يبدأ من رقم</label><input id="rc-start" name="start" type="number" defaultValue={1} min={1} className="input w-24" dir="ltr" /></div>

@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import type { SessionUser } from "@/server/auth";
 import { auditChanges, PILGRIM_AUDITED } from "@/server/audit";
 import { addPilgrimToTrips } from "@/server/bookings";
+import { assignOfficeRooms } from "@/officeRooms/service";
 import { validateRows, type Mapping, type RowResult } from "./engine";
 import type { Cell } from "./values";
 
@@ -63,10 +64,12 @@ export async function commitImport(user: SessionUser, rows: SheetRow[], mapping:
   const existingRows = new Set(preview.existing.map((e) => e.rowNo));
   const out: ImportOutcome = { created: 0, addedExisting: 0, updated: 0, alreadyOnTrip: 0, skipped: 0, invalid: preview.invalid };
   await db.$transaction(async (tx) => {
+    const newBookings: string[] = [];
     for (const r of preview.results) {
       if (invalidRows.has(r.rowNo) || existingRows.has(r.rowNo) || !r.data) continue;
       const p = await tx.pilgrim.create({ data: r.data as Prisma.PilgrimUncheckedCreateInput });
-      await addPilgrimToTrips(tx, p.id, p.agentId, [tripId]);
+      const added = await addPilgrimToTrips(tx, p.id, p.agentId, [tripId], { officeRooms: false });
+      if (added.bookingIds?.[tripId]) newBookings.push(added.bookingIds[tripId]);
       out.created++;
     }
     for (const e of preview.existing) {
@@ -80,9 +83,11 @@ export async function commitImport(user: SessionUser, rows: SheetRow[], mapping:
         out.updated++;
       }
       const pil = await tx.pilgrim.findUniqueOrThrow({ where: { id: e.existingId }, select: { agentId: true } });
-      const r = await addPilgrimToTrips(tx, e.existingId, pil.agentId, [tripId]);
-      if (r.added.length) out.addedExisting++; else out.alreadyOnTrip++;
+      const r = await addPilgrimToTrips(tx, e.existingId, pil.agentId, [tripId], { officeRooms: false });
+      if (r.added.length) { out.addedExisting++; if (r.bookingIds?.[tripId]) newBookings.push(r.bookingIds[tripId]); } else out.alreadyOnTrip++;
     }
+    // office rooms: all imported bookings are placed at the end, in the same transaction
+    await assignOfficeRooms(tx, tripId, newBookings);
   }, { timeout: 300_000, maxWait: 30_000 });
   return out;
 }

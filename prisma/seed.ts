@@ -86,7 +86,7 @@ async function main() {
     for (const [no, [d2, d3, d4, d5]] of Object.entries(price)) {
       const t = await db.trip.findUnique({ where: { tripNo: no } });
       if (!t) continue;
-      await db.tripPrice.createMany({ data: [["DOUBLE", d2], ["TRIPLE", d3], ["QUAD", d4], ["QUINT", d5]].map(([roomType, amount]) => ({ tripId: t.id, roomType: roomType as "DOUBLE", amount: amount as number, currency: "USD" as const })) });
+      await db.tripPrice.createMany({ data: [["SINGLE", Math.round(d2 * 1.5)], ["DOUBLE", d2], ["TRIPLE", d3], ["QUAD", d4], ["QUINT", d5]].map(([roomType, amount]) => ({ tripId: t.id, roomType: roomType as "DOUBLE", amount: amount as number, currency: "USD" as const })) });
       const bookings = await db.booking.findMany({ where: { tripId: t.id }, orderBy: { createdAt: "asc" } });
       for (const [i, b] of bookings.entries()) {
         await db.booking.update({ where: { id: b.id }, data: { roomType: "QUAD", priceAmount: d4, priceCurrency: "USD" } });

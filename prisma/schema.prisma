@@ -72,6 +72,7 @@ enum City {
   MADINAH
 }
 enum RoomType {
+  SINGLE
   DOUBLE
   TRIPLE
   QUAD
@@ -122,6 +123,7 @@ model Setting {
 
 model Agent {
   id              String         @id @default(uuid())
+  roomCode        String?        @unique // 1-2 lowercase letters used on the office room labels (a1, b3); fixed per agent
   name            String
   officeName      String?
   phones          String[]
@@ -238,6 +240,7 @@ model Trip {
   cars          GroundCar[]
   bookings      Booking[]
   rooms         Room[]
+  officeRooms   OfficeRoom[]
   prices        TripPrice[]
 }
 
@@ -303,6 +306,7 @@ model Booking {
   seat        SeatAssignment?
   groups      BookingGroupMember[]
   rooms       RoomAssignment[]
+  officeMember OfficeRoomMember?
   payments    Payment[]
   @@unique([pilgrimId, tripId])
   @@index([tripId])
@@ -368,6 +372,45 @@ model Hotel {
   rooms        Room[]
   programsMakkah  Program[] @relation("ProgMakkah")
   programsMadinah Program[] @relation("ProgMadinah")
+}
+
+enum OfficeCategory {
+  MEN
+  WOMEN
+  FAMILY
+}
+enum OfficeAssign {
+  AUTO
+  MANUAL
+}
+
+/// Internal office rooming (never printed anywhere except the internal print). Separate from the hotel Room board.
+model OfficeRoom {
+  id        String          @id @default(uuid())
+  tripId    String
+  trip      Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  code      String?         // agent room code, null = plain number
+  seq       Int
+  capacity  Int
+  roomType  RoomType?
+  category  OfficeCategory
+  locked    Boolean         @default(false)
+  note      String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  members   OfficeRoomMember[]
+  @@index([tripId])
+}
+
+model OfficeRoomMember {
+  id           String       @id @default(uuid())
+  officeRoomId String
+  officeRoom   OfficeRoom   @relation(fields: [officeRoomId], references: [id], onDelete: Cascade)
+  bookingId    String       @unique
+  booking      Booking      @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  assignedBy   OfficeAssign @default(AUTO)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 model Room {

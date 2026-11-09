@@ -4,7 +4,7 @@ import type { TripActionState } from "@/app/(app)/trips/actions";
 
 export type HotelOpt = { id: string; name: string; city: "MAKKAH" | "MADINAH" };
 export type AccValues = { makkahHotelId: string; madinahHotelId: string; roomType: string; makkahRoomNo: string; madinahRoomNo: string };
-const TYPES = [["", "—"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"]];
+const TYPES = [["", "—"], ["SINGLE", "سنكل"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"]];
 
 /** Hotel per city, room type and room numbers for one pilgrim. Names match accommodationFromForm(). */
 export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc", nameSuffix = "" }: { hotels: HotelOpt[]; values: AccValues; onChange?: (v: AccValues) => void; idPrefix?: string; nameSuffix?: string }) {

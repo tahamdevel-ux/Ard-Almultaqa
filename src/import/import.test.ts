@@ -36,7 +36,7 @@ async function trip(name = "رحلة الاختبار") { return db.trip.create(
 
 beforeAll(async () => { await db.$connect(); });
 beforeEach(async () => {
-  await db.payment.deleteMany(); await db.auditLog.deleteMany(); await db.seatAssignment.deleteMany(); await db.booking.deleteMany(); await db.bus.deleteMany();
+  await db.officeRoomMember.deleteMany(); await db.officeRoom.deleteMany(); await db.payment.deleteMany(); await db.auditLog.deleteMany(); await db.seatAssignment.deleteMany(); await db.booking.deleteMany(); await db.bus.deleteMany();
   await db.tripPrice.deleteMany(); await db.trip.deleteMany(); await db.pilgrim.deleteMany();
 });
 
@@ -150,6 +150,16 @@ describe("import into a trip", () => {
     const p1 = await db.pilgrim.findUniqueOrThrow({ where: { passportNo: "Z50000001" } });
     expect(p1.phone).toBeNull();
     expect(await db.booking.count({ where: { tripId: t.id } })).toBe(2);
+  });
+
+  it("every imported booking gets an office room, assigned at the end of the import", async () => {
+    const t = await trip();
+    const [raw] = await book([{ name: "S", rows: [H57, row57(0), row57(1), row57(2), row57(3), row57(4)] }]);
+    const a = analyzeSheet(raw.name, raw.rows);
+    await commitImport(user, a.dataRows, a.mapping, t.id, {});
+    const rooms = await db.officeRoom.findMany({ where: { tripId: t.id }, include: { members: true } });
+    expect(rooms.reduce((s, r) => s + r.members.length, 0)).toBe(5);
+    expect(rooms.length).toBe(2); // default capacity 4; row57 men and women are Male/Male... all Male
   });
 
   it("existing passports: added to the trip with their data untouched; already on the trip is skipped", async () => {

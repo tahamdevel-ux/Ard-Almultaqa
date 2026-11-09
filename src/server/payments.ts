@@ -2,6 +2,7 @@ import type { Currency, PaymentKind, PaymentMethod, PaymentSource, Prisma } from
 import { db } from "./db";
 import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
+import { assignOfficeRooms, freeOfficeBeds } from "@/officeRooms/service";
 import { balance, checkPayment, paidTotal } from "@/domain/money";
 
 type Tx = Prisma.TransactionClient;
@@ -81,6 +82,7 @@ export async function cancelBooking(
     await tx.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED", cancelReason: reason.trim(), cancelledAt: new Date() } });
     await auditChanges(tx, user, "Booking", bookingId, { status: "ACTIVE" }, { status: "CANCELLED" }, ["status"]);
     await clearAssignments(tx, bookingId);
+    await freeOfficeBeds(tx, [bookingId]); // the bed is freed, the room keeps its number
   });
   return { ok: true };
 }
@@ -102,6 +104,8 @@ export async function moveToTrip(user: SessionUser, bookingId: string, targetTri
     await tx.payment.updateMany({ where: { bookingId: old.id }, data: { bookingId: nb.id } });
     await tx.booking.update({ where: { id: old.id }, data: { status: "MOVED" } });
     await clearAssignments(tx, old.id);
+    await freeOfficeBeds(tx, [old.id]);
+    await assignOfficeRooms(tx, targetTripId, [nb.id]); // assigned in the new trip
     await auditChanges(tx, user, "Booking", old.id, { tripId: old.tripId }, { tripId: targetTripId }, ["tripId"]);
     return { ok: true, id: nb.id } as Result;
   });

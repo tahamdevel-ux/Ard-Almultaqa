@@ -140,7 +140,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
           <h2 className="font-bold">أسعار الرحلة (بالدولار، حسب نوع الغرفة)</h2>
           {pw ? (
             <form action={saveTripPrices.bind(null, trip.id)} className="flex flex-wrap items-end gap-2">
-              {(["DOUBLE", "TRIPLE", "QUAD", "QUINT"] as const).map((t) => (
+              {(["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"] as const).map((t) => (
                 <div key={t}><label className="label" htmlFor={"price-" + t}>{ROOM_TYPE_LABELS[t]}</label>
                   <input id={"price-" + t} name={t} type="number" min={0} defaultValue={prices.find((p) => p.roomType === t)?.amount ?? ""} className="input w-28" dir="ltr" /></div>
               ))}

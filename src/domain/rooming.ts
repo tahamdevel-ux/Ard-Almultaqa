@@ -1,6 +1,6 @@
-export type RoomTypeKey = "DOUBLE" | "TRIPLE" | "QUAD" | "QUINT";
-export const ROOM_BEDS: Record<RoomTypeKey, number> = { DOUBLE: 2, TRIPLE: 3, QUAD: 4, QUINT: 5 };
-export const ROOM_TYPE_LABELS: Record<RoomTypeKey, string> = { DOUBLE: "ثنائية", TRIPLE: "ثلاثية", QUAD: "رباعية", QUINT: "خماسية" };
+export type RoomTypeKey = "SINGLE" | "DOUBLE" | "TRIPLE" | "QUAD" | "QUINT";
+export const ROOM_BEDS: Record<RoomTypeKey, number> = { SINGLE: 1, DOUBLE: 2, TRIPLE: 3, QUAD: 4, QUINT: 5 };
+export const ROOM_TYPE_LABELS: Record<RoomTypeKey, string> = { SINGLE: "سنكل", DOUBLE: "ثنائية", TRIPLE: "ثلاثية", QUAD: "رباعية", QUINT: "خماسية" };
 
 export type Gender = "MALE" | "FEMALE";
 
