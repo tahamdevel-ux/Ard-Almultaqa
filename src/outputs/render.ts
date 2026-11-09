@@ -14,14 +14,14 @@ function table(headers: string[], rows: (string | number)[][], ltrCols: number[]
 
 export async function renderManifest(tripId: string, busId: string, format: "pdf" | "xlsx") {
   const d = await manifestData(tripId, busId);
-  const headers = ["المقعد", "الاسم بالعربي", "Name (passport)", "رقم الجواز", "رقم التأشيرة"];
-  const rows = d.rows.map((r) => [r.seat, r.nameAr, r.nameEn, r.passportNo, r.visaNo]);
+  const headers = ["المقعد", "الاسم بالعربي", "Name (passport)", "رقم الجواز"];
+  const rows = d.rows.map((r) => [r.seat, r.nameAr, r.nameEn, r.passportNo]);
   const info = `<p>السائق: ${esc(d.bus.driverName ?? "")} <span class="ltr">${esc(d.bus.driverPhone ?? "")}</span> — الشركة: ${esc(d.bus.company ?? "")} — عدد الركاب: ${d.rows.length}</p>`;
   if (format === "xlsx") {
     return buildXlsx({ name: `باص ${d.bus.number}`, title: `${d.title} — ${d.meta}`, company: d.company as Company,
-      columns: [{ header: headers[0], width: 8 }, { header: headers[1], width: 34 }, { header: headers[2], width: 34 }, { header: headers[3], width: 16 }, { header: headers[4], width: 16 }], rows });
+      columns: [{ header: headers[0], width: 8 }, { header: headers[1], width: 34 }, { header: headers[2], width: 34 }, { header: headers[3], width: 16 }], rows });
   }
-  return htmlToPdf(pageHtml(d.company as Company, d.title, esc(d.meta), info + table(headers, rows, [2, 3, 4])));
+  return htmlToPdf(pageHtml(d.company as Company, d.title, esc(d.meta), info + table(headers, rows, [2, 3])));
 }
 
 export async function renderFlightList(tripId: string, format: "pdf" | "xlsx") {
@@ -35,8 +35,7 @@ export async function renderFlightList(tripId: string, format: "pdf" | "xlsx") {
   return htmlToPdf(pageHtml(d.company as Company, d.title, esc(d.meta), table(headers, rows, [1, 3, 4])));
 }
 
-import QRCode from "qrcode";
-import { missingData, roomingData, idCardData } from "./viewmodels";
+import { roomingData } from "./viewmodels";
 import { fullNameAr, fullNameEn } from "@/server/pilgrims";
 import { getFile } from "@/server/storage";
 
@@ -55,47 +54,6 @@ export async function renderRooming(tripId: string, city: "MAKKAH" | "MADINAH", 
       columns: [{ header: headers[0], width: 10 }, { header: headers[1], width: 12 }, { header: headers[2], width: 38 }, { header: headers[3], width: 16 }], rows });
   }
   return htmlToPdf(pageHtml(d.company as Company, title, esc(meta), table(headers, rows, ar ? [3] : [0, 1, 2, 3]), ar ? "rtl" : "ltr"));
-}
-
-export async function renderMissing(tripId: string, format: "pdf" | "xlsx") {
-  const d = await missingData(tripId);
-  const headers = ["#", "الاسم", "رقم الجواز", "الهاتف", "النواقص"];
-  const rows = d.rows.map((r, i) => [i + 1, r.nameAr, r.passportNo, r.phone, r.items.join(" — ")]);
-  if (format === "xlsx") {
-    return buildXlsx({ name: "النواقص", title: `${d.title} — ${d.meta}`, company: d.company as Company,
-      columns: [{ header: headers[0], width: 6 }, { header: headers[1], width: 34 }, { header: headers[2], width: 16 }, { header: headers[3], width: 16 }, { header: headers[4], width: 70 }], rows });
-  }
-  const summary = `<p>المعتمرون: ${d.total} · لديهم نواقص: ${d.rows.length}</p>`;
-  return htmlToPdf(pageHtml(d.company as Company, d.title, esc(d.meta), summary + table(headers, rows, [2, 3])));
-}
-
-export async function renderIdCards(tripId: string) {
-  const d = await idCardData(tripId);
-  const hotel = (h?: { localName: string | null; officialName: string } | null) => (h ? h.localName ?? h.officialName : "—");
-  const cards: string[] = [];
-  for (const b of d.bookings) {
-    const qr = await QRCode.toDataURL(b.id, { margin: 0, width: 160 });
-    let photo = "";
-    const doc = b.pilgrim.documents[0];
-    if (doc && doc.mime.startsWith("image/")) {
-      try { photo = `data:${doc.mime};base64,${(await getFile(doc.storageKey)).toString("base64")}`; } catch { /* missing file: leave blank */ }
-    }
-    cards.push(`<div class="card"><div class="cb"><img src="${logoDataUri()}"><b>${esc((d.company as Company).name)}</b><span>${esc(d.trip.tripNo ?? "")}</span></div>
-      <div class="top"><div class="ph">${photo ? `<img src="${photo}">` : ""}</div>
-      <div class="info"><b class="nm">${esc(fullNameAr(b.pilgrim))}</b><div class="ltr">${esc(fullNameEn(b.pilgrim))}</div>
-      <div>جواز: <span class="ltr">${esc(b.pilgrim.passportNo)}</span></div></div>
-      <img class="qr" src="${qr}"></div>
-      <div class="small"><b>مكة:</b> ${esc(hotel(d.trip.makkahHotel))} — <b>المدينة:</b> ${esc(hotel(d.trip.madinahHotel))}</div>
-      <div class="small"><b>المشرف:</b> ${esc(d.trip.supervisor?.name ?? "")} <span class="ltr">${esc(d.trip.supervisor?.phone ?? "")}</span></div></div>`);
-  }
-  const css = `<style>.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .card{border:1.5px solid #4f5444;border-radius:8px;overflow:hidden;height:60mm;page-break-inside:avoid;font-size:10px;display:flex;flex-direction:column;background:#fff}
-  .cb{background:#4f5444;color:#fff;display:flex;align-items:center;gap:6px;padding:3px 6px;border-bottom:2.5px solid #e3b02e}
-  .cb img{width:20px;height:20px}.cb b{font-size:10px}.cb span{margin-right:auto;font-size:9px;color:#f2c744;font-weight:700}
-  .top{display:flex;gap:6px;align-items:flex-start;padding:5px 6px}.ph{width:22mm;height:28mm;border:1px solid #cfd2c4;border-radius:4px;flex:none;background:#f6f6f2}.ph img{width:100%;height:100%;object-fit:cover;border-radius:4px}
-  .info{flex:1;line-height:1.55}.nm{font-size:11px;color:#3b3f32}.qr{width:19mm;height:19mm}
-  .small{padding:0 6px;font-size:9px;color:#3b3f32}.small b{color:#4f5444}</style>`;
-  return htmlToPdf(pageHtml(d.company as Company, "بطاقات المعتمرين", esc(joinMeta(tripMetaParts(d.trip).slice(0, 1))), css + `<div class="grid">${cards.join("")}</div>`));
 }
 
 import { agentStatementData } from "./viewmodels";

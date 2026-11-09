@@ -6,7 +6,7 @@ import { balance, formatMoney } from "@/domain/money";
 import { readiness } from "@/domain/readiness";
 import { fullNameAr } from "@/server/pilgrims";
 import { dateOrNotSet, tripLabel } from "@/lib/tripLabel";
-import { TRANSPORT_LABELS, VISA_LABELS } from "@/lib/labels";
+import { TRANSPORT_LABELS } from "@/lib/labels";
 import { Bar, Donut, EmptyState, Legend, StatCard } from "@/components/charts";
 import { Icon } from "@/components/icons";
 
@@ -17,21 +17,12 @@ export default async function Dashboard() {
   const trips = await db.trip.findMany({
     where: { deletedAt: null, status: { in: ["OPEN", "FULL", "TRAVELLING"] }, OR: [{ returnDate: { gte: today } }, { returnDate: null }] }, // undated trips stay listed
     orderBy: [{ departDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }], take: 8,
-    include: { bookings: { where: { status: "ACTIVE", deletedAt: null }, include: { pilgrim: { include: { documents: { select: { type: true } } } } } } },
+    include: { bookings: { where: { status: "ACTIVE", deletedAt: null }, include: { pilgrim: true } } },
   });
   const pilgrims = await db.pilgrim.count({ where: { deletedAt: null } });
 
-  const rows = trips.flatMap((t) => t.bookings.map((b) => ({ b, ...readiness({ bookingActive: true, docs: b.pilgrim.documents.map((d) => d.type), visaStatus: b.visaStatus }) })));
+  const rows = trips.flatMap((t) => t.bookings.map((b) => ({ b, ...readiness({ bookingActive: true, passportNo: b.pilgrim.passportNo }) })));
   const ready = rows.filter((r) => r.ready).length;
-  const missingDocs = rows.filter((r) => r.missing.some((m) => m.startsWith("ناقص"))).length;
-  const visa = { ISSUED: 0, IN_PROGRESS: 0, NOT_SUBMITTED: 0, REJECTED: 0 };
-  for (const r of rows) visa[r.b.visaStatus]++;
-  const visaSegs = [
-    { label: VISA_LABELS.ISSUED, value: visa.ISSUED, color: "#2f7d4f" },
-    { label: VISA_LABELS.IN_PROGRESS, value: visa.IN_PROGRESS, color: "#e3b02e" },
-    { label: VISA_LABELS.NOT_SUBMITTED, value: visa.NOT_SUBMITTED, color: "#a8ac98" },
-    { label: VISA_LABELS.REJECTED, value: visa.REJECTED, color: "#b42318" },
-  ];
 
   const debts = money ? (await db.booking.findMany({
     where: { status: "ACTIVE", deletedAt: null, priceAmount: { not: null }, trip: { deletedAt: null, status: { not: "CANCELLED" } } },
@@ -50,18 +41,16 @@ export default async function Dashboard() {
         <StatCard label="جاهزون للسفر" value={`${ready} من ${rows.length}`} icon={<Icon name="check" size={22} />} tone="green" />
         {money
           ? <StatCard label="أرصدة مستحقة" value={formatMoney(Math.round(totalDebt), "USD")} icon={<Icon name="wallet" size={22} />} tone="red"><div className="text-xs text-brand-mid">{debts.length} حجز</div></StatCard>
-          : <StatCard label="مستمسكات ناقصة" value={String(missingDocs)} icon={<Icon name="alert" size={22} />} tone="red" />}
+          : <StatCard label="شواغر الرحلات" value={String(trips.reduce((n, t) => n + Math.max(0, t.capacity - t.bookings.length), 0))} icon={<Icon name="alert" size={22} />} tone="red" />}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <section className="card lg:col-span-2">
+      <div className="grid gap-4">
+        <section className="card">
           <h2 className="section-title"><Icon name="bus" size={18} />الرحلات القادمة ونسبة الامتلاء</h2>
           {trips.length === 0 ? <EmptyState icon={<Icon name="inbox" size={36} />} text="لا توجد رحلات قادمة" /> : (
             <ul className="space-y-4">
               {trips.map((t) => {
                 const n = t.bookings.length;
-                const noVisa = t.bookings.filter((b) => b.visaStatus !== "ISSUED").length;
-                const noDocs = t.bookings.filter((b) => !["PASSPORT", "PHOTO"].every((x) => b.pilgrim.documents.some((d) => d.type === x))).length;
                 return (
                   <li key={t.id}>
                     <div className="mb-1 flex flex-wrap items-center gap-x-3 text-sm">
@@ -71,7 +60,6 @@ export default async function Dashboard() {
                       <span className="mr-auto text-xs text-brand-mid">{n} من {t.capacity}</span>
                     </div>
                     <Bar value={n} max={t.capacity} tone={t.capacity && n > t.capacity ? "red" : "brand"} />
-                    <div className="mt-1 flex gap-3 text-xs text-brand-mid"><span>تأشيرات لم تصدر: <b className={noVisa ? "text-gold-dark" : ""}>{noVisa}</b></span><span>مستمسكات ناقصة: <b className={noDocs ? "text-red-700" : ""}>{noDocs}</b></span></div>
                   </li>
                 );
               })}
@@ -79,15 +67,6 @@ export default async function Dashboard() {
           )}
         </section>
 
-        <section className="card">
-          <h2 className="section-title"><Icon name="doc" size={18} />حالة التأشيرات</h2>
-          {rows.length === 0 ? <EmptyState icon={<Icon name="inbox" size={36} />} text="لا توجد حجوزات" /> : (
-            <div className="flex flex-col items-center gap-4">
-              <Donut segments={visaSegs} center={{ big: `${rows.length ? Math.round((visa.ISSUED / rows.length) * 100) : 0}%`, small: "صدرت" }} />
-              <div className="w-full"><Legend segments={visaSegs} /></div>
-            </div>
-          )}
-        </section>
       </div>
 
       {money && (

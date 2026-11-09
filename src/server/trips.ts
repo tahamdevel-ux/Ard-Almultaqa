@@ -15,7 +15,7 @@ export async function loadTripDetail(tripId: string) {
   const bookings = await db.booking.findMany({
     where: { tripId, deletedAt: null, status: "ACTIVE" },
     include: {
-      pilgrim: { include: { documents: { select: { type: true } } } },
+      pilgrim: true,
       seat: { include: { bus: true, car: true } },
       groups: { include: { group: true } },
       payments: true,
@@ -30,15 +30,15 @@ export async function loadTripDetail(tripId: string) {
     include: { trip: true },
   });
   const rows = bookings.map((b) => {
-    const { missing, ready } = readiness({ bookingActive: true, docs: b.pilgrim.documents.map((d) => d.type), visaStatus: b.visaStatus });
+    const { ready } = readiness({ bookingActive: true, passportNo: b.pilgrim.passportNo });
     const warnings: string[] = [];
     const pw = passportExpiryWarning(b.pilgrim.passportExpiry, trip.returnDate, minMonths);
     if (pw) warnings.push(pw);
     const overlap = others.find((o) => o.pilgrimId === b.pilgrimId && tripsOverlap(trip, o.trip));
     if (overlap) warnings.push(`متداخل مع الرحلة ${tripLabel(overlap.trip)}`);
-    return { booking: b, missing, warnings, ready };
+    return { booking: b, warnings, ready };
   });
-  const counter = tripCounter({ capacity: trip.capacity, bookings: rows.map((r) => ({ ready: r.ready, missing: r.missing })) });
+  const counter = tripCounter({ capacity: trip.capacity, bookings: rows.map((r) => ({ ready: r.ready })) });
   return { trip, rows, counter };
 }
 

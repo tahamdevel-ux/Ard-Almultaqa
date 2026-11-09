@@ -1,5 +1,4 @@
 import { test, expect, type Page } from "@playwright/test";
-import sharp from "sharp";
 import ExcelJS from "exceljs";
 
 const PW = process.env.SEED_ADMIN_PASSWORD ?? "ChangeMe123";
@@ -25,19 +24,12 @@ async function fillPilgrim(page: Page, passportNo: string) {
   await page.click("button:has-text('حفظ')");
 }
 
-test("full flow: create pilgrim, upload docs, attach to land trip, seat, manifest PDF, audit", async ({ page }) => {
+test("full flow: create pilgrim, attach to land trip, seat, manifest PDF, audit", async ({ page }) => {
   await login(page, "admin");
   const passport = `E2E${RUN}`;
   await fillPilgrim(page, passport);
   await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}$/);
   await expect(page.locator("h1")).toContainText("عبدالله سالم محمود المولى");
-
-  // phone-style photo upload
-  const png = await sharp({ create: { width: 3000, height: 2000, channels: 3, background: "#ccc" } }).png().toBuffer();
-  const photoBox = page.locator("div.rounded.border", { hasText: "صورة الجواز" }).first();
-  await photoBox.locator("input[type=file]").setInputFiles({ name: "passport.png", mimeType: "image/png", buffer: png });
-  await photoBox.locator("button:has-text('رفع')").click();
-  await expect(photoBox.locator("img")).toBeVisible();
 
   // attach to trip
   await page.goto("/trips");
@@ -135,8 +127,8 @@ test("date fields add the slash automatically", async ({ page }) => {
 });
 
 test("role permissions enforced on pages and routes", async ({ page, request }) => {
-  const anon = await request.get("/api/documents/00000000-0000-0000-0000-000000000000", { maxRedirects: 0 });
-  expect(anon.status()).toBe(401);
+  const gone = await request.get("/api/documents/00000000-0000-0000-0000-000000000000", { maxRedirects: 0 });
+  expect(gone.status()).toBe(404); // document uploads were removed
   await login(page, "acc");
   await page.goto("/users");
   await expect(page).toHaveURL(/forbidden/);
@@ -144,8 +136,6 @@ test("role permissions enforced on pages and routes", async ({ page, request }) 
   await expect(page).toHaveURL(/forbidden/);
   await page.goto("/pilgrims/new");
   await expect(page).toHaveURL(/forbidden/);
-  const r = await page.request.get("/api/documents/00000000-0000-0000-0000-000000000000");
-  expect(r.status()).toBe(403);
 });
 
 test("import wizard: 200 rows, bad rows reported, duplicates detected", async ({ page }) => {

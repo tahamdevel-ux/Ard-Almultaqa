@@ -92,7 +92,7 @@ export async function moveToTrip(user: SessionUser, bookingId: string, targetTri
     if (!target) return fail("الرحلة الهدف غير موجودة");
     const existing = await tx.booking.findUnique({ where: { pilgrimId_tripId: { pilgrimId: old.pilgrimId, tripId: targetTripId } } });
     if (existing?.status === "ACTIVE") return fail("المعتمر محجوز مسبقاً في الرحلة الهدف");
-    const data = { agentId: old.agentId, roomType: old.roomType, priceAmount: old.priceAmount, priceCurrency: old.priceCurrency, movedFromId: old.id, visaStatus: old.visaStatus, visaNo: old.visaNo, visaIssue: old.visaIssue, visaExpiry: old.visaExpiry };
+    const data = { agentId: old.agentId, roomType: old.roomType, priceAmount: old.priceAmount, priceCurrency: old.priceCurrency, movedFromId: old.id };
     const nb = existing
       ? await tx.booking.update({ where: { id: existing.id }, data: { ...data, status: "ACTIVE", deletedAt: null, cancelReason: null, cancelledAt: null } })
       : await tx.booking.create({ data: { pilgrimId: old.pilgrimId, tripId: targetTripId, ...data } });

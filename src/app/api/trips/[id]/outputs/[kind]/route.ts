@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { AuthError, requirePermission } from "@/server/auth";
 import { canSeeTrip } from "@/server/trips";
-import { renderFlightList, renderIdCards, renderManifest, renderMissing, renderRooming } from "@/outputs/render";
+import { renderFlightList, renderManifest, renderRooming } from "@/outputs/render";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,9 +24,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     else if (kind === "rooming-ar" || kind === "rooming-en") {
       const city = url.searchParams.get("city") === "MAKKAH" ? "MAKKAH" : "MADINAH";
       buf = await renderRooming(id, city, kind === "rooming-ar" ? "ar" : "en", format);
-    } else if (kind === "missing") buf = await renderMissing(id, format);
-    else if (kind === "id-cards") buf = await renderIdCards(id);
-    else return NextResponse.json({ error: "unknown output" }, { status: 404 });
+    } else return NextResponse.json({ error: "unknown output" }, { status: 404 });
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         "Content-Type": format === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

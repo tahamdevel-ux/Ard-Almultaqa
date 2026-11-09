@@ -57,8 +57,8 @@ describe("mahram", () => {
 
 describe("capacity", () => {
   it("counts", () => {
-    const c = tripCounter({ capacity: 2, bookings: [{ ready: true, missing: [] }, { ready: false, missing: ["a", "b"] }, { ready: false, missing: [] }] });
-    expect(c).toMatchObject({ registered: 3, ready: 1, missing: 2, over: true });
+    const c = tripCounter({ capacity: 2, bookings: [{ ready: true }, { ready: false }, { ready: false }] });
+    expect(c).toMatchObject({ registered: 3, ready: 1, over: true });
   });
 });
 
@@ -137,10 +137,11 @@ describe("rooming rules", () => {
 });
 
 describe("readiness", () => {
-  it("requires docs AND issued visa", () => {
-    expect(readiness({ bookingActive: true, docs: ["PASSPORT", "PHOTO"], visaStatus: "ISSUED" }).ready).toBe(true);
-    expect(readiness({ bookingActive: true, docs: ["PASSPORT"], visaStatus: "ISSUED" }).ready).toBe(false);
-    expect(readiness({ bookingActive: true, docs: ["PASSPORT", "PHOTO"], visaStatus: "IN_PROGRESS" }).missing).toEqual(["التأشيرة لم تصدر"]);
+  it("ready only when the booking is active and the passport number is entered", () => {
+    expect(readiness({ bookingActive: true, passportNo: "A12345678" }).ready).toBe(true);
+    expect(readiness({ bookingActive: true, passportNo: "  " }).ready).toBe(false);
+    expect(readiness({ bookingActive: true, passportNo: null }).ready).toBe(false);
+    expect(readiness({ bookingActive: false, passportNo: "A12345678" }).ready).toBe(false);
   });
 });
 

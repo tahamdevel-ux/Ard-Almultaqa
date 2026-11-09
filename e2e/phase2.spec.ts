@@ -8,7 +8,7 @@ async function login(page: Page, username: string) {
   await page.waitForURL("**/dashboard");
 }
 
-test("housing: auto-assign, gender rule on drag/move, rooming lists, missing list, ID cards", async ({ page }) => {
+test("housing: auto-assign, gender rule on drag/move, rooming lists", async ({ page }) => {
   await login(page, "housing");
   await page.goto("/trips");
   await page.click("a:has-text('L-2611')");
@@ -43,7 +43,7 @@ test("housing: auto-assign, gender rule on drag/move, rooming lists, missing lis
   expect(roomNo).toBeTruthy();
 
   // outputs
-  for (const [kind, q] of [["rooming-ar", "&city=MAKKAH"], ["rooming-en", "&city=MAKKAH"], ["missing", ""], ["id-cards", ""]]) {
+  for (const [kind, q] of [["rooming-ar", "&city=MAKKAH"], ["rooming-en", "&city=MAKKAH"]]) {
     const r = await page.request.get(`/api/trips/${tripId}/outputs/${kind}?format=pdf${q}`);
     expect(r.status(), kind).toBe(200);
     expect((await r.body()).subarray(0, 4).toString()).toBe("%PDF");

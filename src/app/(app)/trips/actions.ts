@@ -83,16 +83,6 @@ export async function removeBooking(tripId: string, bookingId: string) {
   touch(tripId);
 }
 
-export async function setVisa(tripId: string, bookingId: string, f: FormData) {
-  await requirePermission("bookings.write");
-  const st = s(f, "visaStatus");
-  if (!["NOT_SUBMITTED", "IN_PROGRESS", "ISSUED", "REJECTED"].includes(st)) return;
-  const issue = s(f, "visaIssue") ? parseDate(s(f, "visaIssue")) : null;
-  const expiry = s(f, "visaExpiry") ? parseDate(s(f, "visaExpiry")) : null;
-  await db.booking.update({ where: { id: bookingId }, data: { visaStatus: st as never, visaNo: s(f, "visaNo") || null, visaIssue: issue, visaExpiry: expiry } });
-  touch(tripId);
-}
-
 export async function assignSeat(tripId: string, busId: string, seatNo: number, f: FormData): Promise<void> {
   await requirePermission("seats.write");
   const bookingId = s(f, "bookingId");

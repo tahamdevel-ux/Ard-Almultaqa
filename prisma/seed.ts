@@ -57,7 +57,7 @@ async function main() {
     const air = await db.trip.create({ data: { tripNo: "A-2612", name: "عمرة جوي - كركوك", transportType: "AIR", departDate: d("2026-12-05"), returnDate: d("2026-12-15"), nightsMakkah: 5, nightsMadinah: 4, capacity: 40 } });
     await db.flight.create({ data: { tripId: air.id, flightNo: "IA 441", airline: "الخطوط الجوية العراقية", departAt: new Date("2026-12-05T06:30:00+03:00"), arriveAt: new Date("2026-12-05T09:15:00+03:00"), ticketCount: 40 } });
     await db.groundCar.create({ data: { tripId: air.id, label: "سيارة 1", driverName: "ماهر يونس", driverPhone: "07708887766", capacity: 7 } });
-    for (const p of pilgrims.slice(0, 30)) await db.booking.create({ data: { pilgrimId: p.id, tripId: land.id, agentId: p.agentId, visaStatus: "ISSUED", visaNo: `V${p.passportNo.slice(1)}` } });
+    for (const p of pilgrims.slice(0, 30)) await db.booking.create({ data: { pilgrimId: p.id, tripId: land.id, agentId: p.agentId} });
     for (const p of pilgrims.slice(30, 40)) await db.booking.create({ data: { pilgrimId: p.id, tripId: air.id, agentId: p.agentId } });
     const women = await db.booking.findMany({ where: { tripId: land.id, pilgrim: { gender: "FEMALE" } }, take: 4 });
     const g = await db.familyGroup.create({ data: { kind: "COMPANIONS", label: "عصبة" } });

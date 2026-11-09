@@ -103,14 +103,14 @@ test("trip with no code and no dates: create, list order, pickers, edit + audit,
   expect(await page.locator("tbody").innerText()).toContain("تاريخ الذهاب");
 
   // 6) outputs for the empty trips download cleanly
-  const kinds: [string, string][] = [["missing", ""], ["id-cards", ""], ["manifest", `&bus=${await busId(page, landId)}`]];
+  const kinds: [string, string][] = [["manifest", `&bus=${await busId(page, landId)}`]];
   for (const [k, q] of kinds) {
     const r = await page.request.get(`/api/trips/${landId}/outputs/${k}?format=pdf${q}`);
     expect(r.status(), k).toBe(200);
     expect((await r.body()).subarray(0, 4).toString()).toBe("%PDF");
     expect(r.headers()["content-disposition"]).not.toMatch(BAD);
   }
-  for (const [k, q] of [["missing", ""], ["manifest", `&bus=${await busId(page, landId)}`]]) {
+  for (const [k, q] of [["manifest", `&bus=${await busId(page, landId)}`]]) {
     const r = await page.request.get(`/api/trips/${landId}/outputs/${k}?format=xlsx${q}`);
     expect(r.status(), `${k} xlsx`).toBe(200);
   }

@@ -2,7 +2,7 @@ export type Role = "ADMIN" | "REGISTRATION" | "HOUSING" | "ACCOUNTANT" | "SUPERV
 
 export const PERMISSIONS = [
   "dashboard.view",
-  "pilgrims.view", "pilgrims.write", "pilgrims.health", "documents.view", "documents.write",
+  "pilgrims.view", "pilgrims.write", "pilgrims.health",
   "agents.view", "agents.write",
   "trips.view", "trips.write", "bookings.write", "seats.write",
   "prices.write", "payments.view", "payments.write",
@@ -18,7 +18,7 @@ const ALL = [...PERMISSIONS];
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   ADMIN: ALL,
   REGISTRATION: [
-    "dashboard.view", "pilgrims.view", "pilgrims.write", "pilgrims.health", "documents.view", "documents.write",
+    "dashboard.view", "pilgrims.view", "pilgrims.write", "pilgrims.health",
     "agents.view", "trips.view", "bookings.write", "seats.write", "outputs.view", "import.run", "hotels.view",
   ],
   HOUSING: ["dashboard.view", "pilgrims.view", "trips.view", "seats.write", "outputs.view", "hotels.view", "hotels.write", "rooming.write"],

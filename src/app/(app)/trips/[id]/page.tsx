@@ -10,12 +10,12 @@ import { DeleteBusButton } from "@/components/BusTools";
 import { AddPilgrimDialog } from "@/components/AddPilgrimDialog";
 import { AccommodationEditor, type HotelOpt } from "@/components/AccommodationFields";
 import { SmallForm } from "@/components/SmallForm";
-import { TRANSPORT_LABELS, TRIP_STATUS_LABELS, VISA_LABELS } from "@/lib/labels";
+import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
 import { saveTripPrices } from "../../bookings/[id]/actions";
 import { balance, formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAirAssignment, setVisa, setAccommodation } from "../actions";
+import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAirAssignment, setAccommodation } from "../actions";
 import { DateInput } from "@/components/DateInput";
 
 export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
@@ -53,9 +53,6 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
         {can(user.role, "outputs.view") && (
           <div className="flex flex-wrap gap-2 text-sm">
             <Link className="btn" href={`/trips/${trip.id}/rooming`}>التسكين</Link>
-            <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/missing?format=pdf`}>قائمة النواقص PDF</a>
-            <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/missing?format=xlsx`}>Excel</a>
-            <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/id-cards?format=pdf`}>بطاقات المعتمرين PDF</a>
             {trip.transportType === "LAND" && trip.buses.map((b) => (
               <span key={b.id} className="flex gap-1">
                 <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/manifest?bus=${b.id}&format=pdf`}>كشف {busLabel(b)} PDF</a>
@@ -72,8 +69,8 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[["المسجّلون", `${counter.registered} من ${counter.capacity}`, counter.over ? "chip-bad" : "chip-ok"], ["الجاهزون", String(counter.ready), "chip-ok"], ["النواقص", String(counter.missing), counter.missing ? "chip-warn" : "chip-ok"], ["الشواغر", String(counter.free), "chip-gray"]].map(([l, v, c]) => (
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {[["المسجّلون", `${counter.registered} من ${counter.capacity}`, counter.over ? "chip-bad" : "chip-ok"], ["الجاهزون", String(counter.ready), "chip-ok"], ["الشواغر", String(counter.free), "chip-gray"]].map(([l, v, c]) => (
           <div key={l} className="card text-center"><div className="text-xs text-brand-mid">{l}</div><div className={"chip mt-1 text-base " + c}>{v}</div></div>
         ))}
       </div>
@@ -167,7 +164,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
           )}
         </div>
         <table className="w-full">
-          <thead><tr><th className="th" />{["الاسم", "الجواز", "المجموعة", "التسكين", "المستمسكات", "التأشيرة", "المقعد / التذكرة", ...(money ? ["السعر", "المتبقي"] : []), "تنبيهات", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+          <thead><tr><th className="th" />{["الاسم", "الجواز", "المجموعة", "التسكين", "المقعد / التذكرة", ...(money ? ["السعر", "المتبقي"] : []), "تنبيهات", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
             {rows.map((r) => {
               const b = r.booking, gid = groupOf(r);
@@ -184,7 +181,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
                         : bw && <form action={setFamilyHead.bind(null, trip.id, gid, b.id)}><button className="text-xs underline">اجعله رب الأسرة</button></form>)}
                     </>
                   ) : ""}</td>
-                  <td className="td">{r.ready ? <span className="chip chip-ok mb-1">جاهز للسفر</span> : null}{r.missing.filter((m) => m.startsWith("ناقص")).length ? <span className="chip chip-bad whitespace-nowrap" title={r.missing.filter((m) => m.startsWith("ناقص")).join("، ")}>ناقص {r.missing.filter((m) => m.startsWith("ناقص")).length}</span> : <span className="chip chip-ok">مكتملة</span>}</td>
+
                   <td className="td">
                     {(() => {
                       const roomOf = (c: "MAKKAH" | "MADINAH") => b.rooms.find((x) => x.city === c)?.room;
@@ -197,17 +194,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
                       ) : <span className="text-sm">{summary}</span>;
                     })()}
                   </td>
-                  <td className="td">
-                    {bw ? (
-                      <form action={setVisa.bind(null, trip.id, b.id)} className="flex gap-1">
-                        <select name="visaStatus" defaultValue={b.visaStatus} className="input w-28 py-1">{Object.entries(VISA_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
-                        <input name="visaNo" defaultValue={b.visaNo ?? ""} dir="ltr" placeholder="رقم التأشيرة" className="input w-28 py-1" />
-                        <DateInput name="visaIssue" defaultValue={formatDate(b.visaIssue)} placeholder="إصدار" className="input w-24 py-1" aria-label="تاريخ إصدار التأشيرة" />
-                        <DateInput name="visaExpiry" defaultValue={formatDate(b.visaExpiry)} placeholder="انتهاء" className="input w-24 py-1" aria-label="تاريخ انتهاء التأشيرة" />
-                        <button className="btn-secondary py-1">حفظ</button>
-                      </form>
-                    ) : VISA_LABELS[b.visaStatus]}
-                  </td>
+
                   <td className="td">
                     {trip.transportType === "LAND"
                       ? (b.seat?.seatNo ? `باص ${b.seat.bus?.number} / ${b.seat.seatNo}` : <span className="chip chip-warn">بلا مقعد</span>)

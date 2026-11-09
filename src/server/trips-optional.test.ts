@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { db } from "./db";
 import { loadTripDetail, overlapWarning } from "./trips";
 import { auditChanges } from "./audit";
-import { manifestData, flightListData, roomingData, missingData, idCardData, agentStatementData } from "@/outputs/viewmodels";
+import { manifestData, flightListData, roomingData, agentStatementData } from "@/outputs/viewmodels";
 import { dateOrNotSet, dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { joinMeta, tripMetaParts } from "@/outputs/meta";
 
@@ -82,18 +82,12 @@ describe("trips without a code and without dates", () => {
     const m = await manifestData(trip.id, bus.id);
     const f = await flightListData(trip.id);
     const rm = await roomingData(trip.id, "MAKKAH");
-    const ms = await missingData(trip.id);
-    const ids = await idCardData(trip.id);
     const ag = await agentStatementData(agent.id);
     expect(m.meta).toBe("عمرة بري - قافلة الأحد");
     expect(f.meta).toContain("IA 1");
     expect(rm.checkIn).toBe(""); expect(rm.checkOut).toBe("");
-    expect(ms.meta).toBe("عمرة بري - قافلة الأحد");
-    expect(ids.bookings).toHaveLength(1);
     expect(ag.rows).toHaveLength(1);
-    for (const text of [m.title, m.meta, f.title, f.meta, rm.checkIn, rm.checkOut, rm.hotelAr, ms.meta]) expect(text).not.toMatch(BAD);
-    // missing-items rows must not mention the passport-expiry warning for a trip without a return date
-    expect(JSON.stringify(ms.rows)).not.toContain("ينتهي جواز السفر");
+    for (const text of [m.title, m.meta, f.title, f.meta, rm.checkIn, rm.checkOut, rm.hotelAr]) expect(text).not.toMatch(BAD);
   });
 
   it("filling or clearing the three fields is written to the audit log", async () => {

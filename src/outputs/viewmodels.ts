@@ -16,7 +16,7 @@ export async function manifestData(tripId: string, busId: string) {
   });
   const rows = seats.map((s) => ({
     seat: s.seatNo!, nameAr: fullNameAr(s.booking.pilgrim), nameEn: fullNameEn(s.booking.pilgrim),
-    passportNo: s.booking.pilgrim.passportNo, visaNo: s.booking.visaNo ?? "",
+    passportNo: s.booking.pilgrim.passportNo,
   }));
   return { company, trip, bus, rows, title: `كشف الباص رقم ${bus.number}${bus.name ? ` — ${bus.name}` : ""}`, meta: joinMeta(tripMetaParts(trip)) };
 }
@@ -71,38 +71,6 @@ export async function roomingData(tripId: string, city: "MAKKAH" | "MADINAH") {
     hotelAr: hotel ? hotel.localName ? `${hotel.localName} (${hotel.officialName})` : hotel.officialName : "—",
     hotelEn: hotel?.officialName ?? "—",
   };
-}
-
-export async function missingData(tripId: string) {
-  const [company, trip, minMonths] = await Promise.all([
-    getSetting("company"),
-    db.trip.findFirstOrThrow({ where: { id: tripId, deletedAt: null } }),
-    getSetting("passportMinMonths"),
-  ]);
-  const bookings = await db.booking.findMany({
-    where: { tripId, status: "ACTIVE", deletedAt: null },
-    include: { pilgrim: { include: { documents: { select: { type: true } } } } }, orderBy: { createdAt: "asc" },
-  });
-  const rows = bookings.map((b) => {
-    const { missing, ready } = readiness({ bookingActive: true, docs: b.pilgrim.documents.map((d) => d.type), visaStatus: b.visaStatus });
-    const items = [...missing];
-    const w = passportExpiryWarning(b.pilgrim.passportExpiry, trip.returnDate, minMonths);
-    if (w) items.push(w);
-    return { nameAr: fullNameAr(b.pilgrim), passportNo: b.pilgrim.passportNo, phone: b.pilgrim.phone ?? "", ready, items };
-  }).filter((r) => r.items.length);
-  return { company, trip, rows, title: "قائمة النواقص", meta: joinMeta(tripMetaParts(trip)), total: bookings.length };
-}
-
-export async function idCardData(tripId: string) {
-  const [company, trip] = await Promise.all([
-    getSetting("company"),
-    db.trip.findFirstOrThrow({ where: { id: tripId, deletedAt: null }, include: { makkahHotel: true, madinahHotel: true, supervisor: true } }),
-  ]);
-  const bookings = await db.booking.findMany({
-    where: { tripId, status: "ACTIVE", deletedAt: null },
-    include: { pilgrim: { include: { documents: { where: { type: "PHOTO" } } } } }, orderBy: { createdAt: "asc" },
-  });
-  return { company, trip, bookings };
 }
 
 import { agentStatement, formatMoney, paidTotal } from "@/domain/money";

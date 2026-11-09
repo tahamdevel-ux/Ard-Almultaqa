@@ -4,15 +4,14 @@ import { db } from "@/server/db";
 import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
 import { PilgrimForm } from "@/components/PilgrimForm";
-import { DocUpload } from "@/components/DocUpload";
 import { fullNameAr, fullNameEn } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
 import { busLabel, dateOrNotSet, tripLabel } from "@/lib/tripLabel";
 import { passportExpiryWarning } from "@/domain/passport";
 import { mahramWarning, ageOn } from "@/domain/mahram";
 import { getSetting } from "@/server/settings";
-import { DOC_LABELS, TRANSPORT_LABELS, TRIP_STATUS_LABELS, VISA_LABELS } from "@/lib/labels";
-import { removeDocument, savePilgrim, uploadDocument, addToTrips } from "../actions";
+import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
+import { savePilgrim, addToTrips } from "../actions";
 import { AddToTripsForm } from "@/components/TripPicker";
 import { hotelOptions, tripChoices } from "@/server/trips";
 
@@ -21,7 +20,7 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
   const p = await db.pilgrim.findFirst({
     where: { id, deletedAt: null },
-    include: { documents: true, mahram: true, bookings: { include: { trip: true, seat: { include: { bus: true } } }, orderBy: { createdAt: "desc" } } },
+    include: { mahram: true, bookings: { include: { trip: true, seat: { include: { bus: true } } }, orderBy: { createdAt: "desc" } } },
   });
   if (!p) notFound();
   const agents = await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
@@ -31,7 +30,6 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
   const hotels = canBook ? await hotelOptions() : [];
   const addable = canBook ? await tripChoices(p.bookings.filter((b) => b.status === "ACTIVE").map((b) => b.tripId)) : [];
   const canHealth = can(user.role, "pilgrims.health");
-  const canDocs = can(user.role, "documents.view");
 
   const warnings: string[] = [];
   for (const b of p.bookings.filter((b) => b.status === "ACTIVE")) {
@@ -59,42 +57,9 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
       {warnings.map((w) => <p key={w} className="alert-warn">⚠ {w}</p>)}
 
       <section className="card">
-        <h2 className="mb-3 font-bold">المستمسكات</h2>
-        {canDocs ? (
-          <div className="space-y-3">
-            {(["PASSPORT", "PHOTO", "NATIONAL_ID", "OTHER"] as const).map((type) => {
-              const docs = p.documents.filter((d) => d.type === type);
-              return (
-                <div key={type} className="rounded border border-line p-3">
-                  <div className="mb-2 flex items-center gap-2 text-sm font-bold">
-                    {DOC_LABELS[type]}
-                    <span className={"chip " + (docs.length ? "chip-ok" : "chip-bad")}>{docs.length ? "مرفوع" : "ناقص"}</span>
-                  </div>
-                  <div className="mb-2 flex flex-wrap gap-2">
-                    {docs.map((d) => (
-                      <div key={d.id} className="text-xs">
-                        {d.mime.startsWith("image/")
-                          // eslint-disable-next-line @next/next/no-img-element
-                          ? <a href={`/api/documents/${d.id}`} target="_blank"><img src={`/api/documents/${d.id}`} alt={DOC_LABELS[type]} className="h-24 rounded border" /></a>
-                          : <a className="underline" href={`/api/documents/${d.id}`} target="_blank">ملف PDF</a>}
-                        {can(user.role, "documents.write") && (
-                          <form action={removeDocument.bind(null, d.id)}><button className="text-red-700 underline">حذف</button></form>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                  {can(user.role, "documents.write") && <DocUpload action={uploadDocument.bind(null, p.id, type)} label="رفع" />}
-                </div>
-              );
-            })}
-          </div>
-        ) : <p className="text-sm text-brand-mid">لا تملك صلاحية عرض المستمسكات</p>}
-      </section>
-
-      <section className="card">
         <h2 className="mb-3 font-bold">الرحلات</h2>
         <table className="w-full">
-          <thead><tr><th className="th">الرحلة</th><th className="th">النوع</th><th className="th">الذهاب</th><th className="th">العودة</th><th className="th">الحالة</th><th className="th">المقعد</th><th className="th">التأشيرة</th></tr></thead>
+          <thead><tr><th className="th">الرحلة</th><th className="th">النوع</th><th className="th">الذهاب</th><th className="th">العودة</th><th className="th">الحالة</th><th className="th">المقعد</th></tr></thead>
           <tbody>
             {p.bookings.map((b) => (
               <tr key={b.id}>
@@ -104,10 +69,9 @@ export default async function PilgrimPage({ params }: { params: Promise<{ id: st
                 <td className="td">{dateOrNotSet(b.trip.returnDate)}</td>
                 <td className="td">{TRIP_STATUS_LABELS[b.trip.status]}</td>
                 <td className="td">{b.seat?.bus ? `${busLabel(b.seat.bus)} / ${b.seat.seatNo}` : b.seat?.ticketNo ?? "—"}</td>
-                <td className="td">{VISA_LABELS[b.visaStatus]}</td>
               </tr>
             ))}
-            {p.bookings.length === 0 && <tr><td className="td text-brand-mid" colSpan={7}>لم يُحجز في أي رحلة</td></tr>}
+            {p.bookings.length === 0 && <tr><td className="td text-brand-mid" colSpan={6}>لم يُحجز في أي رحلة</td></tr>}
           </tbody>
         </table>
       </section>
