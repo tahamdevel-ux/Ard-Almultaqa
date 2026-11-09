@@ -13,7 +13,7 @@ export function TripPicker({ trips, error, hotels, initial }: { trips: TripChoic
   return (
     <fieldset className="space-y-2">
       {trips.length > 6 && <input className="input" placeholder="ابحث في الرحلات" value={q} onChange={(e) => setQ(e.target.value)} aria-label="بحث في الرحلات" />}
-      <div className="max-h-56 space-y-1 overflow-auto rounded border border-line p-2">
+      <div className="max-h-[32rem] space-y-1 overflow-auto rounded border border-line p-2">
         {shown.map((t) => (
           <div key={t.id}>
             <label className="flex items-center gap-2 text-sm">
