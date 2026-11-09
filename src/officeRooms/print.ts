@@ -2,6 +2,8 @@ import { db } from "@/server/db";
 import { getSetting } from "@/server/settings";
 import { fullNameAr } from "@/server/pilgrims";
 import { dateOrNotSet } from "@/lib/tripLabel";
+import fs from "fs";
+import path from "path";
 import { esc, fonts, htmlToPdf } from "@/outputs/pdf";
 import { printOrder, roomLabel } from "@/domain/officeRooms";
 import { loadOfficeState } from "./service";
@@ -15,7 +17,19 @@ const COLORS = {
 } as const;
 const TYPE_AR: Record<string, string> = { SINGLE: "سنكل", DOUBLE: "ثنائي", TRIPLE: "ثلاثي", QUAD: "رباعي", QUINT: "خماسي" };
 const TYPE_ORDER = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"];
-const SLOTS = 18, ROOM_SLOTS = 17;
+const ROOM_SLOTS = 17;
+
+/**
+ * Optional house font for this print: public/fonts/custom/TheSans-Bold.otf (a licensed font, so it is not in git; copy it to the
+ * server by hand). Without the file the bundled Noto Sans Arabic is used.
+ */
+function houseFont(): { css: string; family: string } {
+  try {
+    const b64 = fs.readFileSync(path.join(process.cwd(), "public/fonts/custom/TheSans-Bold.otf")).toString("base64");
+    const src = `url(data:font/otf;base64,${b64}) format('opentype')`;
+    return { css: `@font-face{font-family:'TheSans';font-weight:400;src:${src};}@font-face{font-family:'TheSans';font-weight:700;src:${src};}`, family: "'TheSans', " };
+  } catch { return { css: "", family: "" }; }
+}
 
 export async function renderOfficeRoomsPdf(tripId: string): Promise<Buffer> {
   const trip = await db.trip.findFirstOrThrow({ where: { id: tripId, deletedAt: null }, include: { supervisor: true } });
@@ -61,11 +75,12 @@ export async function renderOfficeRoomsPdf(tripId: string): Promise<Buffer> {
       <div class="grid">${cells.join("")}</div>
       <footer>${esc(company.name)} · صفحة ${p + 1} من ${pages}</footer></section>`;
   }
-  const css = `${fonts()}
+  const house = houseFont();
+  const css = `${fonts()}${house.css}
 @page { size: A4 landscape; margin: 0; }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
-body { font-family: 'NotoArabic', 'DejaVu Sans', sans-serif; color: #111; font-size: 9px; }
+body { font-family: ${house.family}'NotoArabic', 'DejaVu Sans', sans-serif; color: #111; font-size: 9px; }
 .page { width: 297mm; height: 210mm; padding: 7mm 8mm 6mm; page-break-after: always; display: flex; flex-direction: column; overflow: hidden; }
 .page:last-child { page-break-after: auto; }
 header { height: 20mm; flex: none; }
@@ -80,7 +95,7 @@ h1 { margin: 0; font-size: 17px; color: #1B2A4A; }
 .rh { padding: 1.2mm 2mm; display: flex; align-items: baseline; justify-content: space-between; gap: 4px; flex: none; }
 .rl { font-size: 20px; line-height: 1.1; direction: ltr; unicode-bidi: plaintext; }
 .rh span { font-size: 10px; font-weight: 700; }
-.mem { margin: 0; padding: 1.2mm 2mm 1mm; list-style: none; font-size: 11px; font-weight: 700; line-height: 1.25; flex: 1; }
+.mem { margin: 0; padding: 1.2mm 2mm 1mm; list-style: none; font-size: 12px; font-weight: 700; line-height: 1.25; flex: 1; }
 .mem.dense { font-size: 9px; line-height: 1.15; }
 .mem li { padding: 0.15mm 0; overflow-wrap: anywhere; }
 .mem .n { color: #555; font-weight: 400; }
