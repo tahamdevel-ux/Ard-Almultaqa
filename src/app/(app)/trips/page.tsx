@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
 import { TripRowActions } from "@/components/TripRowActions";
+import { TRIP_ORDER } from "@/server/trips";
 import { dateOrNotSet } from "@/lib/tripLabel";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
 
@@ -10,7 +11,7 @@ export default async function TripsPage() {
   const user = await requirePage("trips.view");
   const trips = await db.trip.findMany({
     where: { deletedAt: null, ...(user.role === "SUPERVISOR" ? { supervisorId: user.id } : {}) },
-    orderBy: [{ departDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }], // undated trips are listed after dated ones
+    orderBy: TRIP_ORDER, // newest created first
     include: { _count: { select: { bookings: { where: { status: "ACTIVE", deletedAt: null } } } } },
   });
   const tw = can(user.role, "trips.write");

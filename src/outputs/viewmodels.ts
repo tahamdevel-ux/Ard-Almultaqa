@@ -79,7 +79,7 @@ export async function agentStatementData(agentId: string, tripId?: string) {
   const [company, agent] = await Promise.all([getSetting("company"), db.agent.findFirstOrThrow({ where: { id: agentId, deletedAt: null } })]);
   const bookings = await db.booking.findMany({
     where: { agentId, deletedAt: null, status: { in: ["ACTIVE", "CANCELLED"] }, ...(tripId ? { tripId } : {}) },
-    include: { pilgrim: true, trip: true, payments: true }, orderBy: [{ trip: { departDate: { sort: "asc", nulls: "last" } } }, { createdAt: "asc" }],
+    include: { pilgrim: true, trip: true, payments: true }, orderBy: [{ trip: { createdAt: "desc" } }, { tripId: "desc" }, { createdAt: "asc" }],
   });
   const rows = bookings.map((b) => {
     const paid = paidTotal(b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) })));

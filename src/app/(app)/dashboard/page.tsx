@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { db } from "@/server/db";
+import { TRIP_ORDER } from "@/server/trips";
 import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
 import { balance, formatMoney } from "@/domain/money";
@@ -16,7 +17,7 @@ export default async function Dashboard() {
   const today = new Date(); today.setUTCHours(0, 0, 0, 0);
   const trips = await db.trip.findMany({
     where: { deletedAt: null, status: { in: ["OPEN", "FULL", "TRAVELLING"] }, OR: [{ returnDate: { gte: today } }, { returnDate: null }] }, // undated trips stay listed
-    orderBy: [{ departDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }], take: 8,
+    orderBy: TRIP_ORDER, take: 8,
     include: { bookings: { where: { status: "ACTIVE", deletedAt: null }, include: { pilgrim: true } } },
   });
   const pilgrims = await db.pilgrim.count({ where: { deletedAt: null } });

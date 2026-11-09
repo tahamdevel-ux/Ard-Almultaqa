@@ -56,11 +56,14 @@ export function canSeeTrip(user: { id: string; role: string }, trip: { superviso
   return user.role !== "SUPERVISOR" || trip.supervisorId === user.id;
 }
 
-/** Open trips for pickers: undated trips last; ids in `booked` are shown as already added. */
+/** The only order of trips in lists and pickers: newest created first (ties by id), even for trips with no pilgrims or no dates. */
+export const TRIP_ORDER = [{ createdAt: "desc" as const }, { id: "desc" as const }];
+
+/** Open trips for pickers, newest created first; ids in `booked` are shown as already added. */
 export async function tripChoices(booked: string[] = []) {
   const trips = await db.trip.findMany({
     where: { deletedAt: null, status: { not: "CANCELLED" } },
-    orderBy: [{ departDate: { sort: "desc", nulls: "last" } }, { name: "asc" }],
+    orderBy: TRIP_ORDER,
   });
   return trips.map((t) => ({ id: t.id, label: tripLabel(t), dates: dateRangeLabel(t.departDate, t.returnDate), booked: booked.includes(t.id), makkahHotelId: t.makkahHotelId ?? "", madinahHotelId: t.madinahHotelId ?? "" }));
 }

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { db } from "@/server/db";
 import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
-import { canSeeTrip } from "@/server/trips";
+import { canSeeTrip, TRIP_ORDER } from "@/server/trips";
 import { getSetting } from "@/server/settings";
 import { fullNameAr } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
@@ -29,7 +29,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
   const bal = balance(b.priceAmount, pays);
   const wp = can(user.role, "payments.write"), wpr = can(user.role, "prices.write");
   const today = formatDate(new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())));
-  const otherTrips = can(user.role, "bookings.write") ? await db.trip.findMany({ where: { deletedAt: null, id: { not: b.tripId }, status: { in: ["OPEN", "FULL"] } }, orderBy: [{ departDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }] }) : [];
+  const otherTrips = can(user.role, "bookings.write") ? await db.trip.findMany({ where: { deletedAt: null, id: { not: b.tripId }, status: { in: ["OPEN", "FULL"] } }, orderBy: TRIP_ORDER }) : [];
   const active = b.status === "ACTIVE";
   const family = b.groups.find((g) => g.group.kind === "FAMILY");
 

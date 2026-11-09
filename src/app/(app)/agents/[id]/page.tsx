@@ -6,6 +6,7 @@ import { fullNameAr } from "@/server/pilgrims";
 import { agentStatementData } from "@/outputs/viewmodels";
 import { formatMoney } from "@/domain/money";
 import { tripLabel } from "@/lib/tripLabel";
+import { TRIP_ORDER } from "@/server/trips";
 
 export default async function AgentStatementPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ trip?: string }> }) {
   await requirePage("payments.view");
@@ -13,7 +14,7 @@ export default async function AgentStatementPage({ params, searchParams }: { par
   const { trip } = await searchParams;
   const agent = await db.agent.findFirst({ where: { id, deletedAt: null } });
   if (!agent) notFound();
-  const [d, trips] = await Promise.all([agentStatementData(id, trip || undefined), db.trip.findMany({ where: { deletedAt: null }, orderBy: [{ departDate: { sort: "desc", nulls: "last" } }, { createdAt: "desc" }] })]);
+  const [d, trips] = await Promise.all([agentStatementData(id, trip || undefined), db.trip.findMany({ where: { deletedAt: null }, orderBy: TRIP_ORDER })]);
   const c = d.currency;
   const qs = trip ? `&trip=${trip}` : "";
   return (
