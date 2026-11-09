@@ -70,22 +70,22 @@ body { font-family: 'NotoArabic', 'DejaVu Sans', sans-serif; color: #111; font-s
 .page:last-child { page-break-after: auto; }
 header { height: 20mm; flex: none; }
 .t1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-h1 { margin: 0; font-size: 15px; color: #1B2A4A; }
+h1 { margin: 0; font-size: 17px; color: #1B2A4A; }
 .warn { color: #B42318; font-size: 11px; white-space: nowrap; }
-.t2 { display: flex; justify-content: space-between; align-items: center; margin-top: 2mm; font-size: 9.5px; color: #333; gap: 8px; }
+.t2 { display: flex; justify-content: space-between; align-items: center; margin-top: 2mm; font-size: 11px; color: #333; gap: 8px; }
 .keys { display: flex; gap: 8px; white-space: nowrap; } .key { display: inline-flex; align-items: center; gap: 3px; } .key i { width: 10px; height: 10px; border: 1px solid; border-radius: 2px; display: inline-block; }
 .grid { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); grid-template-rows: repeat(3, 1fr); gap: 2.5mm; min-height: 0; }
 .room { border: 1.2px solid #999; border-radius: 2mm; overflow: hidden; display: flex; flex-direction: column; background: #fff; min-height: 0; }
 .room.blank { border: 1px dashed #ddd; background: #fcfcfc; }
 .rh { padding: 1.2mm 2mm; display: flex; align-items: baseline; justify-content: space-between; gap: 4px; flex: none; }
-.rl { font-size: 17px; line-height: 1.1; direction: ltr; unicode-bidi: plaintext; }
-.rh span { font-size: 8.5px; font-weight: 700; }
-.mem { margin: 0; padding: 1.2mm 2mm 1mm; list-style: none; font-size: 9.5px; line-height: 1.28; flex: 1; }
-.mem.dense { font-size: 8px; line-height: 1.2; }
+.rl { font-size: 20px; line-height: 1.1; direction: ltr; unicode-bidi: plaintext; }
+.rh span { font-size: 10px; font-weight: 700; }
+.mem { margin: 0; padding: 1.2mm 2mm 1mm; list-style: none; font-size: 11px; font-weight: 700; line-height: 1.25; flex: 1; }
+.mem.dense { font-size: 9px; line-height: 1.15; }
 .mem li { padding: 0.15mm 0; overflow-wrap: anywhere; }
-.mem .n { color: #555; }
+.mem .n { color: #555; font-weight: 400; }
 .mem .emp { background: ${COLORS.EMPTY.bg}; color: ${COLORS.EMPTY.fg}; border-radius: 1mm; padding: 0.4mm 1.5mm; margin: 0.4mm 0; text-align: center; }
-.sum { border-color: #1B2A4A; } .sum .rh b { font-size: 11px; } .mem.sm { font-size: 10.5px; line-height: 1.5; }
+.sum { border-color: #1B2A4A; } .sum .rh b { font-size: 11px; } .mem.sm { font-size: 12px; line-height: 1.5; }
 footer { flex: none; text-align: center; font-size: 9px; color: #555; padding-top: 1.5mm; }`;
   return htmlToPdf(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(title)}</title><style>${css}</style></head><body>${body}</body></html>`, { landscape: true, ownLayout: true });
 }
