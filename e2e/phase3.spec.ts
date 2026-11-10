@@ -113,7 +113,9 @@ test("every role sees the accounts; only admin and accountant can refund", async
   await expect(page.getByText("فنادق مكة والأسعار")).toBeVisible();      // prices are visible to everyone
   await expect(page.getByRole("button", { name: "حفظ الأسعار" })).toHaveCount(0); // but only admin/accountant edit them
   // a payment can be recorded by anyone, a refund form is for admin/accountant only
+  await page.waitForLoadState("networkidle"); // the trip page is heavy: let it hydrate before clicking
   await page.locator("a[href^='/bookings/']").first().click();
+  await page.waitForURL(/bookings\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { name: "استلام دفعة" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "استرداد مبلغ" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "إلغاء الحجز" })).toHaveCount(0);
@@ -129,6 +131,7 @@ test("accounts: summary cards, four tabs, drill-down, payment with source", asyn
   await page.goto("/trips");
   await page.click("a:has-text('L-2611')");
   await page.waitForURL(/trips\/[0-9a-f-]{36}$/);
+  await page.waitForLoadState("networkidle"); // the trip page is heavy: let it hydrate before clicking
   await page.locator("a[href^='/bookings/']").first().click();
   await page.waitForURL(/bookings\/[0-9a-f-]{36}$/);
   const bookingId = page.url().split("/").pop()!;
