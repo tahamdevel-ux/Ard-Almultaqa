@@ -37,6 +37,6 @@ export function accountTotals(rows: AccountRow[]) {
 }
 
 /** Commission of one agent over his bookings, exactly as the agent statement computes it. */
-export function agentCommission(rows: { status: AccountRow["status"]; price: number | null; paid: number }[], rule: AgentRule): number {
-  return agentStatement(rows.filter((r) => r.status !== "MOVED").map((r) => ({ price: r.price, paid: r.paid, cancelled: r.status === "CANCELLED" })), rule).commission;
+export function agentCommission(rows: { status: AccountRow["status"]; price: number | null; paid: number; fixed?: number }[], rule: AgentRule): number {
+  return agentStatement(rows.filter((r) => r.status !== "MOVED").map((r) => ({ price: r.price, paid: r.paid, cancelled: r.status === "CANCELLED", fixed: r.fixed })), rule).commission;
 }

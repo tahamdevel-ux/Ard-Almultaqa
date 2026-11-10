@@ -69,7 +69,8 @@ export async function tripChoices(booked: string[] = []) {
     orderBy: TRIP_ORDER,
   });
   const heads = await headsByTrip(trips.map((t) => t.id));
-  return trips.map((t) => ({ id: t.id, label: tripLabel(t), dates: dateRangeLabel(t.departDate, t.returnDate), booked: booked.includes(t.id), makkahHotelId: t.makkahHotelId ?? "", madinahHotelId: t.madinahHotelId ?? "", heads: heads[t.id] ?? [] }));
+  const th = await db.tripHotel.findMany({ where: { tripId: { in: trips.map((t) => t.id) } }, include: { hotel: true } });
+  return trips.map((t) => ({ priced: th.filter((x) => x.tripId === t.id).map((x) => ({ id: x.hotelId, name: x.hotel.localName ?? x.hotel.officialName })), air: t.transportType === "AIR", id: t.id, label: tripLabel(t), dates: dateRangeLabel(t.departDate, t.returnDate), booked: booked.includes(t.id), makkahHotelId: t.makkahHotelId ?? "", madinahHotelId: t.madinahHotelId ?? "", heads: heads[t.id] ?? [] }));
 }
 
 /** Hotels for the accommodation pickers. */

@@ -4,6 +4,8 @@ import { accountTotals, agentCommission, periodStart, type Period } from "@/doma
 import { paidTotal } from "@/domain/money";
 import { TRIP_ORDER } from "./trips";
 import { fullNameAr } from "./pilgrims";
+import { resolveCommission } from "@/domain/pricing";
+import { commissionOverrides } from "./tripHotels";
 
 export interface AccountsFilter { period: Period; trip?: string; agent?: string; onlyDue?: boolean; hideArchived?: boolean }
 
@@ -27,6 +29,7 @@ async function loadBookings(f: AccountsFilter) {
 export async function accountsOverview(f: AccountsFilter) {
   const rows = await loadBookings(f);
   const agents = await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" } });
+  const overrides = await commissionOverrides(rows.map((r) => r.b.tripId));
 
   // trips tab: one row per trip, newest created first
   const byTrip = new Map<string, typeof rows>();
@@ -56,7 +59,7 @@ export async function accountsOverview(f: AccountsFilter) {
       agent: a, pilgrims: mine.filter((r) => r.status === "ACTIVE").length, due: t.due, remaining: t.remaining,
       viaAgent: Math.round(sum((p) => p.source === "AGENT" && p.sourceAgentId === a.id) * 100) / 100,
       direct: Math.round(sum((p) => p.source === "DIRECT" && p.booking.agentId === a.id) * 100) / 100,
-      commission: agentCommission(mine, { type: a.commissionType, value: Number(a.commissionValue) }),
+      commission: agentCommission(mine.map((r) => ({ ...r, fixed: resolveCommission(overrides.get(`${r.b.tripId}:${a.id}`), r.b.trip.agentCommission) })), { type: "FIXED_PER_PILGRIM", value: 0 }),
     };
   }).filter((a) => a.pilgrims > 0 || a.viaAgent || a.direct);
 

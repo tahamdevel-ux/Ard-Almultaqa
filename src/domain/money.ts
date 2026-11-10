@@ -45,8 +45,9 @@ export function checkPayment(p: PaymentInput, bookingCurrency: CurrencyKey, exis
   return { credited };
 }
 
-export interface AgentRule { type: "PERCENT" | "FIXED_WHOLESALE"; value: number }
-export interface StatementBooking { price: number | null; paid: number; cancelled: boolean }
+export interface AgentRule { type: "PERCENT" | "FIXED_WHOLESALE" | "FIXED_PER_PILGRIM"; value: number }
+/** `fixed` = this booking's fixed commission (rule FIXED_PER_PILGRIM; trip/agent specific). */
+export interface StatementBooking { price: number | null; paid: number; cancelled: boolean; fixed?: number }
 
 /**
  * Agent statement (one currency; bookings are priced in USD).
@@ -60,7 +61,7 @@ export function agentStatement(rows: StatementBooking[], rule: AgentRule) {
     collected += r.paid;
     if (r.cancelled || r.price == null) continue;
     totalPrice += r.price;
-    commission += rule.type === "PERCENT" ? round2((r.price * rule.value) / 100) : Math.max(0, r.price - rule.value);
+    commission += rule.type === "FIXED_PER_PILGRIM" ? Math.min(r.fixed ?? 0, r.price) : rule.type === "PERCENT" ? round2((r.price * rule.value) / 100) : Math.max(0, r.price - rule.value);
   }
   const netToCompany = round2(totalPrice - commission);
   return { count: rows.filter((r) => !r.cancelled).length, totalPrice, commission: round2(commission), netToCompany, collected: round2(collected), dueToCompany: round2(netToCompany - collected) };

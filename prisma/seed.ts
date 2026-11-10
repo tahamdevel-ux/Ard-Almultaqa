@@ -80,18 +80,21 @@ async function main() {
     await db.program.create({ data: { name: "عمرة بري - قافلة الأحد", transportType: "LAND", nightsMakkah: 6, nightsMadinah: 4, firstCity: "MADINAH", makkahHotelId: mk.id, madinahHotelId: md.id, capacity: 90, busCount: 2, seatsPerBus: 48, durationDays: 12 } });
     await db.program.create({ data: { name: "عمرة جوي - كل 10 أيام", transportType: "AIR", nightsMakkah: 5, nightsMadinah: 4, firstCity: "MADINAH", makkahHotelId: mk.id, madinahHotelId: md.id, capacity: 40, durationDays: 10 } });
   }
-  if ((await db.tripPrice.count()) === 0) {
+  if ((await db.tripHotel.count()) === 0) {
     const acc = await db.user.findUniqueOrThrow({ where: { username: "acc" } });
     const price: Record<string, [number, number, number, number]> = { "L-2611": [1300, 1150, 1000, 950], "A-2612": [1700, 1550, 1400, 1350] };
     for (const [no, [d2, d3, d4, d5]] of Object.entries(price)) {
       const t = await db.trip.findUnique({ where: { tripNo: no } });
       if (!t) continue;
-      await db.tripPrice.createMany({ data: [["SINGLE", Math.round(d2 * 1.5)], ["DOUBLE", d2], ["TRIPLE", d3], ["QUAD", d4], ["QUINT", d5]].map(([roomType, amount]) => ({ tripId: t.id, roomType: roomType as "DOUBLE", amount: amount as number, currency: "USD" as const })) });
+      const hotelId = t.makkahHotelId ?? (await db.hotel.findFirstOrThrow({ where: { city: "MAKKAH" } })).id;
+      const th = await db.tripHotel.create({ data: { tripId: t.id, hotelId, noHousingPrice: Math.round(d5 * 0.6) } });
+      await db.tripHotelPrice.createMany({ data: [["SINGLE", Math.round(d2 * 1.5)], ["DOUBLE", d2], ["TRIPLE", d3], ["QUAD", d4], ["QUINT", d5]].map(([roomType, amount]) => ({ tripHotelId: th.id, roomType: roomType as "DOUBLE", amount: amount as number })) });
+      await db.trip.update({ where: { id: t.id }, data: { agentCommission: 50, ...(no === "A-2612" ? { sarfAmount: 40 } : {}) } });
       const bookings = await db.booking.findMany({ where: { tripId: t.id }, orderBy: { createdAt: "asc" } });
       for (const [i, b] of bookings.entries()) {
         const type = i % 10 === 9 ? "SINGLE" : i % 10 === 8 ? "DOUBLE" : i % 10 === 7 ? "TRIPLE" : "QUAD"; // a few singles, doubles and triples among the quads
         const priceOf = { SINGLE: Math.round(d2 * 1.5), DOUBLE: d2, TRIPLE: d3, QUAD: d4 }[type];
-        await db.booking.update({ where: { id: b.id }, data: { roomType: type, priceAmount: priceOf, priceCurrency: "USD" } });
+        await db.booking.update({ where: { id: b.id }, data: { roomType: type, priceAmount: priceOf, priceCurrency: "USD", tripHotelId: th.id } });
         if (i % 4 === 3) continue; // some owe everything
         const full = i % 4 === 0;
         const usd = full ? priceOf : Math.round(priceOf / 2);

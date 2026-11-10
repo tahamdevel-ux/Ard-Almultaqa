@@ -74,6 +74,8 @@ export async function roomingData(tripId: string, city: "MAKKAH" | "MADINAH") {
 }
 
 import { agentStatement, formatMoney, paidTotal } from "@/domain/money";
+import { resolveCommission } from "@/domain/pricing";
+import { commissionOverrides } from "@/server/tripHotels";
 
 export async function agentStatementData(agentId: string, tripId?: string) {
   const [company, agent] = await Promise.all([getSetting("company"), db.agent.findFirstOrThrow({ where: { id: agentId, deletedAt: null }, omit: { roomCode: true } }) /* office room data never goes into an output */]);
@@ -85,7 +87,8 @@ export async function agentStatementData(agentId: string, tripId?: string) {
     const paid = paidTotal(b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) })));
     return { b, paid, price: b.priceAmount, cancelled: b.status === "CANCELLED" };
   });
-  const sum = agentStatement(rows.map((r) => ({ price: r.price, paid: r.paid, cancelled: r.cancelled })), { type: agent.commissionType, value: Number(agent.commissionValue) });
+  const overrides = await commissionOverrides(bookings.map((b) => b.tripId));
+  const sum = agentStatement(rows.map((r) => ({ price: r.price, paid: r.paid, cancelled: r.cancelled, fixed: resolveCommission(overrides.get(`${r.b.tripId}:${agentId}`), r.b.trip.agentCommission) })), { type: "FIXED_PER_PILGRIM", value: 0 });
   return { company, agent, rows, sum, currency: "USD" as const };
 }
 

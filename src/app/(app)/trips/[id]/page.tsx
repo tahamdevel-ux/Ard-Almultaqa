@@ -13,14 +13,15 @@ import { TRIP_ROLE_LABELS } from "@/domain/tripRoles";
 import { busLabel, dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { DeleteBusButton } from "@/components/BusTools";
 import { AddPilgrimDialog } from "@/components/AddPilgrimDialog";
+import { HotelPricesForm, TripExtrasForm, type HotelRow } from "@/components/TripPricingForms";
+import { loadTripHotels } from "@/server/tripHotels";
 import { AccommodationEditor, type HotelOpt } from "@/components/AccommodationFields";
 import { SmallForm } from "@/components/SmallForm";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
-import { saveTripPrices } from "../../bookings/[id]/actions";
 import { balance, formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAirAssignment, setAccommodation } from "../actions";
+import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAirAssignment, setAccommodation, saveHotelPrices, saveTripExtras } from "../actions";
 import { DateInput } from "@/components/DateInput";
 
 export default async function TripPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ q?: string; notes?: string }> }) {
@@ -48,7 +49,10 @@ export default async function TripPage({ params, searchParams }: { params: Promi
   const md = trip.madinahHotelId ? await db.hotel.findUnique({ where: { id: trip.madinahHotelId } }) : null;
   const money = can(user.role, "payments.view"), pw = can(user.role, "prices.write") && !archived;
   const seeNotes = can(user.role, "pilgrims.health");
-  const prices = money ? await db.tripPrice.findMany({ where: { tripId: trip.id } }) : [];
+  const tripHotels = await loadTripHotels(trip.id);
+  const hotelRows: HotelRow[] = await Promise.all(tripHotels.map(async (h) => ({ hotelId: h.hotelId, name: hotelName(h.hotel), used: await db.booking.count({ where: { tripHotelId: h.id, deletedAt: null } }), prices: Object.fromEntries(h.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: h.noHousingPrice })));
+  const allAgents = money && pw ? await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }) : [];
+  const agentOverrides = new Map((await db.tripAgentCommission.findMany({ where: { tripId: trip.id } })).map((c) => [c.agentId, c.amount]));
   const groupOf = (r: (typeof rows)[number]) => r.booking.groups[0]?.groupId;
   // search inside the trip: Arabic / English name, mother, passport, phone, agent, hotel, office room; Arabic digits and case ignored
   const allHotels = await db.hotel.findMany({ select: { id: true, officialName: true, localName: true } });
@@ -112,11 +116,10 @@ export default async function TripPage({ params, searchParams }: { params: Promi
 
       <section className="card space-y-2">
         <h2 className="font-bold">الفنادق والإقامة</h2>
-        <p className="text-sm">مكة: <b>{hotelName(mk)}</b> ({trip.nightsMakkah} ليالي) · المدينة: <b>{hotelName(md)}</b> ({trip.nightsMadinah} ليالي) · البداية من: {trip.firstCity === "MAKKAH" ? "مكة" : "المدينة"}</p>
+        <p className="text-sm">مكة: <b>{tripHotels.map((h) => hotelName(h.hotel)).join("، ") || hotelName(mk)}</b> ({trip.nightsMakkah} ليالي) · المدينة (ثابت): <b>{hotelName(md)}</b> ({trip.nightsMadinah} ليالي) · البداية من: {trip.firstCity === "MAKKAH" ? "مكة" : "المدينة"}</p>
         {w && (
-          <form action={setTripHotels.bind(null, trip.id)} className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <form action={setTripHotels.bind(null, trip.id)} className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
             <select name="madinahHotelId" defaultValue={trip.madinahHotelId ?? ""} className="input" aria-label="فندق المدينة"><option value="">فندق المدينة</option>{hotels.filter((h) => h.city === "MADINAH").map((h) => <option key={h.id} value={h.id}>{hotelName(h)}</option>)}</select>
-            <select name="makkahHotelId" defaultValue={trip.makkahHotelId ?? ""} className="input" aria-label="فندق مكة"><option value="">فندق مكة</option>{hotels.filter((h) => h.city === "MAKKAH").map((h) => <option key={h.id} value={h.id}>{hotelName(h)}</option>)}</select>
             <select name="firstCity" defaultValue={trip.firstCity} className="input" aria-label="المدينة الأولى"><option value="MADINAH">نبدأ بالمدينة</option><option value="MAKKAH">نبدأ بمكة</option></select>
             <input name="nightsMadinah" type="number" defaultValue={trip.nightsMadinah} className="input" dir="ltr" aria-label="ليالي المدينة" />
             <input name="nightsMakkah" type="number" defaultValue={trip.nightsMakkah} className="input" dir="ltr" aria-label="ليالي مكة" />
@@ -159,19 +162,18 @@ export default async function TripPage({ params, searchParams }: { params: Promi
 
       {money && (
         <section className="card space-y-2">
-          <h2 className="font-bold">أسعار الرحلة (بالدولار، حسب نوع الغرفة)</h2>
-          {pw ? (
-            <form action={saveTripPrices.bind(null, trip.id)} className="flex flex-wrap items-end gap-2">
-              {(["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"] as const).map((t) => (
-                <div key={t}><label className="label" htmlFor={"price-" + t}>{ROOM_TYPE_LABELS[t]}</label>
-                  <input id={"price-" + t} name={t} type="number" min={0} defaultValue={prices.find((p) => p.roomType === t)?.amount ?? ""} className="input w-28" dir="ltr" /></div>
-              ))}
-              <button className="btn">حفظ الأسعار</button>
-            </form>
-          ) : <p className="text-sm">{prices.map((p) => `${ROOM_TYPE_LABELS[p.roomType]}: ${formatMoney(p.amount, p.currency)}`).join(" · ") || "غير محددة"}</p>}
+          <h2 className="font-bold">فنادق مكة والأسعار (بالدولار)</h2>
+          {pw ? <HotelPricesForm action={saveHotelPrices.bind(null, trip.id)} rows={hotelRows} candidates={hotels.filter((h) => h.city === "MAKKAH").map((h) => ({ id: h.id, name: hotelName(h) }))} />
+            : <ul className="text-sm">{hotelRows.map((r) => <li key={r.hotelId}><b>{r.name}</b>: {Object.entries(r.prices).map(([k, v]) => `${ROOM_TYPE_LABELS[k as keyof typeof ROOM_TYPE_LABELS]} ${v}`).join(" · ")}{r.noHousingPrice != null ? ` · بدون سكن ${r.noHousingPrice}` : ""}</li>)}{hotelRows.length === 0 && <li>غير محددة</li>}</ul>}
         </section>
       )}
-
+      {money && pw && (
+        <section className="card space-y-2">
+          <h2 className="font-bold">الطعام والتصريف وعمولة الوكيل</h2>
+          <TripExtrasForm action={saveTripExtras.bind(null, trip.id)} air={trip.transportType === "AIR"} values={{ foodDefault: trip.foodDefault, sarfAmount: trip.sarfAmount, agentCommission: trip.agentCommission }}
+            agents={allAgents.map((a) => ({ id: a.id, name: a.name, amount: agentOverrides.get(a.id) ?? null }))} />
+        </section>
+      )}
 
       <form id="groupform" action={createCompanionGroup.bind(null, trip.id)} />
       <section className="card overflow-x-auto p-0">
@@ -181,7 +183,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
           <TripSearch placeholder="بحث: اسم، أم، جواز، هاتف، وكيل، فندق، غرفة المكتب" />
           {seeNotes && <a className={"rounded-lg border px-3 py-1.5 text-sm font-bold " + (sp.notes === "1" ? "bg-brand text-white" : "bg-white border-line text-brand-dark")} href={`?${new URLSearchParams({ ...(sp.q ? { q: sp.q } : {}), ...(sp.notes === "1" ? {} : { notes: "1" }) })}`}>لديهم ملاحظات</a>}
           </div>
-          {bw && <AddPilgrimDialog tripId={trip.id} hotels={hotelOpts} defaults={{ makkahHotelId: trip.makkahHotelId ?? "", madinahHotelId: trip.madinahHotelId ?? "" }} />}
+          {bw && <AddPilgrimDialog tripId={trip.id} hotels={hotelOpts} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} defaults={{ makkahHotelId: trip.makkahHotelId ?? "", madinahHotelId: trip.madinahHotelId ?? "" }} />}
           {bw && (
             <div className="flex items-center gap-2 text-sm">
               <select form="groupform" name="kind" className="input w-auto"><option value="COMPANIONS">عصبة</option><option value="FAMILY">عائلة (اختر رب الأسرة بالدائرة)</option></select>
@@ -216,10 +218,10 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                       const roomOf = (c: "MAKKAH" | "MADINAH") => b.rooms.find((x) => x.city === c)?.room;
                       const mkR = roomOf("MAKKAH"), mdR = roomOf("MADINAH");
                       const nm = (h?: { localName: string | null; officialName: string } | null) => (h ? h.localName ?? h.officialName : "");
-                      const summary = [mkR && `مكة: ${nm(mkR.hotel)} / ${mkR.roomNo}`, mdR && `المدينة: ${nm(mdR.hotel)} / ${mdR.roomNo}`, b.roomType && ROOM_TYPE_LABELS[b.roomType as keyof typeof ROOM_TYPE_LABELS]].filter(Boolean).join(" · ");
+                      const summary = [mkR && `مكة: ${nm(mkR.hotel)} / ${mkR.roomNo}`, mdR && `المدينة: ${nm(mdR.hotel)} / ${mdR.roomNo}`, b.noHousing ? "بدون سكن" : b.roomType && ROOM_TYPE_LABELS[b.roomType as keyof typeof ROOM_TYPE_LABELS], b.tripHotelId && `فندق مكة: ${hotelName(tripHotels.find((h) => h.id === b.tripHotelId)?.hotel)}`, !b.withFood && "بدون طعام"].filter(Boolean).join(" · ");
                       return accWrite ? (
-                        <AccommodationEditor action={setAccommodation.bind(null, trip.id, b.id)} hotels={hotelOpts} summary={summary}
-                          values={{ makkahHotelId: b.makkahHotelId ?? trip.makkahHotelId ?? "", madinahHotelId: b.madinahHotelId ?? trip.madinahHotelId ?? "", roomType: b.roomType ?? "", makkahRoomNo: mkR?.roomNo ?? "", madinahRoomNo: mdR?.roomNo ?? "", tripRole: b.tripRole ?? "", officeRoom: b.officeMember ? `${b.officeMember.officeRoom.code ?? ""}${b.officeMember.officeRoom.seq}` : "" }} />
+                        <AccommodationEditor action={setAccommodation.bind(null, trip.id, b.id)} hotels={hotelOpts} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} summary={summary}
+                          values={{ makkahHotelId: b.tripHotelId ? tripHotels.find((h) => h.id === b.tripHotelId)?.hotelId ?? "" : b.makkahHotelId ?? "", madinahHotelId: "", roomType: b.roomType ?? "", makkahRoomNo: "", madinahRoomNo: "", housing: b.noHousing ? "NO" : "", food: b.withFood ? "1" : "0", sarf: b.sarfByPilgrim ? "PILGRIM" : "COMPANY", tripRole: b.tripRole ?? "", officeRoom: b.officeMember ? `${b.officeMember.officeRoom.code ?? ""}${b.officeMember.officeRoom.seq}` : "" }} />
                       ) : <span className="text-sm">{summary}</span>;
                     })()}
                   </td>

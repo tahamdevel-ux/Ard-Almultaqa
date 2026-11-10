@@ -72,8 +72,11 @@ test("accommodation with hotel and room, family head and family account", async 
   await page.click("button:has-text('إنشاء')");
   await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
   const tripUrl = page.url();
-  await page.fill("#price-QUAD", "1000");
+  await page.locator("select[name=newHotel]").selectOption({ index: 1 });
+  await page.locator("input[name=new_QUAD]").fill("1000");
+  await page.locator("input[name=new_DOUBLE]").fill("1100");
   await page.click("button:has-text('حفظ الأسعار')");
+  await expect(page.getByText("تم الحفظ")).toBeVisible();
 
   // accommodation chosen while adding an existing pilgrim (seeded A10000137)
   await page.getByRole("button", { name: "إضافة معتمر" }).click();
@@ -83,12 +86,11 @@ test("accommodation with hotel and room, family head and family account", async 
   const mk = dlg.locator("select[name=makkahHotelId]");
   await mk.selectOption({ index: 1 });
   await dlg.locator("select[name=roomType]").selectOption("QUAD");
-  await dlg.locator("input[name=makkahRoomNo]").fill("501");
   await dlg.getByRole("button", { name: "تأكيد الإضافة" }).click();
   await expect(dlg.getByText("مضاف").first()).toBeVisible();
   await page.keyboard.press("Escape");
   await page.reload();
-  await expect(page.locator("tbody tr", { hasText: "A10000137" })).toContainText("/ 501");
+  await expect(page.locator("tbody tr", { hasText: "A10000137" })).toContainText("فندق مكة");
 
   // a family of two with a head
   await newPilgrim(page, `A${RUN}1`, "رب الأسرة سالم محمود", tripName);
@@ -135,9 +137,8 @@ test("new pilgrim page: hotel, room type and room number per selected trip", asy
   await page.locator("label", { hasText: tripName }).locator("input[name=tripIds]").check();
   await page.locator(`select[name="makkahHotelId__${tripId}"]`).selectOption({ index: 1 });
   await page.locator(`select[name="roomType__${tripId}"]`).selectOption("DOUBLE");
-  await page.locator(`input[name="makkahRoomNo__${tripId}"]`).fill("808");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await page.waitForURL(/\/pilgrims\?.*saved=/);
   await page.goto(tripUrl);
-  await expect(page.locator("tbody tr", { hasText: `A${RUN}3` })).toContainText("/ 808");
+  await expect(page.locator("tbody tr", { hasText: `A${RUN}3` })).toContainText("ثنائية");
 });

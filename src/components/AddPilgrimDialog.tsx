@@ -6,7 +6,7 @@ import { AccommodationFields, type AccValues, type HotelOpt } from "@/components
 
 type Hit = { id: string; name: string; sub: string; inThis: boolean; trips: { id: string; label: string; dates: string; past: boolean }[] };
 
-export function AddPilgrimDialog({ tripId, hotels, defaults }: { tripId: string; hotels: HotelOpt[]; defaults: { makkahHotelId: string; madinahHotelId: string } }) {
+export function AddPilgrimDialog({ tripId, hotels, defaults, priced, air }: { priced?: { id: string; name: string }[]; air?: boolean; tripId: string; hotels: HotelOpt[]; defaults: { makkahHotelId: string; madinahHotelId: string } }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -14,7 +14,7 @@ export function AddPilgrimDialog({ tripId, hotels, defaults }: { tripId: string;
   const [msg, setMsg] = useState<{ ok?: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
   const [openId, setOpenId] = useState<string | null>(null);
-  const [acc, setAcc] = useState<AccValues>({ ...defaults, roomType: "", makkahRoomNo: "", madinahRoomNo: "" });
+  const [acc, setAcc] = useState<AccValues>({ makkahHotelId: priced?.length === 1 ? priced[0].id : "", madinahHotelId: "", roomType: "", makkahRoomNo: "", madinahRoomNo: "", housing: "", food: "1", sarf: "COMPANY" });
 
   useEffect(() => {
     if (q.trim().length < 2) { setHits([]); return; }
@@ -34,7 +34,7 @@ export function AddPilgrimDialog({ tripId, hotels, defaults }: { tripId: string;
       if (r.ok) {
         setMsg({ ok: true, text: `أُضيف ${h.name}` + (r.warning ? ` — ⚠ ${r.warning}` : "") });
         setHits((x) => x.map((y) => (y.id === h.id ? { ...y, inThis: true } : y)));
-        setOpenId(null); setAcc({ ...defaults, roomType: "", makkahRoomNo: "", madinahRoomNo: "" });
+        setOpenId(null); setAcc({ makkahHotelId: priced?.length === 1 ? priced[0].id : "", madinahHotelId: "", roomType: "", makkahRoomNo: "", madinahRoomNo: "", housing: "", food: "1", sarf: "COMPANY" });
         router.refresh();
       } else setMsg({ text: r.error ?? "تعذّرت الإضافة" });
     });
@@ -66,7 +66,7 @@ export function AddPilgrimDialog({ tripId, hotels, defaults }: { tripId: string;
                 {openId === h.id && !h.inThis && (
                   <div className="mt-2 space-y-2 rounded bg-canvas p-2">
                     <p className="text-xs font-bold text-brand-mid">التسكين (اختياري): فندق كل مدينة ونوع الغرفة ورقمها</p>
-                    <AccommodationFields hotels={hotels} values={acc} onChange={setAcc} idPrefix={"d" + h.id} />
+                    <AccommodationFields hotels={hotels} priced={priced} air={air} values={acc} onChange={setAcc} idPrefix={"d" + h.id} />
                     <button type="button" className="btn" disabled={pending} onClick={() => add(h)}>تأكيد الإضافة</button>
                   </div>
                 )}

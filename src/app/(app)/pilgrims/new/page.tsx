@@ -18,7 +18,7 @@ export default async function NewPilgrim({ searchParams }: { searchParams: Promi
   let keep: Record<string, string | string[]> = {};
   try {
     const raw = JSON.parse(sp.keep ?? "{}") as Record<string, unknown>;
-    for (const [k, v] of Object.entries(raw)) if (/^(tripIds|agentId|makkahHotelId__.+|madinahHotelId__.+|roomType__.+|hotelId__.+|food__.+|sarf__.+|headOf__.+|isHead__.+)$/.test(k) && (typeof v === "string" || (Array.isArray(v) && v.every((x) => typeof x === "string")))) keep[k] = v as string | string[];
+    for (const [k, v] of Object.entries(raw)) if (/^(tripIds|agentId|makkahHotelId__.+|madinahHotelId__.+|roomType__.+|hotelId__.+|housing__.+|food__.+|sarf__.+|headOf__.+|isHead__.+)$/.test(k) && (typeof v === "string" || (Array.isArray(v) && v.every((x) => typeof x === "string")))) keep[k] = v as string | string[];
   } catch { keep = {}; }
   const tid = keep.tripIds; const tl = (Array.isArray(tid) ? tid : tid ? [tid] : []).filter((id) => trips.some((t) => t.id === id));
   keep.tripIds = tl;

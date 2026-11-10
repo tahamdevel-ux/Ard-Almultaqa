@@ -10,6 +10,7 @@ import { addPilgrimToTrips, overlapWarnings } from "@/server/bookings";
 import { busRoleConflict, moveBookingsToBus } from "@/server/buses";
 import { freeOfficeBeds } from "@/officeRooms/service";
 import { applyAccommodation, accommodationFromForm, type Accommodation } from "@/server/accommodation";
+import { saveTripHotels, type TripHotelInput } from "@/server/tripHotels";
 import { getSetting } from "@/server/settings";
 import { parseDate } from "@/domain/dates";
 import { parseTripIdentity } from "@/domain/tripFields";
@@ -168,7 +169,7 @@ export async function dissolveGroup(tripId: string, groupId: string) {
 export async function setTripHotels(tripId: string, f: FormData) {
   await requirePermission("trips.write");
   await db.trip.update({ where: { id: tripId }, data: {
-    makkahHotelId: s(f, "makkahHotelId") || null, madinahHotelId: s(f, "madinahHotelId") || null,
+    madinahHotelId: s(f, "madinahHotelId") || null, // Makkah hotels live in the priced table (saveHotelPrices)
     firstCity: s(f, "firstCity") === "MAKKAH" ? "MAKKAH" : "MADINAH",
     nightsMakkah: +s(f, "nightsMakkah") || 0, nightsMadinah: +s(f, "nightsMadinah") || 0,
   } });
@@ -329,3 +330,57 @@ export async function unarchiveTrip(tripId: string): Promise<TripActionState> {
 }
 
 async function isArchived(tripId: string) { return !!(await db.trip.findFirst({ where: { id: tripId, archivedAt: { not: null } }, select: { id: true } })); }
+
+const KINDS = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"] as const;
+const num = (v: string) => (v === "" ? null : Number(v));
+
+/** Priced Makkah hotels of a trip: the hotels already on the trip (fields h_<id>_<TYPE>/h_<id>_NOHOUSING/h_<id>_remove) plus one new hotel (newHotel + new_<TYPE>). */
+export async function saveHotelPrices(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  return guarded("prices.write", async (u) => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
+    const existing = await db.tripHotel.findMany({ where: { tripId } });
+    const rows: TripHotelInput[] = [];
+    const read = (key: string) => {
+      const prices: TripHotelInput["prices"] = {};
+      for (const k of KINDS) { const v = num(s(f, `${key}_${k}`)); if (v != null) { if (Number.isNaN(v)) return null; prices[k] = v; } }
+      const nh = num(s(f, `${key}_NOHOUSING`));
+      if (nh != null && Number.isNaN(nh)) return null;
+      return { prices, noHousingPrice: nh };
+    };
+    for (const e of existing) {
+      if (s(f, `h_${e.hotelId}_remove`)) continue;
+      const r = read(`h_${e.hotelId}`); if (!r) return { error: "سعر غير صحيح" };
+      rows.push({ hotelId: e.hotelId, ...r });
+    }
+    const nh = s(f, "newHotel");
+    if (nh) {
+      if (rows.some((r) => r.hotelId === nh)) return { error: "الفندق مضاف مسبقاً" };
+      const r = read("new"); if (!r) return { error: "سعر غير صحيح" };
+      rows.push({ hotelId: nh, ...r });
+    }
+    const res = await saveTripHotels(u, tripId, rows, s(f, "applyToExisting") === "1");
+    if (!res.ok) return { error: res.error };
+    touch(tripId); return { ok: true };
+  });
+}
+
+/** Trip-level extras: default food option, تصريف amount (air) and the fixed agent commission with per-agent overrides (ag_<agentId>). */
+export async function saveTripExtras(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  return guarded("prices.write", async (u) => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
+    const sarf = num(s(f, "sarfAmount")), comm = num(s(f, "agentCommission"));
+    for (const v of [sarf, comm]) if (v != null && (!Number.isInteger(v) || v < 0)) return { error: "المبلغ غير صحيح" };
+    const agents = await db.agent.findMany({ where: { deletedAt: null }, select: { id: true } });
+    await db.$transaction(async (tx) => {
+      const before = await tx.trip.findUniqueOrThrow({ where: { id: tripId } });
+      const after = await tx.trip.update({ where: { id: tripId }, data: { foodDefault: s(f, "foodDefault") === "1", sarfAmount: sarf, agentCommission: comm } });
+      await auditChanges(tx, u, "Trip", tripId, before, after, ["foodDefault", "sarfAmount", "agentCommission"] as never);
+      for (const a of agents) {
+        const v = num(s(f, `ag_${a.id}`));
+        if (v == null || Number.isNaN(v) || v < 0) await tx.tripAgentCommission.deleteMany({ where: { tripId, agentId: a.id } });
+        else await tx.tripAgentCommission.upsert({ where: { tripId_agentId: { tripId, agentId: a.id } }, create: { tripId, agentId: a.id, amount: Math.round(v) }, update: { amount: Math.round(v) } });
+      }
+    });
+    touch(tripId); return { ok: true };
+  });
+}

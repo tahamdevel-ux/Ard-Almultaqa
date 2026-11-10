@@ -2,7 +2,7 @@
 import { useActionState, useState } from "react";
 import { AccommodationFields, type HotelOpt } from "@/components/AccommodationFields";
 
-export type TripChoice = { id: string; label: string; dates: string; booked?: boolean; makkahHotelId?: string; madinahHotelId?: string; heads?: { bookingId: string; name: string }[] };
+export type TripChoice = { id: string; label: string; dates: string; booked?: boolean; makkahHotelId?: string; madinahHotelId?: string; priced?: { id: string; name: string }[]; air?: boolean; heads?: { bookingId: string; name: string }[] };
 
 /** Multi-select of trips as checkboxes (name="tripIds"). */
 export function TripPicker({ trips, error, hotels, initial, onHeadChange }: { trips: TripChoice[]; error?: string; hotels?: HotelOpt[]; initial?: Record<string, string | string[]>; onHeadChange?: (any: boolean) => void }) {
@@ -26,7 +26,7 @@ export function TripPicker({ trips, error, hotels, initial, onHeadChange }: { tr
             </label>
             {hotels && checked.has(t.id) && !t.booked && (
               <div className="my-2 space-y-1 rounded bg-canvas p-2">
-                <p className="text-xs font-bold text-brand-mid">التسكين في هذه الرحلة (اختياري): فندق كل مدينة ونوع الغرفة ورقمها</p>
+                <p className="text-xs font-bold text-brand-mid">التسكين في هذه الرحلة (اختياري): فندق مكة ونوع الغرفة والطعام</p>
                 <div className="flex flex-wrap items-end gap-3 border-b border-line pb-2">
                   <label className="flex items-center gap-2 text-sm font-bold">
                     <input type="checkbox" name={"isHead__" + t.id} defaultChecked={headTrips.has(t.id)}
@@ -38,15 +38,15 @@ export function TripPicker({ trips, error, hotels, initial, onHeadChange }: { tr
                       <option value="">— لا —</option>{(t.heads ?? []).map((h) => <option key={h.bookingId} value={h.bookingId}>{h.name}</option>)}
                     </select></div>
                 </div>
-                <AccommodationFields hotels={hotels} idPrefix={"p" + t.id} nameSuffix={"__" + t.id}
-                  values={{ makkahHotelId: (initial?.["makkahHotelId__" + t.id] as string) ?? t.makkahHotelId ?? "", madinahHotelId: (initial?.["madinahHotelId__" + t.id] as string) ?? t.madinahHotelId ?? "", roomType: (initial?.["roomType__" + t.id] as string) ?? "", makkahRoomNo: (initial?.["makkahRoomNo__" + t.id] as string) ?? "", madinahRoomNo: (initial?.["madinahRoomNo__" + t.id] as string) ?? "", officeRoom: (initial?.["officeRoom__" + t.id] as string) ?? "" }} />
+                <AccommodationFields hotels={hotels} priced={t.priced} air={t.air} idPrefix={"p" + t.id} nameSuffix={"__" + t.id}
+                  values={{ makkahHotelId: (initial?.["makkahHotelId__" + t.id] as string) ?? t.makkahHotelId ?? "", madinahHotelId: "", roomType: (initial?.["roomType__" + t.id] as string) ?? "", makkahRoomNo: "", madinahRoomNo: "", housing: (initial?.["housing__" + t.id] as string) ?? "", food: (initial?.["food__" + t.id] as string) ?? "1", sarf: (initial?.["sarf__" + t.id] as string) ?? "COMPANY", officeRoom: (initial?.["officeRoom__" + t.id] as string) ?? "" }} />
               </div>
             )}
           </div>
         ))}
         {shown.length === 0 && <p className="text-sm text-brand-mid">لا توجد رحلات</p>}
       </div>
-      {hotels && checked.size === 0 && <p className="rounded bg-canvas px-2 py-1 text-xs text-brand-mid">💡 علّم على الرحلة (المربع بجانب اسمها) وسيظهر تحتها: فندق مكة وفندق المدينة ونوع الغرفة ورقمها.</p>}
+      {hotels && checked.size === 0 && <p className="rounded bg-canvas px-2 py-1 text-xs text-brand-mid">💡 علّم على الرحلة (المربع بجانب اسمها) وسيظهر تحتها: فندق مكة ونوع الغرفة.</p>}
       {error && <p className="text-xs font-bold text-red-700" role="alert">{error}</p>}
     </fieldset>
   );

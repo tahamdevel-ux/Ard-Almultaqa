@@ -23,7 +23,7 @@ export type AddToTripsResult = {
 export async function addPilgrimToTrips(client: Client, pilgrimId: string, agentId: string | null, tripIds: string[], opts: { officeRooms?: boolean; skipOfficeTrips?: string[] } = {}): Promise<AddToTripsResult> {
   const out: AddToTripsResult = { added: [], skipped: [], missing: [] };
   for (const tripId of [...new Set(tripIds)]) {
-    const trip = await client.trip.findFirst({ where: { id: tripId, deletedAt: null, archivedAt: null }, select: { id: true } });
+    const trip = await client.trip.findFirst({ where: { id: tripId, deletedAt: null, archivedAt: null }, select: { id: true, foodDefault: true } });
     if (!trip) { out.missing.push(tripId); continue; }
     const existing = await client.booking.findUnique({ where: { pilgrimId_tripId: { pilgrimId, tripId } } });
     if (existing && existing.status === "ACTIVE" && !existing.deletedAt) { out.skipped.push(tripId); continue; }
@@ -31,7 +31,7 @@ export async function addPilgrimToTrips(client: Client, pilgrimId: string, agent
     await withTripLock(client, tripId, async (tx) => {
       const booking = existing
         ? await tx.booking.update({ where: { id: existing.id }, data: { status: "ACTIVE", deletedAt: null, cancelledAt: null, cancelReason: null } })
-        : await tx.booking.create({ data: { pilgrimId, tripId, agentId } });
+        : await tx.booking.create({ data: { pilgrimId, tripId, agentId, withFood: trip.foodDefault } });
       bookingId = booking.id;
       await autoSeatNewBooking(tx, tripId, booking.id); // land trips only
       if (opts.officeRooms !== false && !opts.skipOfficeTrips?.includes(tripId)) await assignOfficeRooms(tx, tripId, [booking.id]); // internal office room, automatic
