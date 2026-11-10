@@ -63,7 +63,7 @@ export async function globalSearch(user: SessionUser, q: string): Promise<Search
 
   if (can(user.role, "trips.view")) {
     const restrict = sup ? Prisma.sql`AND "supervisorId" = ${user.id}` : Prisma.empty;
-    const ids = await matchIds("Trip", ["tripNo", "name"], tokens, restrict);
+    const ids = await matchIds("Trip", ["tripNo", "name"], tokens, Prisma.sql`${restrict} AND "archivedAt" IS NULL`);
     if (ids.length) {
       const rows = await db.trip.findMany({ where: { id: { in: ids } } });
       out.trips = rows.map((t) => ({ id: t.id, label: tripLabel(t), sub: dateRangeLabel(t.departDate, t.returnDate) }));

@@ -20,12 +20,12 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   const period = parsePeriod(sp.period);
   const tab: Tab = (TABS.find(([k]) => k === sp.tab)?.[0]) ?? "trips";
   const q = (sp.q ?? "").trim();
-  const f = { period, trip: sp.trip || undefined, agent: sp.agent || undefined, onlyDue: sp.due === "1" };
+  const f = { period, trip: sp.trip || undefined, agent: sp.agent || undefined, onlyDue: sp.due === "1", hideArchived: sp.hideArchived === "1" };
   const data = await accountsOverview(f);
   const log = tab === "payments" ? await paymentsLog(period, q) : [];
   const link = (over: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    const merged: Record<string, string | undefined> = { period: period === "all" ? undefined : period, tab, ...over };
+    const merged: Record<string, string | undefined> = { period: period === "all" ? undefined : period, tab, hideArchived: f.hideArchived ? "1" : undefined, ...over };
     for (const [k, v] of Object.entries(merged)) if (v) p.set(k, v);
     const s = p.toString();
     return "/accounts" + (s ? `?${s}` : "");
@@ -45,6 +45,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
           <Link key={p} href={link({ period: p === "all" ? undefined : p })} aria-current={p === period ? "true" : undefined}
             className={"rounded-lg px-3 py-1.5 font-bold " + (p === period ? "bg-brand text-white" : "bg-white border border-line text-brand-dark")}>{PERIOD_LABELS[p]}</Link>
         ))}
+        <Link href={link({ hideArchived: f.hideArchived ? undefined : "1" })} className={"rounded-lg px-3 py-1.5 font-bold border " + (f.hideArchived ? "bg-brand text-white border-brand" : "bg-white border-line text-brand-dark")}>إخفاء الرحلات المؤرشفة</Link>
       </nav>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

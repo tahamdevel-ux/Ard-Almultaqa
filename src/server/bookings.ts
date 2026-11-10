@@ -23,7 +23,7 @@ export type AddToTripsResult = {
 export async function addPilgrimToTrips(client: Client, pilgrimId: string, agentId: string | null, tripIds: string[], opts: { officeRooms?: boolean; skipOfficeTrips?: string[] } = {}): Promise<AddToTripsResult> {
   const out: AddToTripsResult = { added: [], skipped: [], missing: [] };
   for (const tripId of [...new Set(tripIds)]) {
-    const trip = await client.trip.findFirst({ where: { id: tripId, deletedAt: null }, select: { id: true } });
+    const trip = await client.trip.findFirst({ where: { id: tripId, deletedAt: null, archivedAt: null }, select: { id: true } });
     if (!trip) { out.missing.push(tripId); continue; }
     const existing = await client.booking.findUnique({ where: { pilgrimId_tripId: { pilgrimId, tripId } } });
     if (existing && existing.status === "ACTIVE" && !existing.deletedAt) { out.skipped.push(tripId); continue; }

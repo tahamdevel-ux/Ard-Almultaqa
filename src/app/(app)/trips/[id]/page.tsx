@@ -3,7 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
 import { canSeeTrip, loadTripDetail } from "@/server/trips";
-import { fullNameAr } from "@/server/pilgrims";
+import { fullNameAr, fullNameEn } from "@/server/pilgrims";
+import { normalizeSearch, searchTokens } from "@/domain/searchNorm";
+import { TripSearch } from "@/components/TripSearch";
+import { TripArchiveButton } from "@/components/TripArchiveButton";
 import { formatDate } from "@/domain/dates";
 import { HeadTag } from "@/components/HeadTag";
 import { TRIP_ROLE_LABELS } from "@/domain/tripRoles";
@@ -20,14 +23,16 @@ import { ROOM_TYPE_LABELS } from "@/domain/rooming";
 import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAirAssignment, setAccommodation } from "../actions";
 import { DateInput } from "@/components/DateInput";
 
-export default async function TripPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TripPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ q?: string; notes?: string }> }) {
   const user = await requirePage("trips.view");
   const { id } = await params;
+  const sp = await searchParams;
   const d = await loadTripDetail(id);
   if (!d) notFound();
   const { trip, rows, counter } = d;
   if (!canSeeTrip(user, trip)) redirect("/forbidden");
-  const w = can(user.role, "trips.write"), bw = can(user.role, "bookings.write"), sw = can(user.role, "seats.write");
+  const archived = !!trip.archivedAt; // an archived trip is read-only (prints and exports still work)
+  const w = can(user.role, "trips.write") && !archived, bw = can(user.role, "bookings.write") && !archived, sw = can(user.role, "seats.write") && !archived;
   const groups = new Map<string, { kind: string; members: string[]; head?: string; headName?: string }>();
   for (const r of rows) for (const g of r.booking.groups) {
     const e = groups.get(g.groupId) ?? { kind: g.group.kind, members: [] };
@@ -37,19 +42,32 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
   }
   const hotels = w || bw || can(user.role, "rooming.write") ? await db.hotel.findMany({ where: { deletedAt: null }, orderBy: { officialName: "asc" } }) : [];
   const hotelOpts: HotelOpt[] = hotels.map((h) => ({ id: h.id, name: h.localName ?? h.officialName, city: h.city }));
-  const accWrite = bw || can(user.role, "rooming.write");
+  const accWrite = bw || (can(user.role, "rooming.write") && !archived);
   const hotelName = (h?: { localName: string | null; officialName: string } | null) => (h ? h.localName ?? h.officialName : "—");
   const mk = trip.makkahHotelId ? await db.hotel.findUnique({ where: { id: trip.makkahHotelId } }) : null;
   const md = trip.madinahHotelId ? await db.hotel.findUnique({ where: { id: trip.madinahHotelId } }) : null;
-  const money = can(user.role, "payments.view"), pw = can(user.role, "prices.write");
+  const money = can(user.role, "payments.view"), pw = can(user.role, "prices.write") && !archived;
+  const seeNotes = can(user.role, "pilgrims.health");
   const prices = money ? await db.tripPrice.findMany({ where: { tripId: trip.id } }) : [];
   const groupOf = (r: (typeof rows)[number]) => r.booking.groups[0]?.groupId;
+  // search inside the trip: Arabic / English name, mother, passport, phone, agent, hotel, office room; Arabic digits and case ignored
+  const allHotels = await db.hotel.findMany({ select: { id: true, officialName: true, localName: true } });
+  const hotelById = new Map(allHotels.map((h) => [h.id, `${h.localName ?? ""} ${h.officialName}`]));
+  const tokens = searchTokens(sp.q ?? "");
+  const shownRows = rows.filter((r) => {
+    const p = r.booking.pilgrim;
+    if (sp.notes === "1" && !(p.healthNotes ?? "").trim()) return false;
+    if (!tokens.length) return true;
+    const room = r.booking.officeMember?.officeRoom;
+    const hay = normalizeSearch([fullNameAr(p), fullNameEn(p), p.motherName ?? "", p.passportNo, p.phone ?? "", r.booking.agent?.name ?? "", hotelById.get(r.booking.makkahHotelId ?? "") ?? "", hotelById.get(r.booking.madinahHotelId ?? "") ?? "", mk ? hotelName(mk) : "", room ? `${room.code ?? ""}${room.seq}` : ""].join(" "));
+    return tokens.every((t) => hay.includes(t));
+  });
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h1 className="page-title">{tripLabel(trip)}</h1>
+          <h1 className="page-title">{tripLabel(trip)}{archived && <span className="chip chip-gray ms-2 align-middle">مؤرشفة</span>}</h1>
           <p className="text-sm text-brand-mid">{TRANSPORT_LABELS[trip.transportType]} · {dateRangeLabel(trip.departDate, trip.returnDate)} · {TRIP_STATUS_LABELS[trip.status]}{trip.supervisor && ` · المشرف: ${trip.supervisor.name}`}</p>
         </div>
         {can(user.role, "outputs.view") && (
@@ -71,6 +89,8 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
         )}
       </div>
 
+      {archived && <p className="alert-warn">هذه رحلة مؤرشفة: للعرض والطباعة فقط. لا يمكن التعديل عليها.</p>}
+      <div className="flex flex-wrap gap-2"><TripArchiveButton tripId={trip.id} name={trip.name} archived={archived} canArchive={can(user.role, "trips.archive")} canUnarchive={can(user.role, "trips.unarchive")} /></div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         {[["المسجّلون", `${counter.registered} من ${counter.capacity}`, counter.over ? "chip-bad" : "chip-ok"], ["الجاهزون", String(counter.ready), "chip-ok"], ["الشواغر", String(counter.free), "chip-gray"]].map(([l, v, c]) => (
           <div key={l} className="card text-center"><div className="text-xs text-brand-mid">{l}</div><div className={"chip mt-1 text-base " + c}>{v}</div></div>
@@ -156,7 +176,11 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
       <form id="groupform" action={createCompanionGroup.bind(null, trip.id)} />
       <section className="card overflow-x-auto p-0">
         <div className="flex flex-wrap items-center justify-between gap-2 p-3">
-          <h2 className="font-bold">المعتمرون ({rows.length})</h2>
+          <div className="flex flex-1 flex-wrap items-center gap-3">
+          <h2 className="font-bold">المعتمرون ({shownRows.length}{shownRows.length !== rows.length ? ` من ${rows.length}` : ""})</h2>
+          <TripSearch placeholder="بحث: اسم، أم، جواز، هاتف، وكيل، فندق، غرفة المكتب" />
+          {seeNotes && <a className={"rounded-lg border px-3 py-1.5 text-sm font-bold " + (sp.notes === "1" ? "bg-brand text-white" : "bg-white border-line text-brand-dark")} href={`?${new URLSearchParams({ ...(sp.q ? { q: sp.q } : {}), ...(sp.notes === "1" ? {} : { notes: "1" }) })}`}>لديهم ملاحظات</a>}
+          </div>
           {bw && <AddPilgrimDialog tripId={trip.id} hotels={hotelOpts} defaults={{ makkahHotelId: trip.makkahHotelId ?? "", madinahHotelId: trip.madinahHotelId ?? "" }} />}
           {bw && (
             <div className="flex items-center gap-2 text-sm">
@@ -166,15 +190,17 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
           )}
         </div>
         <table className="w-full">
-          <thead><tr><th className="th" />{["الاسم", "الجواز", "المجموعة", "التسكين", "المقعد / التذكرة", ...(money ? ["السعر", "المتبقي"] : []), "تنبيهات", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+          <thead><tr><th className="th" />{["الاسم", "الجواز", "الوكيل", ...(seeNotes ? ["ملاحظات"] : []), "المجموعة", "التسكين", "المقعد / التذكرة", ...(money ? ["السعر", "المتبقي"] : []), "تنبيهات", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
-            {rows.map((r) => {
+            {shownRows.map((r) => {
               const b = r.booking, gid = groupOf(r);
               return (
                 <tr key={b.id}>
                   <td className="td">{bw && <><input form="groupform" type="checkbox" name="bookingIds" value={b.id} aria-label="تحديد" /><label className="mt-1 flex items-center gap-1 text-[11px] text-brand-mid"><input form="groupform" type="radio" name="headBookingId" value={b.id} aria-label="رب الأسرة" />رب</label></>}</td>
                   <td className="td"><Link className="font-bold underline" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link>{gid && groups.get(gid)?.head === b.id && groups.get(gid)?.kind === "FAMILY" && <HeadTag />}{b.tripRole && <span className="chip chip-warn ms-2">{TRIP_ROLE_LABELS[b.tripRole]}</span>}</td>
                   <td className="td ltr">{b.pilgrim.passportNo}</td>
+                  <td className="td">{b.agent?.name ?? "—"}</td>
+                  {seeNotes && <td className="td">{(b.pilgrim.healthNotes ?? "").trim() ? <span title={b.pilgrim.healthNotes ?? ""} aria-label={`ملاحظة: ${b.pilgrim.healthNotes}`} tabIndex={0} role="img" className="cursor-help text-base">📝</span> : ""}</td>}
                   <td className="td space-y-1">{gid ? (
                     <>
                       <span className="chip chip-gray">{groups.get(gid)!.kind === "COMPANIONS" ? "عصبة" : "عائلة"} ({groups.get(gid)!.members.length})</span>

@@ -191,6 +191,7 @@ export async function saveAsProgram(tripId: string) {
 /** Edits only the three optional identity fields of a trip: code, departure date, return date. Empty values are stored as NULL and every change is audited. */
 export async function updateTripBasics(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
   return guarded("trips.write", async (u) => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
     const id = parseTripIdentity({ tripNo: s(f, "tripNo"), departDate: s(f, "departDate"), returnDate: s(f, "returnDate") });
     if (!id.ok) return { error: id.error };
     if (id.tripNo && (await db.trip.findFirst({ where: { tripNo: id.tripNo, NOT: { id: tripId } } }))) return { error: "رقم الرحلة مستخدم" };
@@ -240,17 +241,19 @@ export async function addExistingPilgrim(tripId: string, pilgrimId: string, acc?
 export async function setAccommodation(tripId: string, bookingId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
   const perm = (await requirePermission("rooming.write").then(() => "rooming.write" as const).catch(() => "bookings.write" as const));
   return guarded(perm, async () => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
     const r = await applyAccommodation(tripId, bookingId, accommodationFromForm(f));
     touch(tripId); revalidatePath(`/trips/${tripId}/office-rooms`);
     return r.ok ? { ok: true } : { error: r.error };
   });
 }
 
-const TRIP_AUDITED = ["tripNo", "name", "departDate", "returnDate", "capacity", "supervisorId", "status", "nightsMakkah", "nightsMadinah"] as const;
+const TRIP_AUDITED = ["archivedAt", "tripNo", "name", "departDate", "returnDate", "capacity", "supervisorId", "status", "nightsMakkah", "nightsMadinah"] as const;
 
 /** Full edit of a trip (from the trips list). The transport type is fixed once the trip exists. */
 export async function updateTrip(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
   return guarded("trips.write", async (u) => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
     const id = parseTripIdentity({ tripNo: s(f, "tripNo"), departDate: s(f, "departDate"), returnDate: s(f, "returnDate") });
     if (!id.ok) return { error: id.error };
     if (!s(f, "name")) return { error: "اسم الرحلة مطلوب" };
@@ -294,3 +297,35 @@ export async function deleteTrip(tripId: string): Promise<TripActionState> {
     return { ok: true };
   });
 }
+
+const ARCHIVED_MSG = "هذه رحلة مؤرشفة: للعرض والطباعة فقط";
+
+/** ADMIN and ACCOUNTANT: hides the trip from lists and pickers; everything stays in the database. Logged. */
+export async function archiveTrip(tripId: string): Promise<TripActionState> {
+  return guarded("trips.archive", async (u) => {
+    const trip = await db.trip.findFirst({ where: { id: tripId, deletedAt: null, archivedAt: null } });
+    if (!trip) return { error: "الرحلة غير موجودة أو مؤرشفة مسبقاً" };
+    await db.$transaction(async (tx) => {
+      const after = await tx.trip.update({ where: { id: tripId }, data: { archivedAt: new Date() } });
+      await auditChanges(tx, u, "Trip", tripId, trip, after, ["archivedAt"]);
+    });
+    revalidatePath("/trips"); touch(tripId);
+    return { ok: true };
+  });
+}
+
+/** ADMIN only. */
+export async function unarchiveTrip(tripId: string): Promise<TripActionState> {
+  return guarded("trips.unarchive", async (u) => {
+    const trip = await db.trip.findFirst({ where: { id: tripId, deletedAt: null, archivedAt: { not: null } } });
+    if (!trip) return { error: "الرحلة غير مؤرشفة" };
+    await db.$transaction(async (tx) => {
+      const after = await tx.trip.update({ where: { id: tripId }, data: { archivedAt: null } });
+      await auditChanges(tx, u, "Trip", tripId, trip, after, ["archivedAt"]);
+    });
+    revalidatePath("/trips"); touch(tripId);
+    return { ok: true };
+  });
+}
+
+async function isArchived(tripId: string) { return !!(await db.trip.findFirst({ where: { id: tripId, archivedAt: { not: null } }, select: { id: true } })); }

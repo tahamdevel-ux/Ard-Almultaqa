@@ -12,7 +12,7 @@ export default async function PayPage({ searchParams }: { searchParams: Promise<
   const { booking } = await searchParams;
   const [bookings, agents, rate] = await Promise.all([
     db.booking.findMany({
-      where: { status: "ACTIVE", deletedAt: null, trip: { deletedAt: null } }, include: { pilgrim: true, trip: true },
+      where: { status: "ACTIVE", deletedAt: null, trip: { deletedAt: null, archivedAt: null } }, include: { pilgrim: true, trip: true },
       orderBy: [{ trip: { createdAt: "desc" } }, { tripId: "desc" }, { createdAt: "asc" }],
     }),
     db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),

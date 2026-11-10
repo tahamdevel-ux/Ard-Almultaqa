@@ -14,7 +14,7 @@ export default async function AgentStatementPage({ params, searchParams }: { par
   const { trip } = await searchParams;
   const agent = await db.agent.findFirst({ where: { id, deletedAt: null } });
   if (!agent) notFound();
-  const [d, trips] = await Promise.all([agentStatementData(id, trip || undefined), db.trip.findMany({ where: { deletedAt: null }, orderBy: TRIP_ORDER })]);
+  const [d, trips] = await Promise.all([agentStatementData(id, trip || undefined), db.trip.findMany({ where: { deletedAt: null, archivedAt: null }, orderBy: TRIP_ORDER })]);
   const c = d.currency;
   const qs = trip ? `&trip=${trip}` : "";
   return (

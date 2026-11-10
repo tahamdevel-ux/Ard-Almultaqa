@@ -140,3 +140,62 @@ test("Enter saves and opens a new form that keeps trip and agent; head of family
   await expect(page.locator("tbody tr", { hasText: "رب الأسرة المفتاح" }).locator("[aria-label='رب الأسرة']").first()).toBeVisible();
   await expect(page.locator("tbody tr", { hasText: "فرد الأسرة المفتاح" })).toContainText("تابع لـ");
 });
+
+test("archive a trip (hidden from lists and pickers, read-only) and search inside a trip", async ({ page }) => {
+  await login(page, "admin");
+  const tripName = `أرشفة ${RUN}`;
+  await page.goto("/trips/new");
+  await page.fill("[name=name]", tripName); await page.selectOption("[name=transportType]", "AIR");
+  await page.getByRole("button", { name: "إنشاء" }).click();
+  await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  const tripUrl = page.url(); const tripId = tripUrl.split("/").pop()!;
+
+  // two pilgrims; one with a note and an agent
+  for (const [n, name, note] of [[1, "بحث الأول سالم", "مريض سكر"], [2, "بحث الثاني محمود", ""]] as const) {
+    await page.goto("/pilgrims/new");
+    const f = (k: string, v: string) => page.fill(`[name=${k}]`, v);
+    await f("fullNameAr", name); await f("motherName", "ام الاختبار"); await page.selectOption("[name=gender]", "MALE"); await f("birthDate", "12/05/1975");
+    await f("passportNo", `D${RUN}${n}`); await f("enGivenName", "SEARCH"); await f("enSurname", `NUMBER${n}`); await f("passportExpiry", "10/10/2031");
+    if (note) await f("healthNotes", note);
+    await page.locator("label", { hasText: tripName }).locator("input[name=tripIds]").check();
+    await page.getByRole("button", { name: "حفظ", exact: true }).click();
+    await page.waitForURL(/\/pilgrims\?.*saved=/);
+  }
+  await page.goto(tripUrl);
+  await expect(page.locator("tbody tr", { hasText: "بحث الأول" })).toContainText("📝");
+  // live search inside the trip
+  await page.getByLabel("بحث داخل الرحلة").fill(`d${RUN}2`.toUpperCase());
+  await expect(page.locator("tbody tr", { hasText: "بحث الثاني" })).toBeVisible();
+  await expect(page.locator("tbody tr", { hasText: "بحث الأول" })).toHaveCount(0);
+  await page.getByLabel("بحث داخل الرحلة").fill("number1");
+  await expect(page.locator("tbody tr", { hasText: "بحث الأول" })).toBeVisible();
+  await page.getByLabel("بحث داخل الرحلة").fill("");
+  await page.getByRole("link", { name: "لديهم ملاحظات" }).click();
+  await expect(page.locator("tbody tr", { hasText: "بحث الأول" })).toBeVisible();
+  await expect(page.locator("tbody tr", { hasText: "بحث الثاني" })).toHaveCount(0);
+
+  // archive: hidden everywhere, shown in the archive, read-only
+  page.once("dialog", (d) => d.accept());
+  await page.goto(tripUrl);
+  await page.getByRole("button", { name: "أرشفة الرحلة" }).click();
+  await page.waitForURL(/\/trips$/);
+  await expect(page.locator("tr", { hasText: tripName })).toHaveCount(0);
+  await page.goto("/pilgrims/new");
+  await expect(page.locator("label", { hasText: tripName })).toHaveCount(0); // not offered in the picker
+  await page.goto("/trips?archive=1");
+  await expect(page.locator("tr", { hasText: tripName })).toBeVisible();
+  await page.goto(tripUrl);
+  await expect(page.getByText("هذه رحلة مؤرشفة").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "إضافة معتمر" })).toHaveCount(0);
+  // unarchive (admin)
+  await page.goto(tripUrl);
+  await page.getByRole("button", { name: "إلغاء الأرشفة" }).click();
+  await page.waitForURL(new RegExp(`/trips/${tripId}$`));
+  await page.goto("/trips");
+  await expect(page.locator("tr", { hasText: tripName })).toBeVisible();
+  // an accountant may archive but not unarchive
+  await page.context().clearCookies();
+  await login(page, "acc");
+  await page.goto(tripUrl);
+  await expect(page.getByRole("button", { name: "أرشفة الرحلة" })).toBeVisible();
+});

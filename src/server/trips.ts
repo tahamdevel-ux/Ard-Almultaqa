@@ -21,6 +21,7 @@ export async function loadTripDetail(tripId: string) {
       groups: { include: { group: true } },
       payments: true,
       rooms: { include: { room: { include: { hotel: true } } } },
+      agent: true,
       officeMember: { include: { officeRoom: true } },
     },
     orderBy: { createdAt: "asc" },
@@ -64,7 +65,7 @@ export const TRIP_ORDER = [{ createdAt: "desc" as const }, { id: "desc" as const
 /** Open trips for pickers, newest created first; ids in `booked` are shown as already added. */
 export async function tripChoices(booked: string[] = []) {
   const trips = await db.trip.findMany({
-    where: { deletedAt: null, status: { not: "CANCELLED" } },
+    where: { deletedAt: null, archivedAt: null, status: { not: "CANCELLED" } }, // archived trips are never offered
     orderBy: TRIP_ORDER,
   });
   const heads = await headsByTrip(trips.map((t) => t.id));

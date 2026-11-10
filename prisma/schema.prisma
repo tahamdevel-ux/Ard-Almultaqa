@@ -221,6 +221,7 @@ model PilgrimDocument {
 
 model Trip {
   id            String        @id @default(uuid())
+  archivedAt    DateTime? // archived trips are hidden from lists and pickers but keep everything
   tripNo        String?       @unique   // optional; unique only when filled (PostgreSQL allows many NULLs)
   programType   ProgramType   @default(UMRAH)
   transportType TransportType

@@ -30,7 +30,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
   const bal = balance(b.priceAmount, pays);
   const wp = can(user.role, "payments.write"), wrec = can(user.role, "payments.record"), wpr = can(user.role, "prices.write");
   const today = formatDate(new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())));
-  const otherTrips = can(user.role, "bookings.write") ? await db.trip.findMany({ where: { deletedAt: null, id: { not: b.tripId }, status: { in: ["OPEN", "FULL"] } }, orderBy: TRIP_ORDER }) : [];
+  const otherTrips = can(user.role, "bookings.write") ? await db.trip.findMany({ where: { deletedAt: null, archivedAt: null, id: { not: b.tripId }, status: { in: ["OPEN", "FULL"] } }, orderBy: TRIP_ORDER }) : [];
   const active = b.status === "ACTIVE";
   const agents = await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
   const family = b.groups.find((g) => g.group.kind === "FAMILY");

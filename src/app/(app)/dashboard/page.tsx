@@ -16,7 +16,7 @@ export default async function Dashboard() {
   const money = can(user.role, "payments.view");
   const today = new Date(); today.setUTCHours(0, 0, 0, 0);
   const trips = await db.trip.findMany({
-    where: { deletedAt: null, status: { in: ["OPEN", "FULL", "TRAVELLING"] }, OR: [{ returnDate: { gte: today } }, { returnDate: null }] }, // undated trips stay listed
+    where: { deletedAt: null, archivedAt: null, status: { in: ["OPEN", "FULL", "TRAVELLING"] }, OR: [{ returnDate: { gte: today } }, { returnDate: null }] }, // undated trips stay listed
     orderBy: TRIP_ORDER, take: 8,
     include: { bookings: { where: { status: "ACTIVE", deletedAt: null }, include: { pilgrim: true } } },
   });

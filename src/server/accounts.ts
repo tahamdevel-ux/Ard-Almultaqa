@@ -5,14 +5,14 @@ import { paidTotal } from "@/domain/money";
 import { TRIP_ORDER } from "./trips";
 import { fullNameAr } from "./pilgrims";
 
-export interface AccountsFilter { period: Period; trip?: string; agent?: string; onlyDue?: boolean }
+export interface AccountsFilter { period: Period; trip?: string; agent?: string; onlyDue?: boolean; hideArchived?: boolean }
 
 /** Every booking (active or cancelled) of trips created in the period, with what was paid on it. */
 async function loadBookings(f: AccountsFilter) {
   const from = periodStart(f.period);
   const where: Prisma.BookingWhereInput = {
     deletedAt: null, status: { in: ["ACTIVE", "CANCELLED"] },
-    trip: { deletedAt: null, ...(from ? { createdAt: { gte: from } } : {}) },
+    trip: { deletedAt: null, ...(f.hideArchived ? { archivedAt: null } : {}), ...(from ? { createdAt: { gte: from } } : {}) }, // archived trips count unless hidden
   };
   const rows = await db.booking.findMany({
     where, include: { pilgrim: true, trip: true, agent: true, payments: true },
@@ -45,7 +45,7 @@ export async function accountsOverview(f: AccountsFilter) {
 
   // agents tab: one row per agent
   const agentPayments = await db.payment.findMany({
-    where: { booking: { deletedAt: null, trip: { deletedAt: null, ...(periodStart(f.period) ? { createdAt: { gte: periodStart(f.period)! } } : {}) } } },
+    where: { booking: { deletedAt: null, trip: { deletedAt: null, ...(f.hideArchived ? { archivedAt: null } : {}), ...(periodStart(f.period) ? { createdAt: { gte: periodStart(f.period)! } } : {}) } } },
     select: { kind: true, credited: true, source: true, sourceAgentId: true, booking: { select: { agentId: true } } },
   });
   const agentRows = agents.map((a) => {
