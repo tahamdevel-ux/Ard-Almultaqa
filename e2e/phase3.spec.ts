@@ -19,6 +19,7 @@ test("accountant: pay in dinars at a rate, receipt, refund guard, cancel, move, 
   await expect(page.getByText("فنادق مكة والأسعار")).toBeVisible();
 
   // open the account of the last (unpaid) booking
+  await page.waitForLoadState("networkidle"); // the trip page is heavy: let it hydrate before clicking
   const links = page.locator("a[href^='/bookings/']");
   const n = await links.count();
   await links.nth(n - 1).click();
