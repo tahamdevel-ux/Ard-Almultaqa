@@ -16,7 +16,7 @@ type BookingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
 export function personOf(b: BookingRow): OfficePerson {
   return {
     bookingId: b.id, gender: b.pilgrim.gender, groupIds: b.groups.map((g) => g.groupId), inFamily: b.groups.some((g) => g.group.kind === "FAMILY"),
-    roomType: (b.roomType as RoomTypeKey | null) ?? null, agentId: b.agentId, busId: b.seat?.busId ?? null,
+    roomType: (b.roomType as RoomTypeKey | null) ?? null, agentId: b.agentId, busId: b.seat?.busId ?? null, hotelId: b.tripHotelId, noHousing: b.noHousing,
   };
 }
 
@@ -44,7 +44,7 @@ export async function loadOfficeState(tx: DbLike, tripId: string): Promise<Offic
   for (const b of bookings) if (b.seat?.busId) busAgents.set(b.seat.busId, (busAgents.get(b.seat.busId) ?? new Set()).add(b.agentId));
   const busAgent = new Map<string, string | null>([...busAgents].map(([bus, set]) => [bus, set.size === 1 ? [...set][0] : null]));
   const rooms: OfficeRoomState[] = roomsRaw.map((r) => ({
-    id: r.id, code: r.code, seq: r.seq, capacity: r.capacity, roomType: r.roomType as RoomTypeKey | null, category: r.category, locked: r.locked,
+    id: r.id, code: r.code, seq: r.seq, capacity: r.capacity, roomType: r.roomType as RoomTypeKey | null, category: r.category, locked: r.locked, hotelId: r.tripHotelId,
     members: r.members.flatMap((m): OfficeMember[] => { const b = byBooking.get(m.bookingId); return b ? [{ ...personOf(b), assignedBy: m.assignedBy }] : []; }),
   }));
   return { trip: { id: trip.id, transportType: trip.transportType }, defaultCapacity, ctx: { transport: trip.transportType, agentCodes, busAgent }, rooms, bookings };
@@ -60,6 +60,8 @@ async function recompute(tx: Tx, roomId: string, state: OfficeState) {
   const category = categoryOf(people);
   const code = codeFor(people, state.ctx);
   const data: Prisma.OfficeRoomUpdateInput = { category };
+  const hotelId = people.find((p) => !p.noHousing)?.hotelId;
+  if (hotelId !== undefined && !manual) data.tripHotel = hotelId ? { connect: { id: hotelId } } : { disconnect: true };
   if (!manual && (room.code ?? "") !== (code ?? "")) {
     const others = await tx.officeRoom.findMany({ where: { tripId: room.tripId, NOT: { id: room.id } }, select: { code: true, seq: true } });
     data.code = code; data.seq = nextSeq(others, code);
@@ -79,7 +81,7 @@ export async function assignOfficeRooms(tx: Tx, tripId: string, bookingIds?: str
   const plan = planAssignments(state.rooms, people, state.ctx, state.defaultCapacity);
   const created = new Map<string, string>();
   for (const nr of plan.newRooms) {
-    const r = await tx.officeRoom.create({ data: { tripId, code: nr.code, seq: nr.seq, capacity: nr.capacity, roomType: nr.roomType, category: nr.category } });
+    const r = await tx.officeRoom.create({ data: { tripId, code: nr.code, seq: nr.seq, capacity: nr.capacity, roomType: nr.roomType, category: nr.category, tripHotelId: nr.hotelId } });
     created.set(nr.tempId, r.id);
   }
   const touched = new Set<string>();
@@ -118,7 +120,8 @@ export async function moveOfficeMember(tx: Tx, tripId: string, bookingId: string
     const room = await tx.officeRoom.findFirst({ where: { id: roomId, tripId }, include: { members: true } });
     if (!room) return fail("الغرفة غير موجودة");
     if (room.locked) return fail("الغرفة مقفلة");
-    if (room.members.length >= room.capacity) return fail("الغرفة ممتلئة");
+    const housedNow = await tx.officeRoomMember.count({ where: { officeRoomId: roomId, booking: { noHousing: false } } });
+    if (!b.noHousing && housedNow >= room.capacity) return fail("الغرفة ممتلئة");
   }
   await tx.officeRoomMember.deleteMany({ where: { bookingId } });
   if (roomId) await tx.officeRoomMember.create({ data: { officeRoomId: roomId, bookingId, assignedBy: "MANUAL" } });
@@ -168,12 +171,12 @@ export async function placeInRoomByLabel(tx: Tx, tripId: string, bookingId: stri
   let room = await tx.officeRoom.findFirst({ where: { tripId, code: parsed.code, seq: parsed.seq }, include: { members: true } });
   if (room?.members.some((m) => m.bookingId === bookingId)) return { ok: true };
   if (room?.locked) return fail(`غرفة المكتب ${label} مقفلة`);
-  if (room && room.members.length >= room.capacity) return fail(`غرفة المكتب ${label} ممتلئة`);
+  if (room && !b.noHousing && (await tx.officeRoomMember.count({ where: { officeRoomId: room.id, booking: { noHousing: false } } })) >= room.capacity) return fail(`غرفة المكتب ${label} ممتلئة`);
   const state = await loadOfficeState(tx, tripId);
   const person = personOf(b);
   if (!room) {
     const roomType = person.roomType;
-    const created = await tx.officeRoom.create({ data: { tripId, code: parsed.code, seq: parsed.seq, capacity: capacityFor(roomType, state.defaultCapacity), roomType, category: categoryOf([person]) } });
+    const created = await tx.officeRoom.create({ data: { tripId, code: parsed.code, seq: parsed.seq, capacity: capacityFor(roomType, state.defaultCapacity), roomType, category: categoryOf([person]), tripHotelId: person.hotelId } });
     room = { ...created, members: [] };
   }
   const from = b.officeMember?.officeRoomId ?? null;

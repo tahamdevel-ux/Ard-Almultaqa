@@ -120,18 +120,18 @@ export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInp
       const live = await tx.trip.count({ where: { id: { in: tripIds }, deletedAt: null } });
       if (live !== new Set(tripIds).size) return { error: "إحدى الرحلات المختارة غير موجودة", fieldErrors: { tripIds: "إحدى الرحلات المختارة غير موجودة" } } as ActionState;
       const p = await tx.pilgrim.create({ data: data as Prisma.PilgrimUncheckedCreateInput });
-      await addPilgrimToTrips(tx, p.id, p.agentId, tripIds, { skipOfficeTrips: tripIds.filter((t) => acc[t]?.officeRoom) });
+      await addPilgrimToTrips(tx, p.id, p.agentId, tripIds, { skipOfficeTrips: tripIds.filter((t) => acc[t]) });
       const bookingIds: Record<string, string> = {};
       for (const tripId of tripIds) {
         const booking = await tx.booking.findUniqueOrThrow({ where: { pilgrimId_tripId: { pilgrimId: p.id, tripId } } });
         bookingIds[tripId] = booking.id;
+        const f = fam[tripId]; // family first: بدون سكن and the office room both depend on it
+        if (f) { const err = await applyFamilyChoice(tx, tripId, booking.id, f); if (err) throw new AccommodationError(err); }
         const a = acc[tripId];
         if (a) {
           const r = await applyAccommodation(tripId, booking.id, a, tx);
           if (!r.ok) throw new AccommodationError(r.error); // rolls back the pilgrim and every booking
         }
-        const f = fam[tripId];
-        if (f) { const err = await applyFamilyChoice(tx, tripId, booking.id, f); if (err) throw new AccommodationError(err); }
       }
       return { ok: true, id: p.id, bookingIds } as ActionState;
     });

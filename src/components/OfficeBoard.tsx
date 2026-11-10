@@ -1,10 +1,10 @@
 "use client";
 import { useState, useTransition } from "react";
 import { HeadTag } from "@/components/HeadTag";
-import { moveMember, newRoom, removeRoom, renumber, rerun, toggleLock, type OfficeActionState } from "@/app/(app)/trips/[id]/office-rooms/actions";
+import { moveMember, newRoom, removeRoom, renumber, rerun, toggleLock, saveHotelNos, type OfficeActionState } from "@/app/(app)/trips/[id]/office-rooms/actions";
 
-export interface BoardPerson { bookingId: string; name: string; gender: "MALE" | "FEMALE"; group?: string; manual?: boolean; warning?: string | null; locked: boolean; head?: boolean }
-export interface BoardCard { id: string; label: string; typeLabel: string; category: "MEN" | "WOMEN" | "FAMILY"; capacity: number; locked: boolean; people: BoardPerson[] }
+export interface BoardPerson { bookingId: string; name: string; gender: "MALE" | "FEMALE"; group?: string; manual?: boolean; warning?: string | null; locked: boolean; head?: boolean; agent?: string; noHousing?: boolean }
+export interface BoardCard { id: string; label: string; typeLabel: string; category: "MEN" | "WOMEN" | "FAMILY"; capacity: number; locked: boolean; hotel?: string; makkahNo?: string; madinahNo?: string; people: BoardPerson[] }
 
 const CAT = {
   MEN: { label: "رجال", bg: "#DCE8F6", fg: "#1F4E8C" },
@@ -54,7 +54,7 @@ export function OfficeBoard({ tripId, cards, pool, canEdit, isAdmin }: { tripId:
               {canEdit && (
                 <select aria-label={`نقل ${p.name} إلى غرفة`} className="w-full rounded border text-xs" value="" onChange={(e) => e.target.value && run(() => moveMember(tripId, p.bookingId, e.target.value))}>
                   <option value="">نقل إلى غرفة…</option>
-                  {cards.filter((c) => !c.locked && c.people.length < c.capacity).map((c) => <option key={c.id} value={c.id}>{c.label} ({c.capacity - c.people.length} شاغر)</option>)}
+                  {cards.filter((c) => !c.locked && c.people.filter((x) => !x.noHousing).length < c.capacity).map((c) => <option key={c.id} value={c.id}>{c.label} ({c.capacity - c.people.filter((x) => !x.noHousing).length} شاغر)</option>)}
                 </select>
               )}
             </div>
@@ -65,7 +65,7 @@ export function OfficeBoard({ tripId, cards, pool, canEdit, isAdmin }: { tripId:
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {cards.map((c) => {
             const cat = CAT[c.category];
-            const empty = Math.max(0, c.capacity - c.people.length);
+            const empty = Math.max(0, c.capacity - c.people.filter((x) => !x.noHousing).length);
             const warns = c.people.filter((p) => p.warning).length;
             return (
               <div key={c.id} data-room={c.label} onDragOver={(e) => { e.preventDefault(); setOver(c.id); }} onDragLeave={() => setOver(null)} onDrop={drop(c.id)}
@@ -75,11 +75,19 @@ export function OfficeBoard({ tripId, cards, pool, canEdit, isAdmin }: { tripId:
                   <span className="text-xs font-bold">{c.typeLabel} · {cat.label}</span>
                   {canEdit && <button type="button" aria-label={c.locked ? "فتح القفل" : "قفل الغرفة"} title={c.locked ? "مقفلة" : "قفل"} className="text-base" onClick={() => run(() => toggleLock(tripId, c.id))}>{c.locked ? "🔒" : "🔓"}</button>}
                 </div>
+                {c.hotel && <div className="border-b border-line px-2 py-1 text-xs font-bold">{c.hotel}</div>}
+                {canEdit && (
+                  <form className="flex gap-1 border-b border-line px-2 py-1" action={(f) => run(() => saveHotelNos(tripId, c.id, String(f.get("mk") ?? ""), String(f.get("md") ?? "")))}>
+                    <input name="mk" aria-label={`غرفة مكة للغرفة ${c.label}`} placeholder="غرفة مكة" defaultValue={c.makkahNo ?? ""} className="input w-full py-0.5 text-xs" dir="ltr" />
+                    <input name="md" aria-label={`غرفة المدينة للغرفة ${c.label}`} placeholder="غرفة المدينة" defaultValue={c.madinahNo ?? ""} className="input w-full py-0.5 text-xs" dir="ltr" />
+                    <button className="btn-secondary px-2 py-0.5 text-xs">حفظ</button>
+                  </form>
+                )}
                 <div className="space-y-1 p-2">
                   {c.people.map((p, i) => (
                     <div key={p.bookingId} draggable={canEdit && !c.locked} onDragStart={(e) => e.dataTransfer.setData("text/plain", p.bookingId)}
                       className={"flex items-center gap-1 rounded border px-1.5 py-1 text-xs " + (p.warning ? "border-red-400 bg-red-50" : "border-line")}>
-                      <span>{i + 1}.</span><span className="flex-1">{p.name}{p.head && <HeadTag />}</span>
+                      <span>{i + 1}.</span><span className="flex-1">{p.name}{p.head && <HeadTag />}{p.agent && <span className="mr-1 text-brand-mid">· {p.agent}</span>}{p.noHousing && <span className="chip chip-gray mr-1">بدون سكن</span>}</span>
                       {p.group && <span className="rounded bg-brand-light px-1">{p.group}</span>}
                       {p.manual && <span title="نُقل يدوياً" aria-label="يدوي">✋</span>}
                       {canEdit && !c.locked && <button type="button" aria-label="إخراج من الغرفة" className="text-red-700" onClick={() => run(() => moveMember(tripId, p.bookingId, null))}>×</button>}

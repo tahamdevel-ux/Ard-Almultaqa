@@ -24,11 +24,15 @@ export default async function OfficeRoomsPage({ params }: { params: Promise<{ id
   const person = (bookingId: string, gender: "MALE" | "FEMALE", group?: string): BoardPerson => ({
     bookingId, gender, name: nameOf.get(names.get(bookingId)!.pilgrimId) ?? "", locked: false, group, head: !!names.get(bookingId)?.groups.some((g) => g.isHead && g.group.kind === "FAMILY"),
   });
+  const hotelNames = new Map((await db.tripHotel.findMany({ where: { tripId: id }, include: { hotel: true } })).map((h) => [h.id, h.hotel.localName ?? h.hotel.officialName]));
+  const roomNos = new Map((await db.officeRoom.findMany({ where: { tripId: id }, select: { id: true, makkahHotelRoomNo: true, madinahHotelRoomNo: true } })).map((r) => [r.id, r]));
+  const agentNames = new Map((await db.agent.findMany({ select: { id: true, name: true } })).map((a) => [a.id, a.name]));
   const groupLabel = (bookingId: string) => { const g = names.get(bookingId)?.groups[0]; return g ? (g.group.kind === "FAMILY" ? "عائلة" : "عصبة") : undefined; };
   const ordered = printOrder(state.rooms);
   const cards: BoardCard[] = ordered.map((r: OfficeRoomState) => ({
     id: r.id, label: roomLabel(r), typeLabel: r.roomType ? ROOM_TYPE_LABELS[r.roomType as RoomTypeKey] : `${r.capacity} (افتراضي)`, category: r.category, capacity: r.capacity, locked: r.locked,
-    people: r.members.map((m) => ({ ...person(m.bookingId, m.gender, groupLabel(m.bookingId)), manual: m.assignedBy === "MANUAL", warning: memberWarning(r, m, state.ctx.agentCodes) })),
+    hotel: r.hotelId ? hotelNames.get(r.hotelId) : undefined, makkahNo: roomNos.get(r.id)?.makkahHotelRoomNo ?? "", madinahNo: roomNos.get(r.id)?.madinahHotelRoomNo ?? "",
+    people: r.members.map((m) => ({ ...person(m.bookingId, m.gender, groupLabel(m.bookingId)), agent: m.agentId ? agentNames.get(m.agentId) : undefined, noHousing: m.noHousing, manual: m.assignedBy === "MANUAL", warning: memberWarning(r, m, state.ctx.agentCodes) })),
   }));
   const housed = new Set(state.rooms.flatMap((r) => r.members.map((m) => m.bookingId)));
   const pool = state.bookings.filter((b) => !housed.has(b.id)).map((b) => person(b.id, b.pilgrim.gender, groupLabel(b.id)));

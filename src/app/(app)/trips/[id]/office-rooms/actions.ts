@@ -68,3 +68,16 @@ export async function renumber(tripId: string): Promise<OfficeActionState> {
     touch(tripId); return { ok: true };
   });
 }
+
+/** The hotel's own room numbers of an office room (shown only on the hotel rooming lists). */
+export async function saveHotelNos(tripId: string, roomId: string, makkah: string, madinah: string): Promise<OfficeActionState> {
+  return guarded(tripId, "officeRooms.write", async (u) => {
+    const clean = (v: string) => v.trim().slice(0, 20) || null;
+    await db.$transaction(async (tx) => {
+      const before = await tx.officeRoom.findFirstOrThrow({ where: { id: roomId, tripId } });
+      const after = await tx.officeRoom.update({ where: { id: roomId }, data: { makkahHotelRoomNo: clean(makkah), madinahHotelRoomNo: clean(madinah) } });
+      await auditChanges(tx, u, "OfficeRoom", roomId, before, after, ["makkahHotelRoomNo", "madinahHotelRoomNo"] as never);
+    });
+    touch(tripId); return { ok: true };
+  });
+}

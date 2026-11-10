@@ -409,6 +409,10 @@ model OfficeRoom {
   id        String          @id @default(uuid())
   tripId    String
   trip      Trip            @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  tripHotelId String?       // the priced Makkah hotel its members share
+  tripHotel   TripHotel?    @relation(fields: [tripHotelId], references: [id], onDelete: SetNull)
+  makkahHotelRoomNo  String? // the hotel's own room number (shown only on hotel lists)
+  madinahHotelRoomNo String?
   code      String?         // agent room code, null = plain number
   seq       Int
   capacity  Int
@@ -485,6 +489,7 @@ model TripHotel {
   noHousingPrice Int?     // "بدون سكن": fixed price for this hotel on this trip (empty = not offered)
   prices         TripHotelPrice[]
   bookings       Booking[]
+  officeRooms    OfficeRoom[]
   @@unique([tripId, hotelId])
 }
 

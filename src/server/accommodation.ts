@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { withTripLock } from "./buses";
-import { placeInRoomByLabel } from "@/officeRooms/service";
+import { assignOfficeRooms, placeInRoomByLabel } from "@/officeRooms/service";
 import { busRoleConflict } from "./buses";
 import { isTripRole, type TripRole } from "@/domain/tripRoles";
 import { computePrice, type RoomKind } from "@/domain/pricing";
@@ -32,7 +32,7 @@ const CITY_LABEL: Record<City, string> = { MAKKAH: "مكة", MADINAH: "المد�
 export function accommodationForTrip(f: FormData, tripId: string): Accommodation | undefined {
   const g = (k: string) => String(f.get(`${k}__${tripId}`) ?? "").trim();
   const a: Accommodation = { makkahHotelId: g("makkahHotelId") || null, madinahHotelId: g("madinahHotelId") || null, roomType: g("roomType") || null, makkahRoomNo: g("makkahRoomNo"), madinahRoomNo: g("madinahRoomNo"), officeRoom: g("officeRoom"), tripRole: g("tripRole"), ...opt(f, tripId) };
-  return a.roomType || a.makkahRoomNo || a.madinahRoomNo || a.officeRoom || a.tripRole || a.housing !== undefined || a.food !== undefined || a.sarf !== undefined ? a : undefined; // hotels alone (= the defaults) need no extra work
+  return a.makkahHotelId || a.roomType || a.makkahRoomNo || a.madinahRoomNo || a.officeRoom || a.tripRole || a.housing !== undefined || a.food !== undefined || a.sarf !== undefined ? a : undefined; // hotels alone (= the defaults) need no extra work
 }
 
 function opt(f: FormData, tripId?: string) {
@@ -125,6 +125,8 @@ export async function applyAccommodation(tripId: string, bookingId: string, a: A
     if (a.officeRoom) {
       const r = await placeInRoomByLabel(tx, tripId, bookingId, a.officeRoom);
       if (!r.ok) throw new RollbackError(r.error);
+    } else if (!(await tx.officeRoomMember.findUnique({ where: { bookingId } }))) {
+      await assignOfficeRooms(tx, tripId, [bookingId]); // rooming waited for the hotel / room type chosen here
     }
     return { ok: true } as AccResult;
   }).catch((e) => { if (e instanceof RollbackError) return { ok: false, error: e.message } as AccResult; throw e; });

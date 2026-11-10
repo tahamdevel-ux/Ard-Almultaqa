@@ -81,7 +81,7 @@ export async function addToTrips(pilgrimId: string, _p: ActionState, form: FormD
     let r;
     try {
       r = await db.$transaction(async (tx) => {
-        const res = await addPilgrimToTrips(tx, pilgrimId, p.agentId, tripIds, { skipOfficeTrips: tripIds.filter((t) => accommodationForTrip(form, t)?.officeRoom) });
+        const res = await addPilgrimToTrips(tx, pilgrimId, p.agentId, tripIds, { skipOfficeTrips: tripIds.filter((t) => accommodationForTrip(form, t)) });
         for (const tripId of res.added) {
           const a = accommodationForTrip(form, tripId);
           if (!a) continue;

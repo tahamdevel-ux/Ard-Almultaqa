@@ -4,7 +4,7 @@ import { capacityFor, categoryOf, codeFor, memberWarning, nextSeq, planAssignmen
 import { ROOM_BEDS, ROOM_TYPE_LABELS } from "./rooming";
 
 let n = 0;
-const person = (o: Partial<OfficePerson> = {}): OfficePerson => ({ bookingId: `b${++n}`, gender: "MALE", groupIds: [], inFamily: false, roomType: null, agentId: null, busId: null, ...o });
+const person = (o: Partial<OfficePerson> = {}): OfficePerson => ({ bookingId: `b${++n}`, gender: "MALE", groupIds: [], inFamily: false, roomType: null, agentId: null, busId: null, hotelId: null, noHousing: false, ...o });
 const AIR: TripContext = { transport: "AIR", agentCodes: new Map([["A", "a"], ["B", "b"], ["N", null]]), busAgent: new Map() };
 const LAND = (busAgent: [string, string | null][]): TripContext => ({ transport: "LAND", agentCodes: new Map([["A", "a"], ["B", "b"]]), busAgent: new Map(busAgent) });
 const room = (o: Partial<OfficeRoomState> & { id: string }): OfficeRoomState => ({ code: null, seq: 1, capacity: 4, roomType: null, category: "MEN", locked: false, members: [], ...o });
@@ -146,5 +146,23 @@ describe("agent changed after the pilgrim was housed", () => {
     expect(memberWarning({ category: "MEN", roomType: null, code: "a" }, stay, codes)).toBeNull();
     expect(memberWarning({ category: "MEN", roomType: null, code: "a" }, moved, codes)).toBe(ROOM_MISFIT);
     expect(memberWarning({ category: "MEN", roomType: null, code: null }, moved, codes)).toBeNull(); // plain rooms fit everybody
+  });
+});
+
+describe("C8 hotel and بدون سكن", () => {
+  it("different hotels never share a room", () => {
+    const a = person({ hotelId: "H1" }), b = person({ hotelId: "H2" }), c = person({ hotelId: "H1" });
+    const plan = planAssignments([], [a, b, c], AIR);
+    expect(plan.placements.get(a.bookingId)).toBe(plan.placements.get(c.bookingId));
+    expect(plan.placements.get(a.bookingId)).not.toBe(plan.placements.get(b.bookingId));
+    expect(plan.newRooms.map((r) => r.hotelId).sort()).toEqual(["H1", "H2"]);
+  });
+  it("a no-housing pilgrim goes into his family's room without taking a bed", () => {
+    const head = person({ groupIds: ["g"], inFamily: true, roomType: "DOUBLE", hotelId: "H1" });
+    const mate = person({ groupIds: ["g"], inFamily: true, roomType: "DOUBLE", hotelId: "H1" });
+    const kid = person({ groupIds: ["g"], inFamily: true, roomType: null, hotelId: "H1", noHousing: true });
+    const plan = planAssignments([], [head, mate, kid], AIR);
+    expect(plan.placements.get(kid.bookingId)).toBe(plan.placements.get(head.bookingId));
+    expect(plan.newRooms).toHaveLength(1); // the room of 2 is full yet the kid fits
   });
 });

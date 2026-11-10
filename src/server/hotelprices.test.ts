@@ -30,7 +30,7 @@ async function setup(air = false) {
 }
 async function book(tripId: string, agentId?: string) {
   const p = await mkPilgrim(agentId);
-  await addPilgrimToTrips(db, p.id, agentId ?? null, [tripId]);
+  await addPilgrimToTrips(db, p.id, agentId ?? null, [tripId], { skipOfficeTrips: [tripId] });
   return db.booking.findFirstOrThrow({ where: { pilgrimId: p.id, tripId } });
 }
 
@@ -87,6 +87,22 @@ describe("per-hotel prices", () => {
   it("new bookings take the trip's food default", async () => {
     const t = await db.trip.create({ data: { name: "ر", transportType: "LAND", capacity: 5, foodDefault: false } });
     expect((await book(t.id)).withFood).toBe(false);
+  });
+});
+
+describe("office rooms follow hotel and housing", () => {
+  it("different hotels get different office rooms; a no-housing pilgrim joins his head's room without a bed", async () => {
+    const { h1, h2, t } = await setup();
+    const head = await book(t.id), other = await book(t.id), kid = await book(t.id);
+    const g = await db.familyGroup.create({ data: { kind: "FAMILY" } });
+    await db.bookingGroupMember.createMany({ data: [{ bookingId: head.id, groupId: g.id, isHead: true }, { bookingId: kid.id, groupId: g.id }] });
+    expect((await applyAccommodation(t.id, head.id, { makkahHotelId: h1.id, roomType: "DOUBLE" })).ok).toBe(true);
+    expect((await applyAccommodation(t.id, other.id, { makkahHotelId: h2.id, roomType: "DOUBLE" })).ok).toBe(true);
+    expect((await applyAccommodation(t.id, kid.id, { makkahHotelId: h1.id, housing: "NO" })).ok).toBe(true);
+    const m = async (id: string) => (await db.officeRoomMember.findUniqueOrThrow({ where: { bookingId: id } })).officeRoomId;
+    expect(await m(kid.id)).toBe(await m(head.id));
+    expect(await m(other.id)).not.toBe(await m(head.id));
+    expect((await db.officeRoom.findUniqueOrThrow({ where: { id: await m(head.id) } })).tripHotelId).toBeTruthy();
   });
 });
 

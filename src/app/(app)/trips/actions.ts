@@ -218,7 +218,7 @@ export async function addExistingPilgrim(tripId: string, pilgrimId: string, acc?
     const pilgrim = await db.pilgrim.findFirst({ where: { id: pilgrimId, deletedAt: null } });
     if (!pilgrim) return { error: "المعتمر غير موجود" };
     const before = await db.booking.findUnique({ where: { pilgrimId_tripId: { pilgrimId, tripId } } });
-    const r = await db.$transaction((tx) => addPilgrimToTrips(tx, pilgrimId, pilgrim.agentId, [tripId], { skipOfficeTrips: acc?.officeRoom ? [tripId] : [] }));
+    const r = await db.$transaction((tx) => addPilgrimToTrips(tx, pilgrimId, pilgrim.agentId, [tripId], { skipOfficeTrips: acc && Object.values(acc).some((v) => !!v) ? [tripId] : [] }));
     if (r.missing.length) return { error: "الرحلة غير موجودة" };
     if (r.skipped.length) return { error: "المعتمر مضاف مسبقاً لهذه الرحلة" };
     const wantsAcc = !!acc && Object.values(acc).some((v) => !!v);
