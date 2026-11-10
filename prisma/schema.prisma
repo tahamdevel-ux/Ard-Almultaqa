@@ -221,6 +221,11 @@ model PilgrimDocument {
 
 model Trip {
   id            String        @id @default(uuid())
+  foodDefault   Boolean       @default(true) // default food option of its pilgrims (with food)
+  sarfAmount    Int?          // air trips: تصريف amount in USD, added to the due of a pilgrim who chose تصريف المعتمر
+  agentCommission Int?        // fixed agent commission per non-cancelled pilgrim, USD (empty = غير محدد)
+  tripHotels    TripHotel[]
+  agentCommissions TripAgentCommission[]
   archivedAt    DateTime? // archived trips are hidden from lists and pickers but keep everything
   tripNo        String?       @unique   // optional; unique only when filled (PostgreSQL allows many NULLs)
   programType   ProgramType   @default(UMRAH)
@@ -295,6 +300,12 @@ model Booking {
   agentId     String?
   agent       Agent?        @relation(fields: [agentId], references: [id])
   roomType    String?
+  tripHotelId String?   // the priced Makkah hotel of this pilgrim on this trip
+  tripHotel   TripHotel? @relation(fields: [tripHotelId], references: [id])
+  noHousing   Boolean   @default(false) // بدون سكن: fixed price, no bed, sits in his head of family's office room
+  withFood    Boolean   @default(true)
+  sarfByPilgrim Boolean @default(false) // air: تصريف المعتمر (amount added to the due) instead of تصريف الشركة
+  sarfAmount  Int       @default(0)     // the تصريف amount included in priceAmount
   tripRole    TripRole? // متعهد / سايق / مساعد سايق: at most one of each per bus
   makkahHotelId  String? // this pilgrim's own hotel choice (the trip's hotel is only the default)
   madinahHotelId String?
@@ -377,6 +388,7 @@ model Hotel {
   updatedAt    DateTime  @updatedAt
   makkahTrips  Trip[]    @relation("TripMakkah")
   madinahTrips Trip[]    @relation("TripMadinah")
+  tripHotels   TripHotel[]
   rooms        Room[]
   programsMakkah  Program[] @relation("ProgMakkah")
   programsMadinah Program[] @relation("ProgMadinah")
@@ -461,6 +473,37 @@ model Program {
   seatsPerBus    Int           @default(48)
   durationDays   Int           @default(10)
   createdAt      DateTime      @default(now())
+}
+
+/// A Makkah hotel offered on a trip with its own prices (the Madinah hotel is fixed on the trip).
+model TripHotel {
+  id             String   @id @default(uuid())
+  tripId         String
+  trip           Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  hotelId        String
+  hotel          Hotel    @relation(fields: [hotelId], references: [id])
+  noHousingPrice Int?     // "بدون سكن": fixed price for this hotel on this trip (empty = not offered)
+  prices         TripHotelPrice[]
+  bookings       Booking[]
+  @@unique([tripId, hotelId])
+}
+
+model TripHotelPrice {
+  id          String    @id @default(uuid())
+  tripHotelId String
+  tripHotel   TripHotel @relation(fields: [tripHotelId], references: [id], onDelete: Cascade)
+  roomType    RoomType
+  amount      Int
+  @@unique([tripHotelId, roomType])
+}
+
+model TripAgentCommission {
+  id      String @id @default(uuid())
+  tripId  String
+  trip    Trip   @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  agentId String
+  amount  Int
+  @@unique([tripId, agentId])
 }
 
 model TripPrice {
