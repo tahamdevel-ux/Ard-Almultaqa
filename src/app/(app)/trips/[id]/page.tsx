@@ -13,6 +13,7 @@ import { TRIP_ROLE_LABELS } from "@/domain/tripRoles";
 import { busLabel, dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { DeleteBusButton } from "@/components/BusTools";
 import { AddPilgrimDialog } from "@/components/AddPilgrimDialog";
+import { TripTabs } from "@/components/TripTabs";
 import { HotelPricesForm, TripExtrasForm, type HotelRow } from "@/components/TripPricingForms";
 import { loadTripHotels } from "@/server/tripHotels";
 import { AccommodationEditor, type HotelOpt } from "@/components/AccommodationFields";
@@ -21,7 +22,7 @@ import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
 import { balance, formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAirAssignment, setAccommodation, saveHotelPrices, saveTripExtras } from "../actions";
+import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAirAssignment, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo } from "../actions";
 import { DateInput } from "@/components/DateInput";
 
 export default async function TripPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ q?: string; notes?: string }> }) {
@@ -74,24 +75,8 @@ export default async function TripPage({ params, searchParams }: { params: Promi
           <h1 className="page-title">{tripLabel(trip)}{archived && <span className="chip chip-gray ms-2 align-middle">مؤرشفة</span>}</h1>
           <p className="text-sm text-brand-mid">{TRANSPORT_LABELS[trip.transportType]} · {dateRangeLabel(trip.departDate, trip.returnDate)} · {TRIP_STATUS_LABELS[trip.status]}{trip.supervisor && ` · المشرف: ${trip.supervisor.name}`}</p>
         </div>
-        {can(user.role, "outputs.view") && (
-          <div className="flex flex-wrap gap-2 text-sm">
-            {can(user.role, "officeRooms.view") && <Link className="btn" href={`/trips/${trip.id}/office-rooms`}>التسكين</Link>}
-            {trip.transportType === "LAND" && trip.buses.map((b) => (
-              <span key={b.id} className="flex gap-1">
-                <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/manifest?bus=${b.id}&format=pdf`}>كشف {busLabel(b)} PDF</a>
-                <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/manifest?bus=${b.id}&format=xlsx`}>Excel</a>
-              </span>
-            ))}
-            {trip.transportType === "AIR" && (
-              <>
-                <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/flight-list?format=pdf`}>قائمة الطيران PDF</a>
-                <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/flight-list?format=xlsx`}>Excel</a>
-              </>
-            )}
-          </div>
-        )}
       </div>
+      <TripTabs tripId={trip.id} active="details" land={trip.transportType === "LAND"} rooming={can(user.role, "officeRooms.view")} prints={can(user.role, "outputs.view")} />
 
       {archived && <p className="alert-warn">هذه رحلة مؤرشفة: للعرض والطباعة فقط. لا يمكن التعديل عليها.</p>}
       <div className="flex flex-wrap gap-2"><TripArchiveButton tripId={trip.id} name={trip.name} archived={archived} canArchive={can(user.role, "trips.archive")} canUnarchive={can(user.role, "trips.unarchive")} /></div>
@@ -129,7 +114,20 @@ export default async function TripPage({ params, searchParams }: { params: Promi
         {can(user.role, "programs.write") && <form action={saveAsProgram.bind(null, trip.id)}><button className="text-sm underline">حفظ هذه الرحلة كقالب</button></form>}
       </section>
 
-      <section className="card space-y-3">
+      {w && trip.transportType === "LAND" && (
+        <section className="card space-y-2">
+          <h2 className="font-bold">بيانات منفيست الهيئة</h2>
+          <SmallForm action={saveHayaInfo.bind(null, trip.id)} submit="حفظ" fields={[
+            { name: "transportCompany", label: "شركة النقل", defaultValue: trip.transportCompany ?? "" },
+            { name: "departGovernorate", label: "محافظة الانطلاق", defaultValue: trip.departGovernorate ?? "" },
+            { name: "routeText", label: "طريق الانطلاق", defaultValue: trip.routeText ?? "" },
+            { name: "sequenceNo", label: "التسلسل", ltr: true, defaultValue: trip.sequenceNo ?? "" },
+          ]} />
+          <p className="text-xs text-brand-mid">تظهر في أعلى منفيست الهيئة. المنفذ (عرعر) والموسم ثابتان في النموذج.</p>
+        </section>
+      )}
+
+      <section id="buses" className="card space-y-3">
         <h2 className="font-bold">{trip.transportType === "LAND" ? "الباصات" : "الطيران والسيارات"}</h2>
         {trip.transportType === "LAND" ? (
           <>

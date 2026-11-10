@@ -48,22 +48,26 @@ const CITY_AR = { MAKKAH: "مكة المكرمة", MADINAH: "المدينة ال
 const CITY_EN = { MAKKAH: "Makkah", MADINAH: "Madinah" } as const;
 const ROOM_EN = { SINGLE: "Single", DOUBLE: "Double", TRIPLE: "Triple", QUAD: "Quad", QUINT: "Quint" } as const;
 
-export async function roomingData(tripId: string, city: "MAKKAH" | "MADINAH") {
+/** Hotel rooming list: built from the office rooms, shows the HOTEL's own room number (blank when not entered) and never the office label. `tripHotelId` picks one Makkah hotel; Madinah has the trip's fixed hotel. */
+export async function roomingData(tripId: string, city: "MAKKAH" | "MADINAH", tripHotelId?: string) {
   const [company, trip] = await Promise.all([
     getSetting("company"),
-    db.trip.findFirstOrThrow({ where: { id: tripId, deletedAt: null }, include: { makkahHotel: true, madinahHotel: true } }),
+    db.trip.findFirstOrThrow({ where: { id: tripId, deletedAt: null }, include: { madinahHotel: true } }),
   ]);
-  const hotel = city === "MAKKAH" ? trip.makkahHotel : trip.madinahHotel;
+  const th = city === "MAKKAH" && tripHotelId ? await db.tripHotel.findFirst({ where: { id: tripHotelId, tripId }, include: { hotel: true } }) : null;
+  const hotel = city === "MAKKAH" ? th?.hotel ?? null : trip.madinahHotel;
   const stay = stayDates(trip.departDate, trip.firstCity, trip.nightsMakkah, trip.nightsMadinah).find((s) => s.city === city)!;
-  const rooms = await db.room.findMany({
-    where: { tripId, city },
-    include: { assignments: { include: { booking: { include: { pilgrim: true } } } } },
+  const rooms = await db.officeRoom.findMany({
+    where: { tripId, ...(city === "MAKKAH" && tripHotelId ? { tripHotelId } : {}) },
+    include: { members: { include: { booking: { include: { pilgrim: true } } } } },
   });
-  rooms.sort((a, b) => a.roomNo.localeCompare(b.roomNo, undefined, { numeric: true }));
+  const no = (r: (typeof rooms)[number]) => (city === "MAKKAH" ? r.makkahHotelRoomNo : r.madinahHotelRoomNo) ?? "";
+  rooms.sort((a, b) => (no(a) === "" ? 1 : 0) - (no(b) === "" ? 1 : 0) || no(a).localeCompare(no(b), undefined, { numeric: true }) || a.seq - b.seq);
   const rows: { roomNo: string; typeAr: string; typeEn: string; nameAr: string; nameEn: string; passportNo: string; gender: string }[] = [];
-  for (const r of rooms) for (const a of r.assignments) {
+  for (const r of rooms) for (const a of r.members) {
+    if (a.booking.noHousing) continue; // no bed, not on the hotel's list
     const p = a.booking.pilgrim;
-    rows.push({ roomNo: r.roomNo, typeAr: ROOM_TYPE_LABELS[r.type], typeEn: ROOM_EN[r.type], nameAr: tripleNameAr(p), nameEn: fullNameEn(p), passportNo: p.passportNo, gender: p.gender === "MALE" ? "M" : "F" });
+    rows.push({ roomNo: no(r), typeAr: r.roomType ? ROOM_TYPE_LABELS[r.roomType] : "", typeEn: r.roomType ? ROOM_EN[r.roomType] : "", nameAr: tripleNameAr(p), nameEn: fullNameEn(p), passportNo: p.passportNo, gender: p.gender === "MALE" ? "M" : "F" });
   }
   return {
     company, trip, hotel, rows, cityAr: CITY_AR[city], cityEn: CITY_EN[city],
@@ -93,3 +97,38 @@ export async function agentStatementData(agentId: string, tripId?: string) {
 }
 
 export const money = formatMoney;
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** Everything the Hay'a land manifest of one bus needs. */
+export async function hayaData(tripId: string, busId: string) {
+  const [company, haya, trip, bus] = await Promise.all([
+    getSetting("company"), getSetting("haya"),
+    db.trip.findFirstOrThrow({ where: { id: tripId, deletedAt: null }, include: { madinahHotel: true } }),
+    db.bus.findFirstOrThrow({ where: { id: busId, tripId } }),
+  ]);
+  const seats = await db.seatAssignment.findMany({
+    where: { busId, booking: { status: "ACTIVE", deletedAt: null } },
+    include: { booking: { include: { pilgrim: true, tripHotel: { include: { hotel: true } } } } },
+    orderBy: { seatNo: "asc" },
+  });
+  const people = seats.map((s) => {
+    const p = s.booking.pilgrim, r = s.booking.tripRole;
+    return {
+      role: (r === "CONTRACTOR" ? "contractor" : r === "DRIVER" ? "driver" : r === "ASSISTANT" ? "assistant" : "pilgrim") as "contractor" | "driver" | "assistant" | "pilgrim",
+      nameAr: fullNameAr(p), mother: p.motherName ?? "", birth: `${p.birthDate.getUTCFullYear()}/${pad(p.birthDate.getUTCMonth() + 1)}/${pad(p.birthDate.getUTCDate())}`,
+      passport: p.passportNo, firstNameEn: p.enGivenName, phone: p.phone, birthDate: p.birthDate,
+    };
+  });
+  const hotelName = (h?: { localName: string | null; officialName: string } | null) => (h ? h.localName ?? h.officialName : "");
+  const makkah = [...new Set(seats.map((s) => hotelName(s.booking.tripHotel?.hotel)).filter(Boolean))].join(" / ");
+  const d = trip.departDate;
+  return {
+    people, departOn: d, trip, bus,
+    header: {
+      company: company.name, subCompany: haya.subCompany, transportCompany: trip.transportCompany ?? bus.company ?? "", madinahHotel: hotelName(trip.madinahHotel), makkahHotel: makkah,
+      busNumber: bus.number, departureGovernorate: trip.departGovernorate ?? "", departureDate: d ? `${d.getUTCDate()}-${d.getUTCMonth() + 1}-${d.getUTCFullYear()}` : "",
+      route: trip.routeText ?? "", sequence: trip.sequenceNo ?? "",
+    },
+  };
+}

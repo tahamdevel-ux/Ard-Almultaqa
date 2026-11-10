@@ -10,6 +10,7 @@ export const DEFAULT_COMPANY: CompanyInfo = {
 
 const DEFAULTS = {
   company: DEFAULT_COMPANY,
+  haya: { subCompany: "اسم الشركة الفرعية : ارض الملتقى " }, // line E10 of the Hay'a manifest
   passportMinMonths: 6,
   mahram: DEFAULT_MAHRAM_SETTINGS,
   maxCompanionGroup: 4,

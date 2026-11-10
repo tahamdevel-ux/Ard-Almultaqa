@@ -7,8 +7,10 @@ import ExcelJS from "exceljs";
 import { db } from "@/server/db";
 import { addPilgrimToTrips } from "@/server/bookings";
 import { addPayment } from "@/server/payments";
-import { renderAgentStatement, renderFlightList, renderManifest, renderReceipt, renderRooming } from "@/outputs/render";
-import { manifestData, flightListData, roomingData, agentStatementData } from "@/outputs/viewmodels";
+import JSZip from "jszip";
+import { renderAgentStatement, renderFlightList, renderManifest, renderReceipt, renderRooming, renderSeatMaps, renderTickets } from "@/outputs/render";
+import { manifestData, flightListData, roomingData, agentStatementData, hayaData } from "@/outputs/viewmodels";
+import { fillHaya } from "@/outputs/haya";
 import { renderOfficeRoomsPdf } from "./print";
 import { roomLabel } from "@/domain/officeRooms";
 
@@ -44,6 +46,7 @@ beforeAll(async () => {
       if (r.ok) paymentId = r.id!;
     }
   }
+  await db.officeRoom.updateMany({ where: { tripId }, data: { makkahHotelRoomNo: "H-501" } }); // the hotel's own number, allowed on hotel lists
   labels = (await db.officeRoom.findMany({ where: { tripId } })).map(roomLabel);
 }, 120_000);
 afterAll(wipe);
@@ -68,20 +71,21 @@ describe("office rooms never appear in any other output", () => {
   });
 
   it("view-models behind every other output contain no office room data", async () => {
-    const all = JSON.stringify([await manifestData(tripId, busId), await flightListData(tripId), await roomingData(tripId, "MAKKAH"), await agentStatementData(agentId)]);
+    const all = JSON.stringify([await manifestData(tripId, busId), await flightListData(tripId), await roomingData(tripId, "MAKKAH"), await agentStatementData(agentId), await hayaData(tripId, busId)]);
     expect(all).not.toContain(CODE);
     expect(all.toLowerCase()).not.toContain("officeroom");
     expect(all).not.toContain("غرف المكتب");
   }, 60_000);
 
-  it("rooming lists show the triple name only (no family name)", async () => {
+  it("rooming lists show the triple name only (no family name) and the hotel room number", async () => {
     const rows = (await roomingData(tripId, "MAKKAH")).rows;
     expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((r) => r.roomNo === "H-501")).toBe(true);
     for (const r of rows) expect(r.nameAr).toMatch(/^معتمر\d ب ج$/);
   });
 
   it("every Excel output is free of office room labels", async () => {
-    const files = [await renderManifest(tripId, busId, "xlsx"), await renderFlightList(tripId, "xlsx"), await renderRooming(tripId, "MAKKAH", "ar", "xlsx"), await renderRooming(tripId, "MAKKAH", "en", "xlsx"), await renderAgentStatement(agentId, undefined, "xlsx")];
+    const files = [await renderManifest(tripId, busId, "xlsx"), await renderFlightList(tripId, "xlsx"), await renderRooming(tripId, "MAKKAH", "ar", "xlsx"), await renderRooming(tripId, "MAKKAH", "en", "xlsx"), await renderTickets(tripId, "xlsx"), await renderAgentStatement(agentId, undefined, "xlsx")];
     for (const f of files) {
       const t = await xlsxText(f);
       expect(t.length).toBeGreaterThan(20);
@@ -90,8 +94,17 @@ describe("office rooms never appear in any other output", () => {
     }
   }, 60_000);
 
+  it("the Hay'a manifest has no office labels", async () => {
+    const d = await hayaData(tripId, busId);
+    const zip = await JSZip.loadAsync(await fillHaya(d.header, d.people, d.departOn));
+    const xml = await zip.file("xl/worksheets/sheet1.xml")!.async("string");
+    expect(xml).toContain("معتمر0");
+    for (const l of labels.filter((x) => x.startsWith(CODE))) expect(xml).not.toContain(l);
+    expect(xml).not.toContain("غرفة المكتب");
+  });
+
   it("every PDF output is free of office room labels (and the internal print has them)", async () => {
-    const others = [await renderManifest(tripId, busId, "pdf"), await renderFlightList(tripId, "pdf"), await renderRooming(tripId, "MAKKAH", "ar", "pdf"), await renderRooming(tripId, "MAKKAH", "en", "pdf"), await renderAgentStatement(agentId, undefined, "pdf"), await renderReceipt(paymentId)];
+    const others = [await renderManifest(tripId, busId, "pdf"), await renderFlightList(tripId, "pdf"), await renderRooming(tripId, "MAKKAH", "ar", "pdf"), await renderRooming(tripId, "MAKKAH", "en", "pdf"), await renderTickets(tripId, "pdf"), await renderSeatMaps(tripId), await renderAgentStatement(agentId, undefined, "pdf"), await renderReceipt(paymentId)];
     const texts = others.map(pdfText);
     if (texts.every((t) => t === null)) return; // pdftotext missing: the data-level checks above still run
     for (const t of texts) { expect(t).not.toBeNull(); expect(t!.length).toBeGreaterThan(20); expect(t).not.toContain(CODE + "1"); expect(t).not.toContain("غرف المكتب"); }
@@ -108,6 +121,11 @@ describe("office rooms never appear in any other output", () => {
         if (e.isDirectory()) walk(p);
         else if (/\.(ts|tsx)$/.test(e.name) && !/\.test\.tsx?$/.test(e.name)) {
           const rel = path.relative(root, p);
+          if (rel === path.join("outputs", "viewmodels.ts")) { // hotel lists read the hotel room number of office rooms, never the office label
+            const v = fs.readFileSync(p, "utf8");
+            if (/roomLabel|\.code\b|roomCode/.test(v.replace(/omit: \{ roomCode: true \}/g, ""))) offenders.push(rel);
+            continue;
+          }
           if (rel.startsWith("outputs" + path.sep) || rel.startsWith(path.join("app", "api", "payments")) || rel.startsWith(path.join("app", "api", "agents")) || rel === path.join("app", "api", "trips", "[id]", "outputs", "[kind]", "route.ts")) {
             const src = fs.readFileSync(p, "utf8");
             if (/officeRooms|OfficeRoom|officeMember/.test(src)) offenders.push(rel);

@@ -384,3 +384,17 @@ export async function saveTripExtras(tripId: string, _p: TripActionState, f: For
     touch(tripId); return { ok: true };
   });
 }
+
+/** Trip data printed on the Hay'a manifest header (all optional). */
+export async function saveHayaInfo(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  return guarded("trips.write", async (u) => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
+    const v = (k: string) => s(f, k).slice(0, 120) || null;
+    await db.$transaction(async (tx) => {
+      const before = await tx.trip.findUniqueOrThrow({ where: { id: tripId } });
+      const after = await tx.trip.update({ where: { id: tripId }, data: { transportCompany: v("transportCompany"), departGovernorate: v("departGovernorate"), routeText: v("routeText"), sequenceNo: v("sequenceNo") } });
+      await auditChanges(tx, u, "Trip", tripId, before, after, ["transportCompany", "departGovernorate", "routeText", "sequenceNo"] as never);
+    });
+    touch(tripId); return { ok: true };
+  });
+}

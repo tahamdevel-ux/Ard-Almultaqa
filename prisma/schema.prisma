@@ -221,6 +221,10 @@ model PilgrimDocument {
 
 model Trip {
   id            String        @id @default(uuid())
+  transportCompany String?   // Hay'a manifest: اسم شركة النقل
+  departGovernorate String?  // محافظة الانطلاق
+  routeText     String?      // طريق الانطلاق
+  sequenceNo    String?      // التسلسل
   foodDefault   Boolean       @default(true) // default food option of its pilgrims (with food)
   sarfAmount    Int?          // air trips: تصريف amount in USD, added to the due of a pilgrim who chose تصريف المعتمر
   agentCommission Int?        // fixed agent commission per non-cancelled pilgrim, USD (empty = غير محدد)
