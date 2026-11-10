@@ -79,6 +79,6 @@ export async function fillHaya(header: HayaHeader, peopleIn: HayaPerson[], depar
   const last = Math.max(101, FIRST_ROW + total - 1);
   sheet = sheet.replace(/<dimension ref="[^"]*"\/>/, `<dimension ref="B6:K${last}"/>`);
 
-  zip.file("xl/worksheets/sheet1.xml", sheet);
+  zip.file("xl/worksheets/sheet1.xml", sheet, { createFolders: false });
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 }

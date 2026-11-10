@@ -130,7 +130,7 @@ export async function renderSeatMaps(tripId: string, busId?: string) {
     }
     body += `<section class="pg"><h2>خريطة مقاعد ${esc(busLabelOf(bus))} — ${esc(joinMeta(tripMetaParts(trip)))} (${seats.length} راكب)</h2><div class="front">◄ مقدمة الباص (السائق)</div><table class="map">${trs}</table></section>`;
   }
-  const css = `.pg{page-break-after:always}.pg:last-child{page-break-after:auto}.map{table-layout:fixed}.map td{height:15.5mm;border:1px solid #999;font-size:9px;padding:1px 3px;vertical-align:top}.map td b{display:inline-block;background:#4f5444;color:#fff;padding:0 4px;border-radius:2px;margin-left:3px}.map td.free{background:#f6f6f2}.map td.full{background:#fff}.map td.aisle{width:8mm;border:none;background:none}.map td.gap{border:none}.front{text-align:center;font-weight:700;margin:2mm 0;border:1px dashed #999;padding:2px}.map i{color:#8a6400}`;
+  const css = `.pg{page-break-after:always}.pg:last-child{page-break-after:auto}.map{table-layout:fixed;width:99%}.map td{height:15.5mm;border:1px solid #999;font-size:9px;padding:1px 3px;vertical-align:top}.map td b{display:inline-block;background:#4f5444;color:#fff;padding:0 4px;border-radius:2px;margin-left:3px}.map td.free{background:#f6f6f2}.map td.full{background:#fff}.map td.aisle{width:8mm;border:none;background:none}.map td.gap{border:none}.front{text-align:center;font-weight:700;margin:2mm 0;border:1px dashed #999;padding:2px}.map i{color:#8a6400}`;
   const html = pageHtml(company as Company, "خريطة مقاعد الباصات", "", body).replace("</style>", `${css}</style>`);
   return htmlToPdf(html);
 }

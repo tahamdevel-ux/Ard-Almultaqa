@@ -106,6 +106,38 @@ async function main() {
       }
     }
   }
+  if ((await db.booking.count({ where: { tripRole: { not: null } } })) === 0) {
+    // C-batch demo: contractor / driver / assistant, a second priced hotel, تصريف of both kinds, a family with a no-housing member, an archived trip
+    const land = await db.trip.findUnique({ where: { tripNo: "L-2611" } }), air = await db.trip.findUnique({ where: { tripNo: "A-2612" } });
+    if (land) {
+      const seated = await db.booking.findMany({ where: { tripId: land.id, status: "ACTIVE" }, orderBy: { createdAt: "asc" }, take: 3 });
+      const roles = ["CONTRACTOR", "DRIVER", "ASSISTANT"] as const;
+      for (const [i, sa] of seated.entries()) await db.booking.update({ where: { id: sa.id }, data: { tripRole: roles[i] } });
+      await db.trip.update({ where: { id: land.id }, data: { transportCompany: "شركة النقل الذهبي", departGovernorate: "نينوى", routeText: "160- الأنبار", sequenceNo: "1" } });
+    }
+    if (air) {
+      const h1 = await db.tripHotel.findFirstOrThrow({ where: { tripId: air.id }, include: { prices: true } });
+      let other = await db.hotel.findFirst({ where: { city: "MAKKAH", id: { not: h1.hotelId } } });
+      if (!other) other = await db.hotel.create({ data: { officialName: "Makkah Premium Towers", localName: "أبراج مكة الفاخرة", city: "MAKKAH" } });
+      const h2 = await db.tripHotel.create({ data: { tripId: air.id, hotelId: other.id, noHousingPrice: (h1.noHousingPrice ?? 800) + 200 } });
+      await db.tripHotelPrice.createMany({ data: h1.prices.map((p) => ({ tripHotelId: h2.id, roomType: p.roomType, amount: p.amount + 250 })) });
+      const bookings = await db.booking.findMany({ where: { tripId: air.id, status: "ACTIVE" }, orderBy: { createdAt: "asc" } });
+      for (const [i, b] of bookings.entries()) {
+        const price = b.roomType ? h1.prices.find((p) => p.roomType === b.roomType)?.amount : null;
+        if (price == null) continue;
+        const premium = i % 3 === 0, sarf = i % 4 === 1;
+        await db.booking.update({ where: { id: b.id }, data: { tripHotelId: premium ? h2.id : h1.id, priceAmount: price + (premium ? 250 : 0) + (sarf ? 40 : 0), sarfByPilgrim: sarf, sarfAmount: sarf ? 40 : 0, withFood: i % 7 !== 0 } });
+      }
+      const [head, m1, m2] = bookings;
+      if (head && m1 && m2) {
+        const g = await db.familyGroup.create({ data: { kind: "FAMILY" } });
+        await db.bookingGroupMember.createMany({ data: [{ bookingId: head.id, groupId: g.id, isHead: true }, { bookingId: m1.id, groupId: g.id }, { bookingId: m2.id, groupId: g.id }] });
+        const hh = await db.booking.findUniqueOrThrow({ where: { id: head.id } });
+        await db.booking.update({ where: { id: m2.id }, data: { tripHotelId: hh.tripHotelId, noHousing: true, priceAmount: (hh.tripHotelId === h2.id ? h2.noHousingPrice : h1.noHousingPrice) ?? 0 } });
+      }
+    }
+    if ((await db.trip.count({ where: { archivedAt: { not: null } } })) === 0) await db.trip.create({ data: { name: "عمرة رمضان (مؤرشفة)", transportType: "LAND", capacity: 40, status: "RETURNED", archivedAt: new Date() } });
+  }
   if ((await db.officeRoom.count()) === 0) {
     // internal office rooms for every seeded trip (coded rooms for agents a / b, plain numbers for the rest, singles and so on)
     for (const t of await db.trip.findMany()) await db.$transaction((tx) => assignOfficeRooms(tx, t.id), { timeout: 60000 });

@@ -108,3 +108,17 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - Food: trip default (`foodDefault`) copied onto new bookings (`withFood`); never affects price.
 - Agent commission is now a fixed USD amount per non-cancelled pilgrim: the agent's override on the trip, else the trip amount, else 0 ("غير محدد"). The old percentage / wholesale columns are kept but unused. Commission never exceeds the pilgrim's price.
 - Moving a pilgrim to another trip keeps his price but clears the hotel link (the hotels belong to the old trip).
+
+### C8 (v2): office rooms by hotel
+- `OfficeRoom.tripHotelId` is the priced Makkah hotel its members share (existing rooms were back-filled from their first member). Only pilgrims of the same hotel share a room; empty rooms are reused only by the same hotel.
+- A "بدون سكن" pilgrim is placed in the room of a housed member of his family (his head) and never counts toward capacity or empty beds; he is left out of hotel lists.
+- Hotel's own room numbers (`makkahHotelRoomNo`, `madinahHotelRoomNo`) are typed on the office-room card.
+- When the add-pilgrim forms carry hotel/room type/family data, the office room is assigned AFTER those are applied (family first, then accommodation), so the first assignment already sees the hotel, type and family. Later changes to hotel, type, gender or agent never move anyone — the card shows «الغرفة لا تناسب المعتمر».
+- Hotel room numbers on cards are free text (max 20 chars); no uniqueness check.
+
+### C9 (v2): outputs
+- New trip pages: `/trips/<id>/prints` (tab المطبوعات, groups بر / جو / الهيئة / التسكين) and a tab bar. «الباصات والمقاعد» is the existing buses section of the trip page (anchor `#buses`) with the per-bus 2+2 seat map pages — it was not split into a new page.
+- Hay'a manifest: one file per bus, filled from `src/outputs/templates/haya_manifest.xlsx` with jszip (port of `docs/reference/fill_haya.py`): only `sheet1.xml` changes; all other parts stay byte-identical. >50 people append rows after row 68 with row 68's styles. Age groups from the birth date on the departure date (under 2 infant, under 12 child). Madinah hotel = the trip's fixed hotel; Makkah hotel = the hotel(s) of the bus riders. New trip fields: transport company, departure governorate, route, sequence (edited in the trip page).
+- Hotel rooming lists are built from office rooms and show only the hotel's room number (blank when not typed); the leak test now allows `outputs/viewmodels.ts` to read office rooms but forbids it from touching `roomLabel`/agent codes.
+- Tickets list is one list per trip (tickets are not tied to a flight in the data model), with the تصريف choice.
+- Internal rooming PDF additions: head-of-family tag, بدون طعام / بدون سكن marks, hotel name on the card when the trip has several hotels (rooms grouped by hotel); Excel export `?format=xlsx` of the same endpoint.
