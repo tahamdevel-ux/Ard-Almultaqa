@@ -21,7 +21,6 @@ export const pilgrimSchema = z.object({
   gender: z.enum(["MALE", "FEMALE"], { message: "الجنس مطلوب" }),
   birthDate: dateField("تاريخ الميلاد غير صحيح (DD/MM/YYYY)"),
   motherName: opt,
-  governorate: opt,
   address: opt,
   phone: opt.transform((v) => (v ? normalizePhone(v) : undefined)),
   emergencyPhone: opt.transform((v) => (v ? normalizePhone(v) : undefined)),

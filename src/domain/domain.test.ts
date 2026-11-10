@@ -113,7 +113,7 @@ describe("seating", () => {
   });
 });
 
-import { canPlace, autoAssignRooms, stayDates, occupancy, ROOM_BEDS } from "./rooming";
+import { canPlace, stayDates, occupancy, ROOM_BEDS } from "./rooming";
 import { readiness } from "./readiness";
 
 const occ = (id: string, gender: "MALE" | "FEMALE", groupIds: string[] = []) => ({ bookingId: id, gender, groupIds });
@@ -132,32 +132,6 @@ describe("rooming rules", () => {
     expect(occupancy(room("1", 2, [occ("a", "MALE")]))).toBe("partial");
     expect(occupancy(room("1", 1, [occ("a", "MALE")]))).toBe("full");
     expect(ROOM_BEDS.QUAD).toBe(4);
-  });
-  it("auto-assign keeps a عصبة of 4 women in one quad room", () => {
-    const people = [occ("w1", "FEMALE", ["g"]), occ("w2", "FEMALE", ["g"]), occ("w3", "FEMALE", ["g"]), occ("w4", "FEMALE", ["g"]), occ("m1", "MALE")];
-    const r = autoAssignRooms([room("101", 2), room("102", 4), room("103", 3)], people);
-    expect(new Set(["w1", "w2", "w3", "w4"].map((b) => r.assignments.get(b))).size).toBe(1);
-    expect(r.assignments.get("w1")).toBe("102");
-    expect(r.assignments.get("m1")).not.toBe("102");
-    expect(r.unplaced).toEqual([]);
-  });
-  it("auto-assign never mixes genders and reports leftovers", () => {
-    const people = [occ("m1", "MALE"), occ("w1", "FEMALE"), occ("m2", "MALE")];
-    const r = autoAssignRooms([room("1", 2)], people);
-    // one room: whoever lands first gets it; the other gender is unplaced
-    expect(r.assignments.size + r.unplaced.length).toBe(3);
-    const placed = [...r.assignments.keys()];
-    expect(new Set(placed.map((b) => people.find((p) => p.bookingId === b)!.gender)).size).toBe(1);
-    expect(placed.length).toBeLessThanOrEqual(2);
-  });
-  it("family of mixed gender shares a room", () => {
-    const r = autoAssignRooms([room("1", 4)], [occ("h", "MALE", ["f"]), occ("w", "FEMALE", ["f"])]);
-    expect(r.assignments.get("h")).toBe("1"); expect(r.assignments.get("w")).toBe("1");
-  });
-  it("splits a group larger than any room across rooms and flags it", () => {
-    const g = ["a", "b", "c", "d", "e"].map((i) => occ(i, "FEMALE", ["g"]));
-    const r = autoAssignRooms([room("1", 3), room("2", 3)], g);
-    expect(r.splitGroups).toEqual(["g"]); expect(r.assignments.size).toBe(5);
   });
   it("stay dates: Madinah first then Makkah", () => {
     const s = stayDates(d("2026-11-15"), "MADINAH", 6, 4);

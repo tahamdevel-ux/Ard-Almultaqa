@@ -52,8 +52,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
         </div>
         {can(user.role, "outputs.view") && (
           <div className="flex flex-wrap gap-2 text-sm">
-            <Link className="btn" href={`/trips/${trip.id}/rooming`}>التسكين</Link>
-            {can(user.role, "officeRooms.view") && <Link className="btn-secondary" href={`/trips/${trip.id}/office-rooms`}>غرف المكتب</Link>}
+            {can(user.role, "officeRooms.view") && <Link className="btn" href={`/trips/${trip.id}/office-rooms`}>التسكين</Link>}
             {trip.transportType === "LAND" && trip.buses.map((b) => (
               <span key={b.id} className="flex gap-1">
                 <a className="btn-secondary" href={`/api/trips/${trip.id}/outputs/manifest?bus=${b.id}&format=pdf`}>كشف {busLabel(b)} PDF</a>

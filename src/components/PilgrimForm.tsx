@@ -3,7 +3,6 @@ import { useActionState, useEffect } from "react";
 import { withParam } from "@/lib/returnTo";
 import { useRouter } from "next/navigation";
 import { Field } from "./Field";
-import { GOVERNORATES } from "@/lib/labels";
 import type { ActionState } from "@/server/pilgrims";
 import { TripPicker, type TripChoice } from "@/components/TripPicker";
 import type { HotelOpt } from "@/components/AccommodationFields";
@@ -80,11 +79,6 @@ export function PilgrimForm({
           </Field>
           {t("birthDate", "تاريخ الميلاد", { required: true, date: true, hint: "DD/MM/YYYY" })}
           {t("motherName", "اسم الأم")}
-          <Field label="المحافظة" name="governorate">
-            <select key={"governorate" + v("governorate")} id="governorate" name="governorate" defaultValue={v("governorate")} className="input">
-              <option value="">اختر</option>{GOVERNORATES.map((g) => <option key={g}>{g}</option>)}
-            </select>
-          </Field>
           {t("address", "العنوان")}
           {t("phone", "رقم الهاتف", { kind: "phone", hint: "عراقي: 07XXXXXXXXX (11 رقم) · سعودي: 05XXXXXXXX (10 أرقام)" })}
           {t("emergencyPhone", "هاتف الطوارئ", { kind: "phone", hint: "عراقي 07… أو سعودي 05…" })}

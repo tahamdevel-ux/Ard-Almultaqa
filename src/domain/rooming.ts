@@ -23,62 +23,6 @@ export function occupancy(room: RoomState): "empty" | "partial" | "full" {
   return room.occupants.length === 0 ? "empty" : room.occupants.length >= room.beds ? "full" : "partial";
 }
 
-export interface AutoResult {
-  assignments: Map<string, string>; // bookingId -> roomId
-  unplaced: string[];
-  splitGroups: string[]; // groups that could not fit one room and were spread over rooms
-}
-
-/**
- * Suggests rooms for `people` (not yet housed). Groups (family / companions) stay together in
- * one room when one is big enough, otherwise they are spread over consecutive rooms.
- * Never exceeds beds; never mixes genders outside a shared group.
- */
-export function autoAssignRooms(rooms: RoomState[], people: Occupant[]): AutoResult {
-  const state = rooms.map((r) => ({ ...r, occupants: [...r.occupants] }));
-  const assignments = new Map<string, string>();
-  const unplaced: string[] = [];
-  const splitGroups: string[] = [];
-  const place = (room: RoomState, p: Occupant) => { room.occupants.push(p); assignments.set(p.bookingId, room.id); };
-  const free = (r: RoomState) => r.beds - r.occupants.length;
-  const genderOf = (r: RoomState) => (r.occupants.length ? r.occupants[0].gender : null);
-
-  const groups = new Map<string, Occupant[]>();
-  const singles: Occupant[] = [];
-  for (const p of people) {
-    const g = p.groupIds[0];
-    if (g) groups.set(g, [...(groups.get(g) ?? []), p]); else singles.push(p);
-  }
-
-  for (const [gid, members] of [...groups].sort((a, b) => b[1].length - a[1].length)) {
-    // a room already holding group members (e.g. partially housed family) is preferred
-    const holding = state.find((r) => r.occupants.some((o) => o.groupIds.includes(gid)) && free(r) >= members.length);
-    const fit = holding ?? state
-      .filter((r) => free(r) >= members.length && members.every((m) => canPlace(r, m) === null))
-      .sort((a, b) => free(a) - members.length - (free(b) - members.length) || a.roomNo.localeCompare(b.roomNo, undefined, { numeric: true }))[0];
-    if (fit) { members.forEach((m) => place(fit, m)); continue; }
-    // spread over consecutive rooms
-    const sorted = [...state].sort((a, b) => a.roomNo.localeCompare(b.roomNo, undefined, { numeric: true }));
-    let split = false;
-    for (const m of members) {
-      const r = sorted.find((x) => canPlace(x, m) === null);
-      if (r) { place(r, m); split = true; } else unplaced.push(m.bookingId);
-    }
-    if (split) splitGroups.push(gid);
-  }
-
-  const bySex = (g: Gender) => singles.filter((s) => s.gender === g);
-  for (const g of ["FEMALE", "MALE"] as Gender[]) {
-    for (const p of bySex(g)) {
-      const partial = state.find((r) => genderOf(r) === g && free(r) > 0 && canPlace(r, p) === null);
-      const empty = state.filter((r) => r.occupants.length === 0).sort((a, b) => b.beds - a.beds || a.roomNo.localeCompare(b.roomNo, undefined, { numeric: true }))[0];
-      const r = partial ?? empty;
-      if (r) place(r, p); else unplaced.push(p.bookingId);
-    }
-  }
-  return { assignments, unplaced, splitGroups };
-}
-
 export interface StayDates { city: "MAKKAH" | "MADINAH"; checkIn: Date | null; checkOut: Date | null }
 
 const addDays = (d: Date, n: number) => new Date(d.getTime() + n * 86400000);

@@ -1,6 +1,5 @@
 import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
-import { autoAssignRooms } from "../src/domain/rooming";
 import { assignOfficeRooms } from "../src/officeRooms/service";
 
 const db = new PrismaClient();
@@ -41,7 +40,7 @@ async function main() {
       await db.pilgrim.create({ data: {
         firstName: first, fatherName: father, grandfatherName: grand, familyName: fam,
         gender: female ? "FEMALE" : "MALE", birthDate: d(`${1950 + (i % 40)}-0${1 + (i % 9)}-1${i % 9}`),
-        motherName: FEMALE_FIRST[(i + 2) % FEMALE_FIRST.length], governorate: "نينوى", address: "الموصل",
+        motherName: FEMALE_FIRST[(i + 2) % FEMALE_FIRST.length], address: "الموصل",
         phone: i === 6 ? "0501234567" /* one Saudi number */ : `0770${String(1000000 + i * 7919).slice(0, 7)}`, emergencyPhone: `0750${String(2000000 + i * 4231).slice(0, 7)}`,
         passportNo: i === 5 ? "N1234567" : `A${String(10000000 + i * 137)}`, passportType: i === 5 ? "FOREIGN" : "IRAQI" /* one foreign passport */, enGivenName: EN[first], enFatherName: EN[father], enGrandfatherName: EN[grand], enSurname: famEn,
         placeOfBirth: "MOSUL", passportIssue: d("2022-03-15"), passportExpiry: d(i % 10 === 0 ? "2027-01-20" : "2030-03-14"), passportAuthority: "MOSUL",
@@ -102,17 +101,6 @@ async function main() {
           ? { bookingId: b.id, amount: usd * 1400, currency: "IQD", exchangeRate: 1400, credited: usd, method: "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name, source: viaAgent ? "AGENT" : "DIRECT", sourceAgentId: viaAgent ? b.agentId : null }
           : { bookingId: b.id, amount: usd, currency: "USD", credited: usd, method: i % 2 ? "TRANSFER" : "CASH", paidAt: d("2026-10-10"), receivedById: acc.id, receivedByName: acc.name, source: viaAgent ? "AGENT" : "DIRECT", sourceAgentId: viaAgent ? b.agentId : null } });
       }
-    }
-  }
-  if ((await db.roomAssignment.count()) === 0) {
-    const land = await db.trip.findUnique({ where: { tripNo: "L-2611" } });
-    if (land) for (const city of ["MADINAH", "MAKKAH"] as const) {
-      const rooms = await db.room.findMany({ where: { tripId: land.id, city } });
-      const bookings = await db.booking.findMany({ where: { tripId: land.id, status: "ACTIVE" }, include: { pilgrim: true, groups: true } });
-      const r = autoAssignRooms(
-        rooms.map((x) => ({ id: x.id, roomNo: x.roomNo, beds: x.beds, occupants: [] })),
-        bookings.map((b) => ({ bookingId: b.id, gender: b.pilgrim.gender, groupIds: b.groups.map((g) => g.groupId) })));
-      for (const [bookingId, roomId] of r.assignments) await db.roomAssignment.create({ data: { bookingId, roomId, city } });
     }
   }
   if ((await db.officeRoom.count()) === 0) {

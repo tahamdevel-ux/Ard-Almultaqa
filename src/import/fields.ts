@@ -12,7 +12,6 @@ export const IMPORT_FIELDS: ImportField[] = [
   { key: "gender", label: "الجنس", required: true, aliases: ["الجنس", "gender", "sex"] },
   { key: "birthDate", label: "تاريخ الميلاد", required: true, aliases: ["تاريخ الميلاد", "الميلاد", "birth", "dob"] },
   { key: "motherName", label: "اسم الأم", aliases: ["اسم الام", "اسم الأم", "الام", "mother"] },
-  { key: "governorate", label: "المحافظة", aliases: ["المحافظة", "governorate"] },
   { key: "address", label: "العنوان", aliases: ["العنوان", "السكن", "address"] },
   { key: "phone", label: "الهاتف", aliases: ["الهاتف", "رقم الهاتف", "موبايل", "phone", "mobile"] },
   { key: "emergencyPhone", label: "هاتف الطوارئ", aliases: ["هاتف الطوارئ", "هاتف الطوارىء", "emergency"] },

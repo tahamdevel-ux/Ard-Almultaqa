@@ -46,7 +46,6 @@ const RULES: Rule[] = [
   { field: "phone", re: /phone|mobile|^tel$|telephone|^gsm$|هاتف|موبايل|^جوال$|رقم الهاتف/, not: /emergency|طوارئ|طوارىء/ },
   { field: "emergencyPhone", re: /emergency|هاتف الطوارئ|هاتف الطوارىء/ },
   { field: "motherName", re: /^mother( name)?$|اسم الام|^الام$|والده/ },
-  { field: "governorate", re: /governorate|province|المحافظه/ },
   { field: "address", re: /^address$|العنوان|السكن/ },
 ];
 

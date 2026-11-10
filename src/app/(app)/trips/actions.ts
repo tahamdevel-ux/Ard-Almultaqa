@@ -239,7 +239,7 @@ export async function setAccommodation(tripId: string, bookingId: string, _p: Tr
   const perm = (await requirePermission("rooming.write").then(() => "rooming.write" as const).catch(() => "bookings.write" as const));
   return guarded(perm, async () => {
     const r = await applyAccommodation(tripId, bookingId, accommodationFromForm(f));
-    touch(tripId); revalidatePath(`/trips/${tripId}/rooming`);
+    touch(tripId); revalidatePath(`/trips/${tripId}/office-rooms`);
     return r.ok ? { ok: true } : { error: r.error };
   });
 }
