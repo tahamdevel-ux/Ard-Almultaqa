@@ -1,8 +1,9 @@
 "use client";
 import { useState, useTransition } from "react";
+import { HeadTag } from "@/components/HeadTag";
 import { moveMember, newRoom, removeRoom, renumber, rerun, toggleLock, type OfficeActionState } from "@/app/(app)/trips/[id]/office-rooms/actions";
 
-export interface BoardPerson { bookingId: string; name: string; gender: "MALE" | "FEMALE"; group?: string; manual?: boolean; warning?: string | null; locked: boolean }
+export interface BoardPerson { bookingId: string; name: string; gender: "MALE" | "FEMALE"; group?: string; manual?: boolean; warning?: string | null; locked: boolean; head?: boolean }
 export interface BoardCard { id: string; label: string; typeLabel: string; category: "MEN" | "WOMEN" | "FAMILY"; capacity: number; locked: boolean; people: BoardPerson[] }
 
 const CAT = {
@@ -78,7 +79,7 @@ export function OfficeBoard({ tripId, cards, pool, canEdit, isAdmin }: { tripId:
                   {c.people.map((p, i) => (
                     <div key={p.bookingId} draggable={canEdit && !c.locked} onDragStart={(e) => e.dataTransfer.setData("text/plain", p.bookingId)}
                       className={"flex items-center gap-1 rounded border px-1.5 py-1 text-xs " + (p.warning ? "border-red-400 bg-red-50" : "border-line")}>
-                      <span>{i + 1}.</span><span className="flex-1">{p.name}</span>
+                      <span>{i + 1}.</span><span className="flex-1">{p.name}{p.head && <HeadTag />}</span>
                       {p.group && <span className="rounded bg-brand-light px-1">{p.group}</span>}
                       {p.manual && <span title="نُقل يدوياً" aria-label="يدوي">✋</span>}
                       {canEdit && !c.locked && <button type="button" aria-label="إخراج من الغرفة" className="text-red-700" onClick={() => run(() => moveMember(tripId, p.bookingId, null))}>×</button>}

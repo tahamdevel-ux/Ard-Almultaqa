@@ -5,6 +5,7 @@ import { can } from "@/lib/permissions";
 import { canSeeTrip, loadTripDetail } from "@/server/trips";
 import { fullNameAr } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
+import { HeadTag } from "@/components/HeadTag";
 import { TRIP_ROLE_LABELS } from "@/domain/tripRoles";
 import { busLabel, dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { DeleteBusButton } from "@/components/BusTools";
@@ -27,10 +28,10 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
   const { trip, rows, counter } = d;
   if (!canSeeTrip(user, trip)) redirect("/forbidden");
   const w = can(user.role, "trips.write"), bw = can(user.role, "bookings.write"), sw = can(user.role, "seats.write");
-  const groups = new Map<string, { kind: string; members: string[]; head?: string }>();
+  const groups = new Map<string, { kind: string; members: string[]; head?: string; headName?: string }>();
   for (const r of rows) for (const g of r.booking.groups) {
     const e = groups.get(g.groupId) ?? { kind: g.group.kind, members: [] };
-    if (g.isHead) e.head = r.booking.id;
+    if (g.isHead) { e.head = r.booking.id; e.headName = fullNameAr(r.booking.pilgrim); }
     e.members.push(r.booking.pilgrim.firstName + " " + r.booking.pilgrim.familyName);
     groups.set(g.groupId, e);
   }
@@ -172,11 +173,12 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
               return (
                 <tr key={b.id}>
                   <td className="td">{bw && <><input form="groupform" type="checkbox" name="bookingIds" value={b.id} aria-label="تحديد" /><label className="mt-1 flex items-center gap-1 text-[11px] text-brand-mid"><input form="groupform" type="radio" name="headBookingId" value={b.id} aria-label="رب الأسرة" />رب</label></>}</td>
-                  <td className="td"><Link className="font-bold underline" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link>{b.tripRole && <span className="chip chip-warn ms-2">{TRIP_ROLE_LABELS[b.tripRole]}</span>}</td>
+                  <td className="td"><Link className="font-bold underline" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link>{gid && groups.get(gid)?.head === b.id && groups.get(gid)?.kind === "FAMILY" && <HeadTag />}{b.tripRole && <span className="chip chip-warn ms-2">{TRIP_ROLE_LABELS[b.tripRole]}</span>}</td>
                   <td className="td ltr">{b.pilgrim.passportNo}</td>
                   <td className="td space-y-1">{gid ? (
                     <>
                       <span className="chip chip-gray">{groups.get(gid)!.kind === "COMPANIONS" ? "عصبة" : "عائلة"} ({groups.get(gid)!.members.length})</span>
+                      {groups.get(gid)!.kind === "FAMILY" && groups.get(gid)!.head !== b.id && groups.get(gid)!.headName && <div className="text-xs text-brand-mid">تابع لـ {groups.get(gid)!.headName}</div>}
                       {groups.get(gid)!.kind === "FAMILY" && (groups.get(gid)!.head === b.id
                         ? <div><span className="chip chip-ok">رب الأسرة</span>{money && <> <Link className="text-xs underline" href={`/families/${gid}`}>حساب الأسرة</Link></>}</div>
                         : bw && <form action={setFamilyHead.bind(null, trip.id, gid, b.id)}><button className="text-xs underline">اجعله رب الأسرة</button></form>)}

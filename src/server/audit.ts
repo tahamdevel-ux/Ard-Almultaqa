@@ -37,5 +37,5 @@ export const PILGRIM_AUDITED = [
   "firstName", "fatherName", "grandfatherName", "greatGrandfatherName", "familyName",
   "passportNo", "passportType", "enGivenName", "enFatherName", "enGrandfatherName", "enSurname",
   "nationality", "placeOfBirth", "passportIssue", "passportExpiry", "passportAuthority",
-  "birthDate", "gender", "phone", "emergencyPhone",
+  "birthDate", "gender", "phone", "emergencyPhone", "agentId", "motherName",
 ] as const;

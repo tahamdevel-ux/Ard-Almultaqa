@@ -7,7 +7,7 @@ import { dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { fullNameAr, fullNameEn } from "./pilgrims";
 
 export type SearchResults = {
-  pilgrims: { id: string; name: string; sub: string; allTripIds: string[]; trips: { id: string; label: string; dates: string; past: boolean }[] }[];
+  pilgrims: { id: string; name: string; sub: string; allTripIds: string[]; head: boolean; trips: { id: string; label: string; dates: string; past: boolean }[] }[];
   trips: { id: string; label: string; sub: string }[];
   agents: { id: string; name: string; sub: string }[];
   hotels: { id: string; name: string; sub: string }[];
@@ -38,13 +38,14 @@ export async function searchPilgrims(user: SessionUser, tokens: string[]): Promi
   if (!ids.length) return [];
   const rows = await db.pilgrim.findMany({
     where: { id: { in: ids } },
-    include: { bookings: { where: { status: "ACTIVE", deletedAt: null, ...(sup ? { trip: { supervisorId: user.id } } : {}) }, include: { trip: true }, orderBy: { createdAt: "desc" } } },
+    include: { bookings: { where: { status: "ACTIVE", deletedAt: null, ...(sup ? { trip: { supervisorId: user.id } } : {}) }, include: { trip: true, groups: true }, orderBy: { createdAt: "desc" } } },
   });
   return rows.map((p) => ({
     id: p.id,
     name: fullNameAr(p),
     sub: `${fullNameEn(p)} — ${p.passportNo}${p.phone ? ` — ${p.phone}` : ""}`,
     allTripIds: p.bookings.map((b) => b.tripId),
+    head: p.bookings.some((b) => b.groups.some((g) => g.isHead)),
     trips: p.bookings.slice(0, 4).map((b) => ({
       id: b.tripId, label: tripLabel(b.trip), dates: dateRangeLabel(b.trip.departDate, b.trip.returnDate),
       past: !!(b.trip.returnDate ?? b.trip.departDate) && (b.trip.returnDate ?? b.trip.departDate)! < today,

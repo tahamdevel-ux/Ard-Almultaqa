@@ -13,7 +13,7 @@ import { DateInput } from "@/components/DateInput";
 type V = Record<string, string | boolean | null | undefined>;
 
 export function PilgrimForm({
-  action, values = {}, agents, canHealth, trips, hotels, returnTo, initialTripIds,
+  action, values = {}, agents, canHealth, trips, hotels, returnTo, initialKeep,
 }: {
   action: (prev: ActionState, form: FormData) => Promise<ActionState>;
   values?: V;
@@ -22,28 +22,36 @@ export function PilgrimForm({
   trips?: TripChoice[];
   /** internal path of the list as the user left it (already validated) */
   returnTo?: string | null;
-  initialTripIds?: string[];
+  /** shared choices kept from the previous pilgrim (trip, agent, hotel, room type, food, تصريف, head of family) */
+  initialKeep?: Record<string, string | string[]>;
   hotels?: HotelOpt[];
 }) {
   const [state, formAction, pending] = useActionState(action, {} as ActionState);
   const router = useRouter();
+  const [anyHead, setAnyHead] = useState(false);
   useEffect(() => {
     if (!state.ok || !state.id) return;
-    if (state.intent === "saveNew") {
-      // a new empty form; the trips and the agent of this one stay selected
+    if (state.intent === "saveNew" || state.intent === "saveFamily") {
+      // a new empty form that keeps the shared choices of this one; "saveFamily" also links the new pilgrim to the head just saved
       const q = new URLSearchParams();
       if (returnTo) q.set("returnTo", returnTo);
       q.set("saved", state.id);
-      const tr = state.values?.tripIds; const tl = Array.isArray(tr) ? tr : tr ? [tr] : [];
-      if (tl.length) q.set("trips", tl.join(","));
-      const ag = state.values?.agentId; if (typeof ag === "string" && ag) q.set("agent", ag);
+      const keep: Record<string, string | string[]> = { ...(state.values ?? {}) };
+      if (state.intent === "saveFamily") {
+        for (const [tripId, bookingId] of Object.entries(state.bookingIds ?? {})) if (state.values?.[`isHead__${tripId}`] === "on") keep[`headOf__${tripId}`] = bookingId;
+      } else {
+        // after a plain save-and-new a head's family link is kept too (a family member being added stays linked)
+        for (const k of Object.keys(state.values ?? {})) if (k.startsWith("headOf__")) keep[k] = (state.values ?? {})[k];
+      }
+      q.set("keep", JSON.stringify(keep));
       router.push(`/pilgrims/new?${q.toString()}`);
     } else router.push(withParam(returnTo ?? "/pilgrims", "saved", state.id));
   }, [state, returnTo, router]);
   const fe = state.fieldErrors ?? {};
   const [ptype, setPtype] = useState<PassportType>(((values.passportType as string) === "FOREIGN" ? "FOREIGN" : "IRAQI"));
   const echo = state.values; // typed values survive a failed save
-  const v = (k: string) => ((echo ? (echo[k] as string | undefined) : undefined) ?? values[k] ?? "") as string;
+  const kept = initialKeep ?? {};
+  const v = (k: string) => ((echo ? (echo[k] as string | undefined) : undefined) ?? (values[k] as string | undefined) ?? (typeof kept[k] === "string" ? (kept[k] as string) : undefined) ?? "") as string;
   const checked = (k: string) => (echo ? echo[k] === "on" : !!values[k]);
   const t = (name: string, label: string, opts: { dir?: "ltr"; required?: boolean; type?: string; hint?: string; upper?: boolean; date?: boolean; kind?: "phone" | "passport" } = {}) => (
     <Field label={label + (opts.required ? " *" : "")} name={name} error={fe[name]} hint={opts.hint}>
@@ -61,7 +69,14 @@ export function PilgrimForm({
     </Field>
   );
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="space-y-6" onKeyDown={(e) => {
+      // Enter = "حفظ وإضافة جديد" (except in a notes box, where it is a new line, and on buttons / selects)
+      const el = e.target as HTMLElement;
+      if (e.key !== "Enter" || el.tagName !== "INPUT" || (el as HTMLInputElement).type === "checkbox") return;
+      e.preventDefault();
+      const btn = e.currentTarget.querySelector<HTMLButtonElement>("button[value=saveNew]");
+      if (btn) e.currentTarget.requestSubmit(btn);
+    }}>
       {state.error && <p role="alert" className="alert-bad">{state.error}</p>}
 
       <section className="card">
@@ -138,13 +153,14 @@ export function PilgrimForm({
       {trips && (
         <section className="card">
           <h2 className="mb-3 font-bold">الرحلات * <span className="text-xs font-normal text-brand-mid">(اختر رحلة واحدة على الأقل)</span></h2>
-          <TripPicker trips={trips} error={fe.tripIds} hotels={hotels} initial={echo ?? (initialTripIds?.length ? { tripIds: initialTripIds } : undefined)} />
+          <TripPicker trips={trips} error={fe.tripIds} hotels={hotels} initial={echo ?? initialKeep} onHeadChange={setAnyHead} />
         </section>
       )}
 
       <div className="flex flex-wrap gap-2">
         <button name="intent" value="save" className="btn" disabled={pending}>{pending ? "جارٍ الحفظ…" : "حفظ"}</button>
         <button name="intent" value="saveNew" className="btn-secondary" disabled={pending}>حفظ وإضافة جديد</button>
+        {trips && anyHead && <button name="intent" value="saveFamily" className="btn-secondary" disabled={pending}>حفظ وإضافة فرد للعائلة</button>}
       </div>
     </form>
   );

@@ -63,3 +63,36 @@ describe("adding an existing pilgrim to trips", () => {
     expect((await db.booking.findFirstOrThrow({ where: { pilgrimId: p.id } })).status).toBe("ACTIVE");
   });
 });
+
+describe("changing a pilgrim's agent", () => {
+  it("his active bookings follow the new agent (commission moves) and the change is logged", async () => {
+    const { updatePilgrim } = await import("./pilgrims");
+    const a = await db.agent.create({ data: { name: "أ" } }), b = await db.agent.create({ data: { name: "ب" } });
+    const t = await trip("رحلة");
+    const p = await db.pilgrim.create({ data: { ...data("A77777771"), agentId: a.id } as never });
+    await addPilgrimToTrips(db, p.id, a.id, [t.id]);
+    const r = await updatePilgrim({ id: "u", name: "مختبر" } as never, p.id, { ...data("A77777771"), agentId: b.id } as never);
+    expect(r.ok).toBe(true);
+    expect((await db.booking.findFirstOrThrow({ where: { pilgrimId: p.id } })).agentId).toBe(b.id);
+    expect(await db.auditLog.count({ where: { entityId: p.id, field: "agentId" } })).toBe(1);
+  });
+});
+
+describe("head of family on the new-pilgrim form", () => {
+  it("a head creates a family; a member links to him; a head of another trip or a self-link is refused (nothing saved)", async () => {
+    const t = await trip("رحلة"), other = await trip("أخرى");
+    const head = await createPilgrimWithTrips(user, data("A88888881"), [t.id], {}, { [t.id]: { isHead: true, headOf: "" } });
+    expect(head.ok).toBe(true);
+    const headBooking = head.bookingIds![t.id];
+    const hm = await db.bookingGroupMember.findFirstOrThrow({ where: { bookingId: headBooking }, include: { group: true } });
+    expect(hm.isHead).toBe(true); expect(hm.group.kind).toBe("FAMILY");
+    const member = await createPilgrimWithTrips(user, data("A88888882"), [t.id], {}, { [t.id]: { isHead: false, headOf: headBooking } });
+    expect(member.ok).toBe(true);
+    const mm = await db.bookingGroupMember.findFirstOrThrow({ where: { bookingId: member.bookingIds![t.id] } });
+    expect(mm.groupId).toBe(hm.groupId); expect(mm.isHead).toBe(false);
+    const wrong = await createPilgrimWithTrips(user, data("A88888883"), [other.id], {}, { [other.id]: { isHead: false, headOf: headBooking } });
+    expect(wrong.ok).toBeFalsy(); expect(await db.pilgrim.count({ where: { passportNo: "A88888883" } })).toBe(0);
+    const both = await createPilgrimWithTrips(user, data("A88888884"), [t.id], {}, { [t.id]: { isHead: true, headOf: headBooking } });
+    expect(both.ok).toBeFalsy();
+  });
+});

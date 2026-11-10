@@ -138,3 +138,13 @@ describe("warnings and summary (nobody is moved)", () => {
     expect(s).toEqual({ rooms: 1, pilgrims: 2, emptyBeds: 2, warnings: 1 });
   });
 });
+
+describe("agent changed after the pilgrim was housed", () => {
+  it("a coded room warns when a member no longer belongs to that agent; nobody is moved", () => {
+    const codes = new Map<string, string | null>([["A", "a"], ["B", "b"]]);
+    const stay = person({ agentId: "A" }), moved = person({ agentId: "B" });
+    expect(memberWarning({ category: "MEN", roomType: null, code: "a" }, stay, codes)).toBeNull();
+    expect(memberWarning({ category: "MEN", roomType: null, code: "a" }, moved, codes)).toBe(ROOM_MISFIT);
+    expect(memberWarning({ category: "MEN", roomType: null, code: null }, moved, codes)).toBeNull(); // plain rooms fit everybody
+  });
+});

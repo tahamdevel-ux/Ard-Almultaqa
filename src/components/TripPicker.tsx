@@ -2,10 +2,11 @@
 import { useActionState, useState } from "react";
 import { AccommodationFields, type HotelOpt } from "@/components/AccommodationFields";
 
-export type TripChoice = { id: string; label: string; dates: string; booked?: boolean; makkahHotelId?: string; madinahHotelId?: string };
+export type TripChoice = { id: string; label: string; dates: string; booked?: boolean; makkahHotelId?: string; madinahHotelId?: string; heads?: { bookingId: string; name: string }[] };
 
 /** Multi-select of trips as checkboxes (name="tripIds"). */
-export function TripPicker({ trips, error, hotels, initial }: { trips: TripChoice[]; error?: string; hotels?: HotelOpt[]; initial?: Record<string, string | string[]> }) {
+export function TripPicker({ trips, error, hotels, initial, onHeadChange }: { trips: TripChoice[]; error?: string; hotels?: HotelOpt[]; initial?: Record<string, string | string[]>; onHeadChange?: (any: boolean) => void }) {
+  const [headTrips, setHeadTrips] = useState<Set<string>>(new Set(Object.keys(initial ?? {}).filter((k) => k.startsWith("isHead__") && initial?.[k] === "on").map((k) => k.slice(8))));
   const [q, setQ] = useState("");
   const first = initial?.tripIds;
   const [checked, setChecked] = useState<Set<string>>(new Set(Array.isArray(first) ? first : first ? [first] : []));
@@ -26,6 +27,17 @@ export function TripPicker({ trips, error, hotels, initial }: { trips: TripChoic
             {hotels && checked.has(t.id) && !t.booked && (
               <div className="my-2 space-y-1 rounded bg-canvas p-2">
                 <p className="text-xs font-bold text-brand-mid">التسكين في هذه الرحلة (اختياري): فندق كل مدينة ونوع الغرفة ورقمها</p>
+                <div className="flex flex-wrap items-end gap-3 border-b border-line pb-2">
+                  <label className="flex items-center gap-2 text-sm font-bold">
+                    <input type="checkbox" name={"isHead__" + t.id} defaultChecked={headTrips.has(t.id)}
+                      onChange={(e) => setHeadTrips((h) => { const n = new Set(h); if (e.target.checked) n.add(t.id); else n.delete(t.id); onHeadChange?.(n.size > 0); return n; })} />
+                    رب الأسرة
+                  </label>
+                  <div><label className="label" htmlFor={"headOf-" + t.id}>تابع لرب أسرة</label>
+                    <select id={"headOf-" + t.id} name={"headOf__" + t.id} className="input w-64" defaultValue={(initial?.["headOf__" + t.id] as string) ?? ""}>
+                      <option value="">— لا —</option>{(t.heads ?? []).map((h) => <option key={h.bookingId} value={h.bookingId}>{h.name}</option>)}
+                    </select></div>
+                </div>
                 <AccommodationFields hotels={hotels} idPrefix={"p" + t.id} nameSuffix={"__" + t.id}
                   values={{ makkahHotelId: (initial?.["makkahHotelId__" + t.id] as string) ?? t.makkahHotelId ?? "", madinahHotelId: (initial?.["madinahHotelId__" + t.id] as string) ?? t.madinahHotelId ?? "", roomType: (initial?.["roomType__" + t.id] as string) ?? "", makkahRoomNo: (initial?.["makkahRoomNo__" + t.id] as string) ?? "", madinahRoomNo: (initial?.["madinahRoomNo__" + t.id] as string) ?? "", officeRoom: (initial?.["officeRoom__" + t.id] as string) ?? "" }} />
               </div>

@@ -7,6 +7,7 @@ import { normalizePassport, normalizePhone, validatePassport, validatePhone } fr
 import { parseDate } from "@/domain/dates";
 import { addPilgrimToTrips } from "./bookings";
 import { applyAccommodation, AccommodationError, type Accommodation } from "./accommodation";
+import { applyFamilyChoice, type FamilyChoice } from "./families";
 
 const opt = z.string().trim().optional().transform((v) => (v ? v : undefined));
 const dateField = (msg: string) =>
@@ -66,7 +67,7 @@ export function formToObject(form: FormData): Record<string, unknown> {
   return o;
 }
 
-export type ActionState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; id?: string; message?: string; name?: string; intent?: "save" | "saveNew"; values?: Record<string, string | string[]> };
+export type ActionState = { error?: string; fieldErrors?: Record<string, string>; ok?: boolean; id?: string; message?: string; bookingIds?: Record<string, string>; name?: string; intent?: "save" | "saveNew" | "saveFamily"; values?: Record<string, string | string[]> };
 
 export function zodToState(e: z.ZodError): ActionState {
   const fieldErrors: Record<string, string> = {};
@@ -90,6 +91,10 @@ export async function updatePilgrim(user: SessionUser, id: string, data: Pilgrim
   await db.$transaction(async (tx) => {
     const before = await tx.pilgrim.findUniqueOrThrow({ where: { id } });
     const after = await tx.pilgrim.update({ where: { id }, data: data as Prisma.PilgrimUncheckedUpdateInput });
+    if ((before.agentId ?? null) !== (after.agentId ?? null)) {
+      // the agent changed: his active bookings follow, so the agent commission moves to the new agent (rooms only show a warning)
+      await tx.booking.updateMany({ where: { pilgrimId: id, status: "ACTIVE", deletedAt: null }, data: { agentId: after.agentId } });
+    }
     await auditChanges(tx, user, "Pilgrim", id, before, after, PILGRIM_AUDITED);
   });
   return { ok: true, id };
@@ -107,7 +112,7 @@ export function fullNameEn(p: { enGivenName: string; enFatherName?: string | nul
 }
 
 /** New pilgrim + bookings in one transaction: either everything is saved or nothing. */
-export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInput, tripIds: string[], acc: Record<string, Accommodation | undefined> = {}): Promise<ActionState> {
+export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInput, tripIds: string[], acc: Record<string, Accommodation | undefined> = {}, fam: Record<string, FamilyChoice | undefined> = {}): Promise<ActionState> {
   if (tripIds.length === 0) return { error: "اختر رحلة واحدة على الأقل", fieldErrors: { tripIds: "اختر رحلة واحدة على الأقل" } };
   if (await findByPassport(data.passportNo)) return { error: DUPLICATE_PASSPORT_MSG, fieldErrors: { passportNo: DUPLICATE_PASSPORT_MSG } };
   try {
@@ -116,14 +121,19 @@ export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInp
       if (live !== new Set(tripIds).size) return { error: "إحدى الرحلات المختارة غير موجودة", fieldErrors: { tripIds: "إحدى الرحلات المختارة غير موجودة" } } as ActionState;
       const p = await tx.pilgrim.create({ data: data as Prisma.PilgrimUncheckedCreateInput });
       await addPilgrimToTrips(tx, p.id, p.agentId, tripIds, { skipOfficeTrips: tripIds.filter((t) => acc[t]?.officeRoom) });
+      const bookingIds: Record<string, string> = {};
       for (const tripId of tripIds) {
-        const a = acc[tripId];
-        if (!a) continue;
         const booking = await tx.booking.findUniqueOrThrow({ where: { pilgrimId_tripId: { pilgrimId: p.id, tripId } } });
-        const r = await applyAccommodation(tripId, booking.id, a, tx);
-        if (!r.ok) throw new AccommodationError(r.error); // rolls back the pilgrim and every booking
+        bookingIds[tripId] = booking.id;
+        const a = acc[tripId];
+        if (a) {
+          const r = await applyAccommodation(tripId, booking.id, a, tx);
+          if (!r.ok) throw new AccommodationError(r.error); // rolls back the pilgrim and every booking
+        }
+        const f = fam[tripId];
+        if (f) { const err = await applyFamilyChoice(tx, tripId, booking.id, f); if (err) throw new AccommodationError(err); }
       }
-      return { ok: true, id: p.id } as ActionState;
+      return { ok: true, id: p.id, bookingIds } as ActionState;
     });
   } catch (e) {
     if (e instanceof AccommodationError) return { error: e.message, fieldErrors: { tripIds: e.message } };

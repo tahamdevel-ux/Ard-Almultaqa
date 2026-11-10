@@ -22,17 +22,17 @@ export default async function OfficeRoomsPage({ params }: { params: Promise<{ id
   const pilgrims = await db.pilgrim.findMany({ where: { id: { in: state.bookings.map((b) => b.pilgrimId) } } });
   const nameOf = new Map(pilgrims.map((p) => [p.id, tripleNameAr(p)]));
   const person = (bookingId: string, gender: "MALE" | "FEMALE", group?: string): BoardPerson => ({
-    bookingId, gender, name: nameOf.get(names.get(bookingId)!.pilgrimId) ?? "", locked: false, group,
+    bookingId, gender, name: nameOf.get(names.get(bookingId)!.pilgrimId) ?? "", locked: false, group, head: !!names.get(bookingId)?.groups.some((g) => g.isHead && g.group.kind === "FAMILY"),
   });
   const groupLabel = (bookingId: string) => { const g = names.get(bookingId)?.groups[0]; return g ? (g.group.kind === "FAMILY" ? "عائلة" : "عصبة") : undefined; };
   const ordered = printOrder(state.rooms);
   const cards: BoardCard[] = ordered.map((r: OfficeRoomState) => ({
     id: r.id, label: roomLabel(r), typeLabel: r.roomType ? ROOM_TYPE_LABELS[r.roomType as RoomTypeKey] : `${r.capacity} (افتراضي)`, category: r.category, capacity: r.capacity, locked: r.locked,
-    people: r.members.map((m) => ({ ...person(m.bookingId, m.gender, groupLabel(m.bookingId)), manual: m.assignedBy === "MANUAL", warning: memberWarning(r, m) })),
+    people: r.members.map((m) => ({ ...person(m.bookingId, m.gender, groupLabel(m.bookingId)), manual: m.assignedBy === "MANUAL", warning: memberWarning(r, m, state.ctx.agentCodes) })),
   }));
   const housed = new Set(state.rooms.flatMap((r) => r.members.map((m) => m.bookingId)));
   const pool = state.bookings.filter((b) => !housed.has(b.id)).map((b) => person(b.id, b.pilgrim.gender, groupLabel(b.id)));
-  const sum = roomSummary(state.rooms);
+  const sum = roomSummary(state.rooms, state.ctx.agentCodes);
   const w = can(user.role, "officeRooms.write");
 
   return (

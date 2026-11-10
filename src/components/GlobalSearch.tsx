@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { HeadTag } from "@/components/HeadTag";
 import type { SearchResults } from "@/server/search";
 
 const EMPTY: SearchResults = { pilgrims: [], trips: [], agents: [], hotels: [] };
@@ -50,7 +51,7 @@ export function GlobalSearch() {
             <Group title="المعتمرون">
               {res.pilgrims.map((p) => (
                 <Link key={p.id} href={`/pilgrims/${p.id}`} onClick={close} className="block px-3 py-2 hover:bg-canvas">
-                  <div className="text-sm font-bold">{p.name}</div>
+                  <div className="text-sm font-bold">{p.name}{p.head && <HeadTag />}</div>
                   <div className="ltr text-xs text-brand-mid">{p.sub}</div>
                   <div className="mt-1 flex flex-wrap gap-1">
                     {p.trips.length === 0 && <span className="chip">غير مسجّل في رحلة</span>}

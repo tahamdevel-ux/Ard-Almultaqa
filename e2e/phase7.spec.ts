@@ -99,3 +99,44 @@ test("choose the office room when adding pilgrims: two pilgrims typed room 1 end
   await expect(page.locator("[data-room='1']")).toContainText("غرفة1");
   await expect(page.locator("[data-room='1']")).toContainText("غرفة2");
 });
+
+test("Enter saves and opens a new form that keeps trip and agent; head of family + add a family member", async ({ page }) => {
+  await login(page, "admin");
+  const tripName = `رب أسرة ${RUN}`;
+  await page.goto("/trips/new");
+  await page.fill("[name=name]", tripName); await page.selectOption("[name=transportType]", "AIR");
+  await page.getByRole("button", { name: "إنشاء" }).click();
+  await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  const tripId = page.url().split("/").pop()!;
+
+  const fill = async (n: number, name: string) => {
+    const f = (k: string, v: string) => page.fill(`[name=${k}]`, v);
+    await f("fullNameAr", name); await f("motherName", "ام الاختبار");
+    await page.selectOption("[name=gender]", "MALE"); await f("birthDate", "12/05/1975"); await f("passportNo", `C${RUN}${n}`);
+    await f("enGivenName", "ENTER"); await f("enSurname", "KEY"); await f("passportExpiry", "10/10/2031");
+  };
+  await page.goto("/pilgrims/new");
+  await fill(1, "رب الأسرة المفتاح سالم");
+  await page.selectOption("[name=agentId]", { index: 1 });
+  const agentId = await page.locator("[name=agentId]").inputValue();
+  await page.locator("label", { hasText: tripName }).locator("input[name=tripIds]").check();
+  await page.locator(`input[name="isHead__${tripId}"]`).check();
+  await page.locator("[name=enSurname]").press("Enter"); // = حفظ وإضافة جديد
+  await page.waitForURL(/\/pilgrims\/new\?.*saved=/);
+  await expect(page.getByText(/^تم حفظ رب الأسرة/)).toBeVisible();
+  await expect(page.locator("[name=fullNameAr]")).toHaveValue("");
+  await expect(page.locator("[name=motherName]")).toHaveValue("");
+  await expect(page.locator("[name=agentId]")).toHaveValue(agentId);
+  await expect(page.locator(`input[name=tripIds][value="${tripId}"]`)).toBeChecked();
+
+  // a family member: pick the head just saved
+  await fill(2, "فرد الأسرة المفتاح سالم");
+  await page.locator(`select[name="headOf__${tripId}"]`).selectOption({ index: 1 });
+  await page.getByRole("button", { name: "حفظ", exact: true }).click();
+  await page.waitForURL(/\/pilgrims\?.*saved=/);
+
+  // the head tag shows next to his name in the trip list
+  await page.goto(`/trips/${tripId}`);
+  await expect(page.locator("tbody tr", { hasText: "رب الأسرة المفتاح" }).locator("[aria-label='رب الأسرة']").first()).toBeVisible();
+  await expect(page.locator("tbody tr", { hasText: "فرد الأسرة المفتاح" })).toContainText("تابع لـ");
+});

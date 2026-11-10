@@ -5,6 +5,7 @@ import { AuthError, requirePermission } from "@/server/auth";
 import { can } from "@/lib/permissions";
 import { createPilgrimWithTrips, formEcho, formToObject, fullNameAr, pilgrimSchema, updatePilgrim, zodToState, type ActionState } from "@/server/pilgrims";
 import { splitTripleName } from "@/import/values";
+import { familyForTrip } from "@/server/families";
 import { accommodationForTrip, applyAccommodation, AccommodationError } from "@/server/accommodation";
 import { addPilgrimToTrips, overlapWarnings, summarizeAdd } from "@/server/bookings";
 
@@ -17,13 +18,20 @@ async function guard<T>(fn: () => Promise<T>): Promise<T | ActionState> {
   }
 }
 
+/** What a new form keeps after a save: trip(s), agent and the shared choices (hotel, room type, food, تصريف, role-free); never personal fields. */
+const KEEP = /^(tripIds|agentId|makkahHotelId__.+|madinahHotelId__.+|roomType__.+|hotelId__.+|food__.+|sarf__.+)$/;
+function keepValues(values: Record<string, string | string[]>) {
+  return Object.fromEntries(Object.entries(values).filter(([k]) => KEEP.test(k)));
+}
+
 export async function savePilgrim(id: string | null, prev: ActionState, form: FormData): Promise<ActionState> {
   const r = await savePilgrimInner(id, prev, form);
-  const intent = form.get("intent") === "saveNew" ? "saveNew" as const : "save" as const;
+  const raw = form.get("intent");
+  const intent = raw === "saveNew" ? "saveNew" as const : raw === "saveFamily" ? "saveFamily" as const : "save" as const;
   const values = formEcho(form);
   if (!r.ok) return { ...r, values };
   const p = r.id ? await db.pilgrim.findUnique({ where: { id: r.id } }) : null;
-  return { ...r, intent, values: { tripIds: values.tripIds ?? [], agentId: values.agentId ?? "" }, name: p ? fullNameAr(p) : undefined };
+  return { ...r, intent, values: keepValues(values), bookingIds: r.bookingIds, name: p ? fullNameAr(p) : undefined };
 }
 
 async function savePilgrimInner(id: string | null, _prev: ActionState, form: FormData): Promise<ActionState> {
@@ -55,7 +63,7 @@ async function savePilgrimInner(id: string | null, _prev: ActionState, form: For
     else {
       await requirePermission("bookings.write");
       const tripIds = form.getAll("tripIds").map(String).filter(Boolean);
-      r = await createPilgrimWithTrips(user, data as never, tripIds, Object.fromEntries(tripIds.map((t) => [t, accommodationForTrip(form, t)])));
+      r = await createPilgrimWithTrips(user, data as never, tripIds, Object.fromEntries(tripIds.map((t) => [t, accommodationForTrip(form, t)])), Object.fromEntries(tripIds.map((t) => [t, familyForTrip(form, t)])));
     }
     if (r.ok) revalidatePath("/pilgrims");
     return r;

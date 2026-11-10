@@ -7,6 +7,7 @@ import { formatDate } from "@/domain/dates";
 import { GENDER_LABELS } from "@/lib/labels";
 import { dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { Toast } from "@/components/Toast";
+import { HeadTag } from "@/components/HeadTag";
 import { roomLabel } from "@/domain/officeRooms";
 
 const LIMIT = 300;
@@ -40,7 +41,7 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
   const [rows, total] = await Promise.all([
     db.pilgrim.findMany({
       where: { ...where, ...roomFilter }, orderBy: { createdAt: "desc" }, take: LIMIT + 1,
-      include: { agent: true, bookings: { where: { status: "ACTIVE", deletedAt: null, trip: { deletedAt: null } }, include: { trip: true, officeMember: { include: { officeRoom: true } } } } },
+      include: { agent: true, bookings: { where: { status: "ACTIVE", deletedAt: null, trip: { deletedAt: null } }, include: { trip: true, groups: true, officeMember: { include: { officeRoom: true } } } } },
     }),
     db.pilgrim.count({ where: { deletedAt: null } }),
   ]);
@@ -86,7 +87,7 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
               </tr>
               {g.list.map((p) => (
                 <tr key={p.id} className={"hover:bg-canvas " + (p.id === saved ? "saved-row" : "")}>
-                  <td className="td"><Link className="font-bold text-brand underline" href={`/pilgrims/${p.id}?${rt}`}>{fullNameAr(p)}</Link>{showRooms && (() => { const r = p.bookings.find((b) => b.tripId === g.trip?.id)?.officeMember?.officeRoom; return r ? <span className="chip chip-gray ms-2" title="غرفة المكتب" dir="ltr">{roomLabel(r)}</span> : null; })()}</td>
+                  <td className="td"><Link className="font-bold text-brand underline" href={`/pilgrims/${p.id}?${rt}`}>{fullNameAr(p)}</Link>{p.bookings.find((b) => b.tripId === g.trip?.id)?.groups.some((x) => x.isHead) && <HeadTag />}{showRooms && (() => { const r = p.bookings.find((b) => b.tripId === g.trip?.id)?.officeMember?.officeRoom; return r ? <span className="chip chip-gray ms-2" title="غرفة المكتب" dir="ltr">{roomLabel(r)}</span> : null; })()}</td>
                   <td className="td ltr">{fullNameEn(p)}</td>
                   <td className="td ltr">{p.passportNo}</td>
                   <td className="td">{GENDER_LABELS[p.gender]}</td>

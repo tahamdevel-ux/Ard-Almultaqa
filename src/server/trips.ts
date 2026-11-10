@@ -5,6 +5,7 @@ import { dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { tripCounter } from "@/domain/capacity";
 import { readiness } from "@/domain/readiness";
 import { getSetting } from "./settings";
+import { headsByTrip } from "./families";
 
 export async function loadTripDetail(tripId: string) {
   const trip = await db.trip.findFirst({
@@ -66,7 +67,8 @@ export async function tripChoices(booked: string[] = []) {
     where: { deletedAt: null, status: { not: "CANCELLED" } },
     orderBy: TRIP_ORDER,
   });
-  return trips.map((t) => ({ id: t.id, label: tripLabel(t), dates: dateRangeLabel(t.departDate, t.returnDate), booked: booked.includes(t.id), makkahHotelId: t.makkahHotelId ?? "", madinahHotelId: t.madinahHotelId ?? "" }));
+  const heads = await headsByTrip(trips.map((t) => t.id));
+  return trips.map((t) => ({ id: t.id, label: tripLabel(t), dates: dateRangeLabel(t.departDate, t.returnDate), booked: booked.includes(t.id), makkahHotelId: t.makkahHotelId ?? "", madinahHotelId: t.madinahHotelId ?? "", heads: heads[t.id] ?? [] }));
 }
 
 /** Hotels for the accommodation pickers. */

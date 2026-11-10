@@ -171,15 +171,17 @@ export function planAssignments(rooms: OfficeRoomState[], people: OfficePerson[]
 
 /** Warning text when a member does not suit the room (gender or room type), else null. Never moves anyone. */
 export const ROOM_MISFIT = "الغرفة لا تناسب المعتمر";
-export function memberWarning(room: Pick<OfficeRoomState, "category" | "roomType">, m: OfficePerson): string | null {
+export function memberWarning(room: Pick<OfficeRoomState, "category" | "roomType"> & { code?: string | null }, m: OfficePerson, agentCodes?: Map<string, string | null>): string | null {
   if (room.category === "MEN" && m.gender === "FEMALE") return ROOM_MISFIT;
   if (room.category === "WOMEN" && m.gender === "MALE") return ROOM_MISFIT;
   if (m.roomType && room.roomType && m.roomType !== room.roomType) return ROOM_MISFIT;
+  // the room carries an agent's code but this pilgrim no longer belongs to that agent (e.g. his agent was changed)
+  if (room.code && agentCodes && (m.agentId ? agentCodes.get(m.agentId) ?? null : null) !== room.code) return ROOM_MISFIT;
   return null;
 }
 
-export function roomSummary(rooms: OfficeRoomState[]) {
-  const warnings = rooms.reduce((n, r) => n + r.members.filter((m) => memberWarning(r, m)).length, 0);
+export function roomSummary(rooms: OfficeRoomState[], agentCodes?: Map<string, string | null>) {
+  const warnings = rooms.reduce((n, r) => n + r.members.filter((m) => memberWarning(r, m, agentCodes)).length, 0);
   const pilgrims = rooms.reduce((n, r) => n + r.members.length, 0);
   const emptyBeds = rooms.reduce((n, r) => n + Math.max(0, r.capacity - r.members.length), 0);
   return { rooms: rooms.length, pilgrims, emptyBeds, warnings };
