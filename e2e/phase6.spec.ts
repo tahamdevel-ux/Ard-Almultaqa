@@ -56,7 +56,7 @@ async function newPilgrim(page: Page, passport: string, fullName: string, tripNa
   await page.goto("/pilgrims/new");
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
   await f("fullNameAr", fullName); await f("familyName", "الاختبار");
-  await page.selectOption("[name=gender]", "MALE");
+  await page.selectOption("[name=gender]", "MALE"); await page.fill("[name=motherName]", "ام الاختبار");
   await f("birthDate", "12/05/1975"); await f("passportNo", passport);
   await f("enGivenName", "TEST"); await f("enSurname", "FAMILY"); await f("passportExpiry", "10/10/2031");
   await page.locator("label", { hasText: tripName }).locator("input[name=tripIds]").check();
@@ -129,7 +129,7 @@ test("new pilgrim page: hotel, room type and room number per selected trip", asy
   await page.goto("/pilgrims/new");
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
   await f("fullNameAr", "تسكين سالم محمود"); await f("familyName", "الاختبار");
-  await page.selectOption("[name=gender]", "MALE");
+  await page.selectOption("[name=gender]", "MALE"); await page.fill("[name=motherName]", "ام الاختبار");
   await f("birthDate", "12/05/1975"); await f("passportNo", `A${RUN}3`);
   await f("enGivenName", "TEST"); await f("enSurname", "ROOM"); await f("passportExpiry", "10/10/2031");
   await page.locator("label", { hasText: tripName }).locator("input[name=tripIds]").check();

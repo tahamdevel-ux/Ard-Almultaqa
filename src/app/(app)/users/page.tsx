@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
 import { hashPassword, requirePage, requirePermission } from "@/server/auth";
 import { redirect } from "next/navigation";
+import { PhoneInput } from "@/components/PhoneInput";
 import { ROLE_LABELS, type Role } from "@/lib/permissions";
 import { checkPhone } from "@/domain/identity";
 
@@ -45,7 +46,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
       {error && <p role="alert" className="alert-bad">{error}</p>}
       <form action={addUser} className="card grid gap-3 sm:grid-cols-5">
         <div><label className="label">الاسم</label><input name="name" className="input" /></div>
-        <div><label className="label">الهاتف</label><input name="phone" className="input" dir="ltr" inputMode="tel" /></div>
+        <div><label className="label">الهاتف</label><PhoneInput name="phone" className="input" /></div>
         <div><label className="label">اسم المستخدم *</label><input name="username" className="input" dir="ltr" required /></div>
         <div><label className="label">كلمة المرور (8 أحرف+) *</label><input name="password" type="password" minLength={8} className="input" dir="ltr" required /></div>
         <div><label className="label">الدور</label>

@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { autoSeat } from "@/domain/seating";
+import { roleConflict, type TripRole } from "@/domain/tripRoles";
 
 type Tx = Prisma.TransactionClient;
 const DEFAULT_SEATS = 48;
@@ -70,6 +71,7 @@ export async function moveBookingsToBus(tripId: string, targetBusId: string, boo
       include: { groups: true, pilgrim: true },
     });
     const all = [...chosen, ...mates];
+    for (const b of all) { const c = await busRoleConflict(tx, targetBusId, (b.tripRole as TripRole | null) ?? null, b.id); if (c) return { ok: false, error: c } as MoveResult; }
     const ids = new Set(all.map((b) => b.id));
     const taken = await tx.seatAssignment.findMany({ where: { busId: targetBusId } });
     const occ = new Map<number, string>();
@@ -80,4 +82,11 @@ export async function moveBookingsToBus(tripId: string, targetBusId: string, boo
     for (const [bookingId, seatNo] of plan) await tx.seatAssignment.create({ data: { bookingId, busId: targetBusId, seatNo } });
     return { ok: true, moved: all.length } as MoveResult;
   });
+}
+
+/** Role (متعهد / سايق / مساعد سايق) clash on a bus: null when the booking may hold `role` on `busId`. */
+export async function busRoleConflict(tx: Tx | typeof db, busId: string | null, role: TripRole | null, bookingId: string): Promise<string | null> {
+  if (!busId || !role) return null;
+  const holders = await tx.booking.findMany({ where: { status: "ACTIVE", deletedAt: null, tripRole: { not: null }, seat: { busId } }, select: { id: true, tripRole: true } });
+  return roleConflict(holders.map((h) => ({ bookingId: h.id, role: h.tripRole as TripRole, busId })), { bookingId, role, busId });
 }

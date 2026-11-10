@@ -15,7 +15,7 @@ afterAll(wipe);
 
 let n = 0;
 async function setup(gender: "MALE" | "FEMALE" = "MALE") {
-  const p = await db.pilgrim.create({ data: { firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender, birthDate: D("1980-01-01"), passportNo: `AC${++n}-${Date.now()}`, enGivenName: "A", enSurname: "B", passportExpiry: D("2035-01-01") } });
+  const p = await db.pilgrim.create({ data: { motherName: "ام", firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender, birthDate: D("1980-01-01"), passportNo: `AC${++n}-${Date.now()}`, enGivenName: "A", enSurname: "B", passportExpiry: D("2035-01-01") } });
   return p;
 }
 
@@ -67,7 +67,7 @@ describe("accommodation when adding a pilgrim", () => {
 });
 
 describe("accommodation while creating a pilgrim", () => {
-  const data = (no: string) => pilgrimSchema.parse({ firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980", passportNo: no, enGivenName: "A", enSurname: "B", passportExpiry: "01/01/2035" });
+  const data = (no: string) => pilgrimSchema.parse({ motherName: "ام", firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980", passportNo: no, enGivenName: "A", enSurname: "B", passportExpiry: "01/01/2035" });
   const user = { id: "x", role: "ADMIN" } as never;
 
   it("creates the pilgrim, the booking and the room together", async () => {
@@ -88,7 +88,7 @@ describe("accommodation while creating a pilgrim", () => {
 });
 
 describe("choosing the internal office room when adding a pilgrim", () => {
-  const data = (no: string) => pilgrimSchema.parse({ firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980", passportNo: no, enGivenName: "A", enSurname: "B", passportExpiry: "01/01/2035" });
+  const data = (no: string) => pilgrimSchema.parse({ motherName: "ام", firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980", passportNo: no, enGivenName: "A", enSurname: "B", passportExpiry: "01/01/2035" });
   const user = { id: "x", role: "ADMIN" } as never;
 
   it("two pilgrims added one after the other with room 1 end up together; no stray room is created", async () => {

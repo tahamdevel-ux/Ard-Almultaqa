@@ -2,6 +2,8 @@ import type { Prisma } from "@prisma/client";
 import { db } from "./db";
 import { withTripLock } from "./buses";
 import { placeInRoomByLabel } from "@/officeRooms/service";
+import { busRoleConflict } from "./buses";
+import { isTripRole, type TripRole } from "@/domain/tripRoles";
 import { canPlace, ROOM_BEDS, type Occupant } from "@/domain/rooming";
 
 type Tx = Prisma.TransactionClient;
@@ -11,6 +13,8 @@ export type Accommodation = {
   makkahRoomNo?: string; madinahRoomNo?: string;
   /** internal office room label (a1 / 2): empty = automatic */
   officeRoom?: string;
+  /** role on the bus: CONTRACTOR / DRIVER / ASSISTANT, "" = none (only changes when the key is present) */
+  tripRole?: string;
 };
 export type AccResult = { ok: true } | { ok: false; error: string };
 
@@ -19,8 +23,8 @@ const CITY_LABEL: Record<City, string> = { MAKKAH: "مكة", MADINAH: "المد�
 /** Per-trip accommodation inside one form: field names carry the trip id (e.g. makkahRoomNo__<tripId>). */
 export function accommodationForTrip(f: FormData, tripId: string): Accommodation | undefined {
   const g = (k: string) => String(f.get(`${k}__${tripId}`) ?? "").trim();
-  const a: Accommodation = { makkahHotelId: g("makkahHotelId") || null, madinahHotelId: g("madinahHotelId") || null, roomType: g("roomType") || null, makkahRoomNo: g("makkahRoomNo"), madinahRoomNo: g("madinahRoomNo"), officeRoom: g("officeRoom") };
-  return a.roomType || a.makkahRoomNo || a.madinahRoomNo || a.officeRoom ? a : undefined; // hotels alone (= the defaults) need no extra work
+  const a: Accommodation = { makkahHotelId: g("makkahHotelId") || null, madinahHotelId: g("madinahHotelId") || null, roomType: g("roomType") || null, makkahRoomNo: g("makkahRoomNo"), madinahRoomNo: g("madinahRoomNo"), officeRoom: g("officeRoom"), tripRole: g("tripRole") };
+  return a.roomType || a.makkahRoomNo || a.madinahRoomNo || a.officeRoom || a.tripRole ? a : undefined; // hotels alone (= the defaults) need no extra work
 }
 
 export class AccommodationError extends Error {}
@@ -28,7 +32,7 @@ export class AccommodationError extends Error {}
 /** Read the accommodation fields out of a form (names: makkahHotelId, madinahHotelId, roomType, makkahRoomNo, madinahRoomNo). */
 export function accommodationFromForm(f: FormData): Accommodation {
   const g = (k: string) => String(f.get(k) ?? "").trim();
-  return { makkahHotelId: g("makkahHotelId") || null, madinahHotelId: g("madinahHotelId") || null, roomType: g("roomType") || null, makkahRoomNo: g("makkahRoomNo"), madinahRoomNo: g("madinahRoomNo"), officeRoom: g("officeRoom") };
+  return { makkahHotelId: g("makkahHotelId") || null, madinahHotelId: g("madinahHotelId") || null, roomType: g("roomType") || null, makkahRoomNo: g("makkahRoomNo"), madinahRoomNo: g("madinahRoomNo"), officeRoom: g("officeRoom"), tripRole: g("tripRole") };
 }
 
 async function placeInRoom(tx: Tx, tripId: string, bookingId: string, city: City, hotelId: string | null, roomType: string | null, roomNo: string): Promise<string | null> {
@@ -72,6 +76,13 @@ export async function applyAccommodation(tripId: string, bookingId: string, a: A
         const price = await tx.tripPrice.findFirst({ where: { tripId, roomType: a.roomType as never } });
         if (price) { data.priceAmount = price.amount; data.priceCurrency = price.currency; }
       }
+    }
+    if (a.tripRole !== undefined) {
+      const role: TripRole | null = isTripRole(a.tripRole) ? a.tripRole : null;
+      const seat = await tx.seatAssignment.findUnique({ where: { bookingId } });
+      const clash = await busRoleConflict(tx, seat?.busId ?? null, role, bookingId);
+      if (clash) throw new RollbackError(clash);
+      data.tripRole = role;
     }
     await tx.booking.update({ where: { id: bookingId }, data });
     for (const [city, hotelId, no] of [["MAKKAH", mk, a.makkahRoomNo ?? ""], ["MADINAH", md, a.madinahRoomNo ?? ""]] as const) {

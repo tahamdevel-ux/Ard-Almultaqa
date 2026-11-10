@@ -16,7 +16,7 @@ async function fillPilgrim(page: Page, passportNo: string, tripLabel?: string) {
   await page.goto("/pilgrims/new");
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
   await f("fullNameAr", "عبدالله سالم محمود"); await f("familyName", "المولى");
-  await page.selectOption("[name=gender]", "MALE");
+  await page.selectOption("[name=gender]", "MALE"); await page.fill("[name=motherName]", "ام الاختبار");
   await f("birthDate", "12/05/1975"); await f("phone", "+964 770 123 4567");
   await f("passportNo", passportNo); await f("enGivenName", "ABDULLAH"); await f("enFatherName", "SALIM"); await f("enGrandfatherName", "MAHMOOD"); await f("enSurname", "ALMULA");
   await f("passportExpiry", "10/10/2031");
@@ -93,7 +93,7 @@ test("a trip is required for a new pilgrim; profile adds to several trips, skipp
   await page.goto("/pilgrims/new");
   const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
   await f("fullNameAr", "علي سالم محمود"); await f("familyName", "المولى");
-  await page.selectOption("[name=gender]", "MALE");
+  await page.selectOption("[name=gender]", "MALE"); await page.fill("[name=motherName]", "ام الاختبار");
   await f("birthDate", "12/05/1975"); await f("passportNo", `A3${RUN}`); await f("enGivenName", "ALI"); await f("enSurname", "ALMULA"); await f("passportExpiry", "10/10/2031");
   await page.getByRole("button", { name: "حفظ", exact: true }).click();
   await expect(page.getByText("اختر رحلة واحدة على الأقل").first()).toBeVisible();
@@ -127,7 +127,7 @@ test("passport type and phone rules (Iraqi / foreign passport, Iraqi / Saudi pho
     await page.goto("/pilgrims/new");
     const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
     await f("fullNameAr", "اختبار جواز سالم"); await f("familyName", "الاختبار");
-    await page.selectOption("[name=gender]", "MALE");
+    await page.selectOption("[name=gender]", "MALE"); await page.fill("[name=motherName]", "ام الاختبار");
     await f("birthDate", "12/05/1975"); await f("enGivenName", "TEST"); await f("enSurname", "PASS"); await f("passportExpiry", "10/10/2031");
     await page.selectOption("[name=passportType]", type);
     await page.locator("[name=passportNo]").pressSequentially(passport);
@@ -151,7 +151,7 @@ test("save buttons: save returns to the list as left, save-and-new keeps trip an
   const fill = async (passport: string) => {
     const f = (n: string, v: string) => page.fill(`[name=${n}]`, v);
     await f("fullNameAr", "حفظ جديد سالم محمود"); await f("familyName", "المولى");
-    await page.selectOption("[name=gender]", "MALE");
+    await page.selectOption("[name=gender]", "MALE"); await page.fill("[name=motherName]", "ام الاختبار");
     await f("birthDate", "12/05/1975"); await f("passportNo", passport);
     await f("enGivenName", "SAVE"); await f("enSurname", "NEW"); await f("passportExpiry", "10/10/2031");
   };
@@ -191,6 +191,24 @@ test("save buttons: save returns to the list as left, save-and-new keeps trip an
   expect(page.url()).not.toContain("/pilgrims/new");
 });
 
+test("input limits: passport 9 (12 for foreign), phone 11 digits, pasted +964 normalised first", async ({ page }) => {
+  await login(page, "reg");
+  await page.goto("/pilgrims/new");
+  const pass = page.locator("[name=passportNo]");
+  await pass.pressSequentially("a123456789012");
+  await expect(pass).toHaveValue("A12345678".slice(0, 9)); // 9 characters at most
+  await page.selectOption("[name=passportType]", "FOREIGN");
+  await pass.fill(""); await pass.pressSequentially("ab1234567890123");
+  await expect(pass).toHaveValue("AB1234567890"); // 12 for a foreign passport
+  const phone = page.locator("[name=phone]");
+  await phone.pressSequentially("077012345678999");
+  await expect(phone).toHaveValue("07701234567");
+  await phone.fill("+964 770 123 4567");
+  await expect(phone).toHaveValue("07701234567");
+  await phone.fill("00966 50 123 4567");
+  await expect(phone).toHaveValue("0501234567");
+});
+
 test("date fields add the slash automatically", async ({ page }) => {
   await login(page, "reg");
   await page.goto("/pilgrims/new");
@@ -217,11 +235,11 @@ test("role permissions enforced on pages and routes", async ({ page, request }) 
 test("import wizard: 200 rows, bad rows reported, duplicates detected", async ({ page }) => {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("Sheet1");
-  ws.addRow(["الاسم الأول", "اسم الأب", "اسم الجد", "اللقب", "الجنس", "تاريخ الميلاد", "رقم الجواز", "Given name", "Surname", "تاريخ الانتهاء", "الهاتف"]);
+  ws.addRow(["الاسم الأول", "اسم الأب", "اسم الجد", "اللقب", "الجنس", "تاريخ الميلاد", "رقم الجواز", "Given name", "Surname", "تاريخ الانتهاء", "الهاتف", "اسم الأم"]);
   for (let i = 0; i < 200; i++) {
-    ws.addRow(["سعد", "خالد", "حمد", "النعيمي", "ذكر", "05/04/1970", `A${RUN.slice(-5)}${String(i).padStart(3, "0")}`, "SAAD", "ALNUAIMI", "01/01/2032", i % 40 === 5 ? "999" : "07701234567"]);
+    ws.addRow(["سعد", "خالد", "حمد", "النعيمي", "ذكر", "05/04/1970", `A${RUN.slice(-5)}${String(i).padStart(3, "0")}`, "SAAD", "ALNUAIMI", "01/01/2032", i % 40 === 5 ? "999" : "07701234567", "ام سعد"]);
   }
-  ws.addRow(["سعد", "خالد", "حمد", "النعيمي", "ذكر", "05/04/1970", `A${RUN.slice(-5)}000`, "SAAD", "ALNUAIMI", "01/01/2032", "07701234567"]); // dup inside file
+  ws.addRow(["سعد", "خالد", "حمد", "النعيمي", "ذكر", "05/04/1970", `A${RUN.slice(-5)}000`, "SAAD", "ALNUAIMI", "01/01/2032", "07701234567", "ام سعد"]); // dup inside file
   const buffer = Buffer.from(await wb.xlsx.writeBuffer());
 
   await login(page, "admin");

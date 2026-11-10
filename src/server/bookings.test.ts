@@ -15,7 +15,7 @@ afterAll(wipe);
 const trip = (name: string, a?: string, b?: string) => db.trip.create({ data: { name, transportType: "LAND", capacity: 10, departDate: a ? D(a) : null, returnDate: b ? D(b) : null } });
 const user = { id: "x", role: "ADMIN" } as never;
 const data = (no: string) => pilgrimSchema.parse({
-  firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980",
+  motherName: "ام", firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980",
   passportNo: no, enGivenName: "A", enSurname: "B", passportExpiry: "01/01/2035",
 });
 

@@ -278,3 +278,18 @@ describe("date typing mask (slash is automatic)", () => {
     expect(parseDate(completeDate("5/3/2026"))).not.toBeNull();
   });
 });
+
+import { roleConflict, roleOrder } from "./tripRoles";
+describe("trip roles (contractor / driver / assistant)", () => {
+  const holders = [{ bookingId: "a", role: "CONTRACTOR" as const, busId: "b1" }, { bookingId: "d", role: "DRIVER" as const, busId: "b1" }];
+  it("blocks a second holder of the same role on the same bus only", () => {
+    expect(roleConflict(holders, { bookingId: "x", role: "CONTRACTOR", busId: "b1" })).toContain("متعهد");
+    expect(roleConflict(holders, { bookingId: "x", role: "DRIVER", busId: "b1" })).toContain("سايق");
+    expect(roleConflict(holders, { bookingId: "x", role: "ASSISTANT", busId: "b1" })).toBeNull();
+    expect(roleConflict(holders, { bookingId: "x", role: "CONTRACTOR", busId: "b2" })).toBeNull();
+    expect(roleConflict(holders, { bookingId: "a", role: "CONTRACTOR", busId: "b1" })).toBeNull(); // himself
+    expect(roleConflict(holders, { bookingId: "x", role: null, busId: "b1" })).toBeNull();
+    expect(roleConflict(holders, { bookingId: "x", role: "CONTRACTOR", busId: null })).toBeNull(); // air: no bus
+  });
+  it("manifest order", () => { expect([null, "ASSISTANT", "CONTRACTOR", "DRIVER"].map((r) => roleOrder(r as never))).toEqual([3, 2, 0, 1]); });
+});

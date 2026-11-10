@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { PhoneInput } from "@/components/PhoneInput";
 import { checkPhoneList } from "@/domain/identity";
 import { requirePage, requirePermission } from "@/server/auth";
 import { getSetting, setSetting } from "@/server/settings";
@@ -30,7 +31,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <form action={save} className="card grid gap-3 sm:grid-cols-2">
         <div><label className="label">اسم الشركة (يظهر في الطباعة)</label><input name="name" defaultValue={company.name} className="input" /></div>
         <div><label className="label">العنوان</label><input name="address" defaultValue={company.address} className="input" /></div>
-        <div><label className="label">الهواتف</label><input name="phones" defaultValue={company.phones} className="input" dir="ltr" inputMode="tel" /></div>
+        <div><label className="label">الهواتف</label><PhoneInput name="phones" multi defaultValue={company.phones} className="input" /></div>
         <div><label className="label">تنبيه انتهاء الجواز: أقل من (أشهر) بعد تاريخ العودة</label><input name="passportMinMonths" type="number" defaultValue={months} className="input" dir="ltr" /></div>
         <div><label className="label">أكبر عدد في العصبة</label><input name="maxCompanionGroup" type="number" defaultValue={maxGroup} className="input" dir="ltr" /></div>
         <div><label className="label">سعة غرفة المكتب لحجز بلا نوع غرفة</label><input name="officeRoomCapacity" type="number" min={1} max={10} defaultValue={officeCap} className="input" dir="ltr" /></div>

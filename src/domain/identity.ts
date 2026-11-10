@@ -51,3 +51,21 @@ export function checkPhoneList(raw: string | null | undefined): { values: string
   }
   return { values: out };
 }
+
+/**
+ * What a phone box keeps while the user types or pastes: the value is normalized first (Arabic digits, spaces/dashes/dots/brackets,
+ * +964 / 00964 / +966 / 00966 -> 0) and only then cut to at most 11 digits, so a pasted "+964 770 123 4567" is not truncated wrongly.
+ */
+export function limitPhoneInput(raw: string): string {
+  return normalizePhone(raw).replace(/\D/g, "").slice(0, 11);
+}
+
+/** Same for a box holding several numbers (agent, company): each number is limited on its own; separators are kept as a comma. */
+export function limitPhoneList(raw: string): string {
+  const endsWithSep = /[,،;\s]$/.test(raw);
+  const parts = raw.split(/[,،;]+|\s{2,}/).map((p) => p.trim()).filter(Boolean).map(limitPhoneInput).filter(Boolean);
+  return parts.join("، ") + (endsWithSep && parts.length ? "، " : "");
+}
+
+/** Hard limit of the passport box: 9 characters for an Iraqi passport, 12 for a foreign one. */
+export const passportMaxLength = (type: PassportType) => (type === "FOREIGN" ? 12 : 9);

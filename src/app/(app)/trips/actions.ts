@@ -7,7 +7,7 @@ import { checkPhone } from "@/domain/identity";
 import { autoSeat, validateSeat } from "@/domain/seating";
 import { overlapWarning } from "@/server/trips";
 import { addPilgrimToTrips, overlapWarnings } from "@/server/bookings";
-import { moveBookingsToBus } from "@/server/buses";
+import { busRoleConflict, moveBookingsToBus } from "@/server/buses";
 import { freeOfficeBeds } from "@/officeRooms/service";
 import { applyAccommodation, accommodationFromForm, type Accommodation } from "@/server/accommodation";
 import { getSetting } from "@/server/settings";
@@ -98,6 +98,8 @@ export async function assignSeat(tripId: string, busId: string, seatNo: number, 
   const taken = await db.seatAssignment.findMany({ where: { busId }, select: { seatNo: true, bookingId: true } });
   const occ = new Map(taken.filter((t) => t.seatNo != null).map((t) => [t.seatNo!, t.bookingId]));
   if (validateSeat(seatNo, bus.seatCount, occ, bookingId)) return;
+  const roleOwner = await db.booking.findUnique({ where: { id: bookingId }, select: { tripRole: true } });
+  if (await busRoleConflict(db, busId, roleOwner?.tripRole ?? null, bookingId)) return; // one contractor / driver / assistant per bus
   const b = await db.booking.findFirst({ where: { id: bookingId, tripId, status: "ACTIVE" } });
   if (!b) return;
   await db.seatAssignment.upsert({ where: { bookingId }, create: { bookingId, busId, seatNo }, update: { busId, seatNo, ticketNo: null, carId: null } });

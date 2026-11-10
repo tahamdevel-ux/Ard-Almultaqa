@@ -3,7 +3,7 @@ import { useActionState } from "react";
 import type { TripActionState } from "@/app/(app)/trips/actions";
 
 export type HotelOpt = { id: string; name: string; city: "MAKKAH" | "MADINAH" };
-export type AccValues = { makkahHotelId: string; madinahHotelId: string; roomType: string; makkahRoomNo: string; madinahRoomNo: string; officeRoom?: string };
+export type AccValues = { makkahHotelId: string; madinahHotelId: string; roomType: string; makkahRoomNo: string; madinahRoomNo: string; officeRoom?: string; tripRole?: string };
 const TYPES = [["", "—"], ["SINGLE", "سنكل"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"]];
 
 /** Hotel per city, room type and room numbers for one pilgrim. Names match accommodationFromForm(). */
@@ -25,6 +25,10 @@ export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc"
       {room("makkahRoomNo", "رقم غرفة مكة")}
       {sel("madinahHotelId", "MADINAH", "فندق المدينة")}
       {room("madinahRoomNo", "رقم غرفة المدينة")}
+      <div><label className="label" htmlFor={`${idPrefix}-tripRole`}>الدور في الباص (لكل باص واحد فقط)</label>
+        <select id={`${idPrefix}-tripRole`} name={"tripRole" + nameSuffix} className="input" {...(onChange ? { value: values.tripRole ?? "", onChange: set("tripRole") } : { defaultValue: values.tripRole ?? "" })}>
+          <option value="">— لا شيء —</option><option value="CONTRACTOR">متعهد</option><option value="DRIVER">سايق</option><option value="ASSISTANT">مساعد سايق</option>
+        </select></div>
       <div className="sm:col-span-2"><label className="label" htmlFor={`${idPrefix}-officeRoom`}>غرفة المكتب الداخلية (اختياري — اتركها فارغة للتوزيع التلقائي)</label>
         <input id={`${idPrefix}-officeRoom`} name={"officeRoom" + nameSuffix} className="input" dir="ltr" placeholder="مثلاً 1 أو a3 — كل من تكتب له نفس الرقم يُجمَعون في غرفة واحدة" {...(onChange ? { value: values.officeRoom ?? "", onChange: set("officeRoom") } : { defaultValue: values.officeRoom ?? "" })} /></div>
       <div><label className="label" htmlFor={`${idPrefix}-roomType`}>نوع الغرفة</label>

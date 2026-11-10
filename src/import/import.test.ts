@@ -112,8 +112,8 @@ describe("smart sheet reading", () => {
   });
 
   it("recognises Arabic headers and full-name columns", async () => {
-    const head = ["#", "الاسم الكامل", "الاسم بالانكليزي", "رقم الجواز", "الجنس", "تاريخ الميلاد", "تاريخ الانتهاء", "رقم الهاتف"];
-    const rows = [head, [1, "عبد الله سالم محمود المولى", "ABDULLAH SALIM MAHMOOD ALMULA", "A12345678", "ذكر", "05/04/1970", "01/01/2032", 7701234567]];
+    const head = ["#", "الاسم الكامل", "الاسم بالانكليزي", "رقم الجواز", "الجنس", "تاريخ الميلاد", "تاريخ الانتهاء", "رقم الهاتف", "اسم الأم"];
+    const rows = [head, [1, "عبد الله سالم محمود المولى", "ABDULLAH SALIM MAHMOOD ALMULA", "A12345678", "ذكر", "05/04/1970", "01/01/2032", 7701234567, "أم عبد الله"]];
     const [raw] = await book([{ name: "S", rows }]);
     const a = analyzeSheet(raw.name, raw.rows);
     expect(a.mapping.fullNameAr).toBe(1); expect(a.mapping.fullNameEn).toBe(2); expect(a.mapping.passportNo).toBe(3);
@@ -216,7 +216,7 @@ describe("import into a trip", () => {
 });
 
 describe("pilgrim rules", () => {
-  const base = { firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980", passportNo: "x 123 456 78", enGivenName: "a", enSurname: "b", passportExpiry: "01/01/2032" };
+  const base = { motherName: "ام", firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: "01/01/1980", passportNo: "x 123 456 78", enGivenName: "a", enSurname: "b", passportExpiry: "01/01/2032" };
   it("blocks duplicate passport with Arabic message", async () => {
     const a = pilgrimSchema.parse(base);
     expect(a.passportNo).toBe("X12345678");

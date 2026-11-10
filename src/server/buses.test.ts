@@ -96,3 +96,25 @@ describe("moving pilgrims between buses", () => {
     expect((await db.seatAssignment.findUnique({ where: { bookingId: bookings[2].id } }))!.busId).not.toBe(b2.id);
   });
 });
+
+describe("bus roles", () => {
+  it("a second contractor on the same bus is refused, in another bus it is fine; moving into a bus with a contractor is refused", async () => {
+    const { applyAccommodation } = await import("./accommodation");
+    const t = await land();
+    const b1 = await db.bus.create({ data: { tripId: t.id, number: "1", seatCount: 4 } });
+    const ps = await Promise.all(Array.from({ length: 3 }, () => pilgrim()));
+    for (const p of ps) await addPilgrimToTrips(db, p.id, null, [t.id]);
+    const bks = await db.booking.findMany({ where: { tripId: t.id }, orderBy: { createdAt: "asc" } });
+    expect((await applyAccommodation(t.id, bks[0].id, { tripRole: "CONTRACTOR" })).ok).toBe(true);
+    const second = await applyAccommodation(t.id, bks[1].id, { tripRole: "CONTRACTOR" });
+    expect(second.ok).toBe(false); expect((second as { error: string }).error).toContain("متعهد");
+    expect((await applyAccommodation(t.id, bks[1].id, { tripRole: "DRIVER" })).ok).toBe(true);
+    const b2 = await db.bus.create({ data: { tripId: t.id, number: "2", name: "باص خاص", seatCount: 4 } });
+    expect((await applyAccommodation(t.id, bks[2].id, { tripRole: "CONTRACTOR" })).ok).toBe(false); // bus 1 still has one
+    await moveBookingsToBus(t.id, b2.id, [bks[0].id]); // the contractor moves to bus 2
+    expect((await applyAccommodation(t.id, bks[2].id, { tripRole: "CONTRACTOR" })).ok).toBe(true);
+    const back = await moveBookingsToBus(t.id, b1.id, [bks[0].id]); // bus 1 now has bks[2] as contractor
+    expect(back.ok).toBe(false);
+    void b1;
+  });
+});

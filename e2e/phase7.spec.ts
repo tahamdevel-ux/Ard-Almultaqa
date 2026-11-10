@@ -87,7 +87,7 @@ test("choose the office room when adding pilgrims: two pilgrims typed room 1 end
     await page.goto("/pilgrims/new");
     const f = (k: string, v: string) => page.fill(`[name=${k}]`, v);
     await f("fullNameAr", `غرفة${n} سالم محمود`); await f("familyName", "المولى");
-    await page.selectOption("[name=gender]", "MALE"); await f("birthDate", "12/05/1975"); await f("passportNo", `A${RUN}${n}`);
+    await page.selectOption("[name=gender]", "MALE"); await page.fill("[name=motherName]", "ام الاختبار"); await f("birthDate", "12/05/1975"); await f("passportNo", `A${RUN}${n}`);
     await f("enGivenName", "ROOM"); await f("enSurname", "ONE"); await f("passportExpiry", "10/10/2031");
     await page.locator("label", { hasText: tripName }).locator("input[name=tripIds]").check();
     await page.locator(`input[name="officeRoom__${tripId}"]`).fill("1");

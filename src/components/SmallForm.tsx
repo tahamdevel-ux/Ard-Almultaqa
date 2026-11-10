@@ -1,6 +1,7 @@
 "use client";
 import { useActionState } from "react";
 import { DateInput } from "@/components/DateInput";
+import { PhoneInput } from "@/components/PhoneInput";
 import type { TripActionState } from "@/app/(app)/trips/actions";
 
 export type Field = { name: string; label: string; ltr?: boolean; type?: string; required?: boolean; placeholder?: string; defaultValue?: string; date?: boolean };
@@ -14,8 +15,10 @@ export function SmallForm({ action, fields, submit }: { action: (p: TripActionSt
           <label className="label" htmlFor={f.name + submit}>{f.label}</label>
           {f.date ? (
             <DateInput id={f.name + submit} name={f.name} required={f.required} placeholder={f.placeholder} defaultValue={f.defaultValue} className="input w-36" />
+          ) : f.type === "tel" ? (
+            <PhoneInput id={f.name + submit} name={f.name} placeholder={f.placeholder} defaultValue={f.defaultValue} className="input w-36" />
           ) : (
-            <input id={f.name + submit} name={f.name} type={f.type ?? "text"} inputMode={f.type === "tel" ? "tel" : undefined} dir={f.ltr ? "ltr" : undefined} required={f.required}
+            <input id={f.name + submit} name={f.name} type={f.type ?? "text"} dir={f.ltr ? "ltr" : undefined} required={f.required}
               placeholder={f.placeholder} defaultValue={f.defaultValue} className="input w-36" />
           )}
         </div>

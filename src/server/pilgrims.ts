@@ -17,10 +17,10 @@ export const pilgrimSchema = z.object({
   fatherName: z.string().trim().min(1, "اسم الأب مطلوب"),
   grandfatherName: z.string().trim().optional().transform((v) => v ?? ""), // optional: a two-word name is accepted
   greatGrandfatherName: opt,
-  familyName: z.string().trim().min(1, "اللقب مطلوب"),
+  familyName: z.string().trim().optional().transform((v) => v ?? ""), // Arabic surname is optional
   gender: z.enum(["MALE", "FEMALE"], { message: "الجنس مطلوب" }),
   birthDate: dateField("تاريخ الميلاد غير صحيح (DD/MM/YYYY)"),
-  motherName: opt,
+  motherName: z.string().trim().min(1, "اسم الأم مطلوب"),
   address: opt,
   phone: opt.transform((v) => (v ? normalizePhone(v) : undefined)),
   emergencyPhone: opt.transform((v) => (v ? normalizePhone(v) : undefined)),

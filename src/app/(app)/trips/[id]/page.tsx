@@ -5,6 +5,7 @@ import { can } from "@/lib/permissions";
 import { canSeeTrip, loadTripDetail } from "@/server/trips";
 import { fullNameAr } from "@/server/pilgrims";
 import { formatDate } from "@/domain/dates";
+import { TRIP_ROLE_LABELS } from "@/domain/tripRoles";
 import { busLabel, dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { DeleteBusButton } from "@/components/BusTools";
 import { AddPilgrimDialog } from "@/components/AddPilgrimDialog";
@@ -171,7 +172,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
               return (
                 <tr key={b.id}>
                   <td className="td">{bw && <><input form="groupform" type="checkbox" name="bookingIds" value={b.id} aria-label="تحديد" /><label className="mt-1 flex items-center gap-1 text-[11px] text-brand-mid"><input form="groupform" type="radio" name="headBookingId" value={b.id} aria-label="رب الأسرة" />رب</label></>}</td>
-                  <td className="td"><Link className="font-bold underline" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link></td>
+                  <td className="td"><Link className="font-bold underline" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link>{b.tripRole && <span className="chip chip-warn ms-2">{TRIP_ROLE_LABELS[b.tripRole]}</span>}</td>
                   <td className="td ltr">{b.pilgrim.passportNo}</td>
                   <td className="td space-y-1">{gid ? (
                     <>
@@ -190,7 +191,7 @@ export default async function TripPage({ params }: { params: Promise<{ id: strin
                       const summary = [mkR && `مكة: ${nm(mkR.hotel)} / ${mkR.roomNo}`, mdR && `المدينة: ${nm(mdR.hotel)} / ${mdR.roomNo}`, b.roomType && ROOM_TYPE_LABELS[b.roomType as keyof typeof ROOM_TYPE_LABELS]].filter(Boolean).join(" · ");
                       return accWrite ? (
                         <AccommodationEditor action={setAccommodation.bind(null, trip.id, b.id)} hotels={hotelOpts} summary={summary}
-                          values={{ makkahHotelId: b.makkahHotelId ?? trip.makkahHotelId ?? "", madinahHotelId: b.madinahHotelId ?? trip.madinahHotelId ?? "", roomType: b.roomType ?? "", makkahRoomNo: mkR?.roomNo ?? "", madinahRoomNo: mdR?.roomNo ?? "", officeRoom: b.officeMember ? `${b.officeMember.officeRoom.code ?? ""}${b.officeMember.officeRoom.seq}` : "" }} />
+                          values={{ makkahHotelId: b.makkahHotelId ?? trip.makkahHotelId ?? "", madinahHotelId: b.madinahHotelId ?? trip.madinahHotelId ?? "", roomType: b.roomType ?? "", makkahRoomNo: mkR?.roomNo ?? "", madinahRoomNo: mdR?.roomNo ?? "", tripRole: b.tripRole ?? "", officeRoom: b.officeMember ? `${b.officeMember.officeRoom.code ?? ""}${b.officeMember.officeRoom.seq}` : "" }} />
                       ) : <span className="text-sm">{summary}</span>;
                     })()}
                   </td>

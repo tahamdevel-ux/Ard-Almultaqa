@@ -2,6 +2,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
 import { requirePage, requirePermission } from "@/server/auth";
 import { redirect } from "next/navigation";
+import { PhoneInput } from "@/components/PhoneInput";
 import { can } from "@/lib/permissions";
 import { checkPhoneList } from "@/domain/identity";
 import { isRoomCode } from "@/domain/officeRooms";
@@ -68,7 +69,7 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
         <form action={addAgent} className="card grid gap-3 sm:grid-cols-3">
           <div><label className="label">اسم الوكيل *</label><input name="name" className="input" required /></div>
           <div><label className="label">اسم المكتب</label><input name="officeName" className="input" /></div>
-          <div><label className="label">الهواتف</label><input name="phones" className="input" dir="ltr" inputMode="tel" /></div>
+          <div><label className="label">الهواتف</label><PhoneInput name="phones" multi className="input" /></div>
           <div><label className="label">العنوان</label><input name="address" className="input" /></div>
           <div><label className="label" htmlFor="roomCode">رمز الغرف (اختياري)</label><input id="roomCode" name="roomCode" maxLength={2} pattern="[a-z]{1,2}" className="input" dir="ltr" placeholder="a" /></div>
           <div><label className="label">نوع العمولة</label>

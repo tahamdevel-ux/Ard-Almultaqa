@@ -1,0 +1,2 @@
+CREATE TYPE "TripRole" AS ENUM ('CONTRACTOR', 'DRIVER', 'ASSISTANT');
+ALTER TABLE "Booking" ADD COLUMN "tripRole" "TripRole";

@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { withParam } from "@/lib/returnTo";
 import { useRouter } from "next/navigation";
 import { Field } from "./Field";
@@ -7,6 +7,7 @@ import type { ActionState } from "@/server/pilgrims";
 import { TripPicker, type TripChoice } from "@/components/TripPicker";
 import type { HotelOpt } from "@/components/AccommodationFields";
 import { PassportInput, PhoneInput } from "@/components/PhoneInput";
+import { passportMaxLength, type PassportType } from "@/domain/identity";
 import { DateInput } from "@/components/DateInput";
 
 type V = Record<string, string | boolean | null | undefined>;
@@ -40,6 +41,7 @@ export function PilgrimForm({
     } else router.push(withParam(returnTo ?? "/pilgrims", "saved", state.id));
   }, [state, returnTo, router]);
   const fe = state.fieldErrors ?? {};
+  const [ptype, setPtype] = useState<PassportType>(((values.passportType as string) === "FOREIGN" ? "FOREIGN" : "IRAQI"));
   const echo = state.values; // typed values survive a failed save
   const v = (k: string) => ((echo ? (echo[k] as string | undefined) : undefined) ?? values[k] ?? "") as string;
   const checked = (k: string) => (echo ? echo[k] === "on" : !!values[k]);
@@ -48,7 +50,7 @@ export function PilgrimForm({
       {opts.kind === "phone" ? (
         <PhoneInput id={name} name={name} defaultValue={v(name)} className={"input " + (fe[name] ? "border-red-500" : "")} />
       ) : opts.kind === "passport" ? (
-        <PassportInput id={name} name={name} defaultValue={v(name)} className={"input uppercase " + (fe[name] ? "border-red-500" : "")} />
+        <PassportInput id={name} name={name} defaultValue={v(name)} maxLength={passportMaxLength(ptype)} className={"input uppercase " + (fe[name] ? "border-red-500" : "")} />
       ) : opts.date ? (
         <DateInput id={name} name={name} defaultValue={v(name)} className={"input " + (fe[name] ? "border-red-500" : "")} />
       ) : (
@@ -70,7 +72,7 @@ export function PilgrimForm({
               <input id="fullNameAr" name="fullNameAr" defaultValue={echo ? v("fullNameAr") : [v("firstName"), v("fatherName"), v("grandfatherName")].filter(Boolean).join(" ")} className={"input " + (fe.fullNameAr || fe.firstName ? "border-red-500" : "")} />
             </Field>
           </div>
-          {t("familyName", "اللقب", { required: true })}
+          {t("familyName", "اللقب بالعربي (اختياري)")}
           {t("greatGrandfatherName", "اسم أبو الجد")}
           <Field label="الجنس *" name="gender" error={fe.gender}>
             <select key={"gender" + v("gender")} id="gender" name="gender" defaultValue={v("gender")} className="input">
@@ -78,7 +80,7 @@ export function PilgrimForm({
             </select>
           </Field>
           {t("birthDate", "تاريخ الميلاد", { required: true, date: true, hint: "DD/MM/YYYY" })}
-          {t("motherName", "اسم الأم")}
+          {t("motherName", "اسم الأم", { required: true })}
           {t("address", "العنوان")}
           {t("phone", "رقم الهاتف", { kind: "phone", hint: "عراقي: 07XXXXXXXXX (11 رقم) · سعودي: 05XXXXXXXX (10 أرقام)" })}
           {t("emergencyPhone", "هاتف الطوارئ", { kind: "phone", hint: "عراقي 07… أو سعودي 05…" })}
@@ -89,11 +91,11 @@ export function PilgrimForm({
         <h2 className="mb-3 font-bold">الجواز (كما هو مطبوع بالإنكليزية)</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="نوع الجواز" name="passportType" error={fe.passportType}>
-            <select key={"passportType" + v("passportType")} id="passportType" name="passportType" defaultValue={v("passportType") || "IRAQI"} className="input">
+            <select key={"passportType" + v("passportType")} id="passportType" name="passportType" defaultValue={v("passportType") || "IRAQI"} className="input" onChange={(e) => setPtype(e.target.value === "FOREIGN" ? "FOREIGN" : "IRAQI")}>
               <option value="IRAQI">عراقي</option><option value="FOREIGN">أجنبي</option>
             </select>
           </Field>
-          {t("passportNo", "رقم الجواز", { required: true, kind: "passport", hint: "عراقي: حرف + 8 أرقام مثل A12345678" })}
+          {t("passportNo", "رقم الجواز", { required: true, kind: "passport", hint: "عراقي: حرف + 8 أرقام (9 خانات) · أجنبي: 6 إلى 12" })}
           {t("enGivenName", "Given name", { required: true, dir: "ltr", upper: true })}
           {t("enFatherName", "Father name", { dir: "ltr", upper: true })}
           {t("enGrandfatherName", "Grandfather name", { dir: "ltr", upper: true })}

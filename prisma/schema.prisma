@@ -146,6 +146,12 @@ model FamilyGroup {
   members   BookingGroupMember[]
 }
 
+enum TripRole {
+  CONTRACTOR
+  DRIVER
+  ASSISTANT
+}
+
 enum PassportType {
   IRAQI
   FOREIGN
@@ -288,6 +294,7 @@ model Booking {
   agentId     String?
   agent       Agent?        @relation(fields: [agentId], references: [id])
   roomType    String?
+  tripRole    TripRole? // متعهد / سايق / مساعد سايق: at most one of each per bus
   makkahHotelId  String? // this pilgrim's own hotel choice (the trip's hotel is only the default)
   madinahHotelId String?
   priceAmount Int?
