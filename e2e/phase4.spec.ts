@@ -83,7 +83,7 @@ test("trip with no code and no dates: create, list order, pickers, edit + audit,
   await form.locator("[name=tripNo]").fill(`E2E-${RUN}`);
   await form.locator("[name=departDate]").fill("20/12/2026");
   await form.locator("button:has-text('حفظ')").click();
-  await expect(page.locator("h1")).toContainText(`E2E-${RUN}`);
+  await expect(page.locator("header").first()).toContainText(`E2E-${RUN}`);
   await expect(page.locator("body")).toContainText("20/12/2026 ← غير محدد");
   // return date before departure is refused
   await form.locator("[name=returnDate]").fill("19/12/2026");
