@@ -127,3 +127,15 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - Found by reproduction: «apply to existing» in the hotel price table re-priced every booking (overwriting prices agreed by hand); the booking page's «empty = trip default price» read the OLD per-trip price list (and, with no room type, took an arbitrary row of it).
 - `Booking.priceManual` marks a price typed by hand (set when an amount is entered on the booking page, cleared when it is left empty = back to the hotel table incl. تصريف المعتمر). Accommodation saves and «apply to existing» never touch a manual price. The migration marks every existing priced booking whose price differs from its hotel-table price as manual.
 - The booking page now shows the table price (hotel, room type, + تصريف) next to the current price and warns when they differ.
+
+## UX improvements (branch feat/ux-improvements)
+- **Phone navigation:** below 768px the top menu is replaced by a bottom bar (الرئيسية, المعتمرون, الرحلات, الحسابات) plus «المزيد» with every other section the role may open. The top bar is unchanged on desktop.
+- **Trip page order:** counters → pilgrim list → buses → «إعدادات الرحلة» (code and dates, hotels, hotel prices, commission, Hay'a data). The settings section is open on a trip with no pilgrims and closed otherwise; roles with neither edit nor money rights do not see it.
+- **Numbers:** capacity 0 shows «حدد السعة»; over capacity shows by how many; vacancies are never negative; a negative remaining balance is «زيادة مدفوعة» in green (`src/domain/labels.ts`).
+- **Destructive actions:** cancel booking, refund, remove from trip, dissolve group and delete bus ask for confirmation (delete/archive trip already did).
+- **Dashboard «يحتاج انتباهك»:** counts passports expiring before today + the passport-months setting (on bookings of upcoming trips), pilgrims without an office room, bookings without a price (only roles that see money) and trips over capacity. Every count uses the same rule as the pilgrims-list filter it links to.
+- **Pilgrims list:** sort (name, passport, expiry), quick filters, trip and agent filters; all in the URL and whitelisted (`src/domain/listParams.ts`). The sticky header only applies from md up.
+- **New-pilgrim form:** trip section first, section menu, required fields before optional ones (optional fields stay visible, not collapsed), and an English-name *suggestion* (never overwrites typed text). All field names are unchanged.
+- **Price preview** uses the same `computePrice` as the server and is only passed to roles that can see money on the trip page.
+- **Phone cards:** tables with class `rt` become cards below 768px; the cell titles are copied from the header by `CardTables`. Wide tables elsewhere (trip pilgrim list, hotels, agents) still scroll sideways — not converted.
+- **Known gap:** the trip page's own pilgrim table and the bus/seat pages were not converted to phone cards.
