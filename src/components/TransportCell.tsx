@@ -2,6 +2,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import type { TripActionState } from "@/app/(app)/trips/actions";
+import { usePopover } from "@/components/usePopover";
 import { MODE_LABELS, TRANSPORT_MODES, type TransportMode } from "@/domain/transport";
 
 export interface TransportOpts {
@@ -16,6 +17,7 @@ export interface TransportOpts {
 export function TransportCell({ action, mode, carId, flightId, opts, canEdit }: { action: (p: TripActionState, f: FormData) => Promise<TripActionState>; mode: TransportMode; carId: string; flightId: string; opts: TransportOpts; canEdit: boolean }) {
   const [st, fa, pending] = useActionState(action, {} as TripActionState);
   const [m, setM] = useState<TransportMode>(mode);
+  const pop = usePopover(st.ok ? st : null);
   const car = opts.cars.find((c) => c.id === carId);
   const flight = opts.flights.find((f) => f.id === flightId);
   const summary = mode === "BUS" ? (opts.busHref && opts.seatText ? <Link className="underline" href={opts.busHref}>{opts.seatText}</Link> : <span className="chip chip-warn">بلا مقعد</span>)
@@ -25,7 +27,7 @@ export function TransportCell({ action, mode, carId, flightId, opts, canEdit }: 
   return (
     <div className="text-sm">
       <div className="flex flex-wrap items-center gap-1.5"><span className="chip chip-gray">{MODE_LABELS[mode]}</span><span>{summary}</span></div>
-      <details className="relative mt-1">
+      <details ref={pop} className="relative mt-1">
         <summary className="btn-ghost btn-sm inline-flex cursor-pointer list-none">تعديل النقل</summary>
         <form action={fa} className="absolute end-0 z-30 mt-1 w-72 max-w-[85vw] space-y-2 rounded-xl border border-line bg-white p-3 shadow-xl">
           <label className="label" htmlFor={"mode-" + (carId || flightId || mode)}>وسيلة النقل</label>
