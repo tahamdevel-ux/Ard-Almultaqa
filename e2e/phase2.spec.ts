@@ -16,7 +16,7 @@ test("template creates a land trip with buses; housing cannot create trips", asy
   await page.locator("div.card", { hasText: "قافلة الأحد" }).first().locator("[name=departDate]").fill("22/11/2026");
   await page.locator("div.card", { hasText: "قافلة الأحد" }).first().locator("button:has-text('إنشاء')").click();
   await page.waitForURL(/trips\/[0-9a-f-]{36}$/);
-  await expect(page.locator("header").first()).toContainText(no);
+  await expect(page.locator("main header")).toContainText(no);
   await expect(page.locator("a[href*='/bus/']:has-text('باص 2')")).toBeVisible();
   await page.context().clearCookies();
   await login(page, "housing");
