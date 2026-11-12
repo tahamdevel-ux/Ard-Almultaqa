@@ -26,16 +26,16 @@ export async function defaultPrice(tripId: string, roomType: string | null) {
   return db.tripPrice.findUnique({ where: { tripId_roomType: { tripId, roomType: roomType as never } } });
 }
 
-/** Sets room type + price on a booking. Omitted amount => use the trip's default price for the room type. */
+/** Sets room type + price on a booking. Bookings are always priced in USD. Omitted amount => use the hotel table price (or the old per-trip price). */
 export async function setBookingPrice(
   user: SessionUser, bookingId: string,
-  input: { roomType: string | null; amount: number | null; currency: Currency },
+  input: { roomType: string | null; amount: number | null },
 ): Promise<Result> {
   if (input.amount != null && (!Number.isInteger(input.amount) || input.amount < 0)) return fail("السعر غير صحيح");
   return db.$transaction(async (tx) => {
     await lockBooking(tx, bookingId);
     const before = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { payments: true } });
-    let { amount, currency } = input;
+    let amount = input.amount;
     let manual = true;
     if (amount == null) {
       // empty = back to the table: the booking's Makkah hotel (room type price or بدون سكن, + تصريف المعتمر); old per-trip prices only when the trip has no priced hotels
@@ -45,16 +45,15 @@ export async function setBookingPrice(
       const rt = (input.roomType ?? before.roomType ?? null) as RoomKind | null;
       if (th) {
         const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: rt, noHousing: before.noHousing, sarfByPilgrim: before.sarfByPilgrim, sarfAmount: trip.sarfAmount });
-        if (r.ok) { amount = r.amount; currency = "USD"; } else return fail(r.error);
+        if (r.ok) amount = r.amount; else return fail(r.error);
       } else if (rt) {
         const d = await tx.tripPrice.findFirst({ where: { tripId: before.tripId, roomType: rt as never } });
-        if (d) { amount = d.amount; currency = d.currency; }
+        if (d) amount = d.amount;
       }
     }
-    if (before.payments.length && currency !== before.priceCurrency) return fail("لا يمكن تغيير عملة حجز عليه دفعات");
     const paid = paidTotal(creditsOf(before.payments));
     if (amount != null && before.status === "ACTIVE" && amount < paid - 0.005) return fail(`السعر أقل من المدفوع (${paid}) — سجّل استرداداً أولاً`);
-    const after = await tx.booking.update({ where: { id: bookingId }, data: { roomType: input.roomType, priceAmount: amount, priceCurrency: currency, priceManual: manual && amount != null } });
+    const after = await tx.booking.update({ where: { id: bookingId }, data: { roomType: input.roomType, priceAmount: amount, priceCurrency: "USD", priceManual: manual && amount != null } });
     await auditChanges(tx, user, "Booking", bookingId, before, after, BOOKING_PRICE_FIELDS);
     return { ok: true } as Result;
   });

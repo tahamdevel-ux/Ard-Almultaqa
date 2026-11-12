@@ -93,7 +93,7 @@ export async function agentStatementData(agentId: string, tripId?: string) {
     return { b, paid, price: b.priceAmount, cancelled: b.status === "CANCELLED" };
   });
   const overrides = await commissionOverrides(bookings.map((b) => b.tripId));
-  const sum = agentStatement(rows.map((r) => ({ price: r.price, paid: r.paid, cancelled: r.cancelled, fixed: resolveCommission(overrides.get(`${r.b.tripId}:${agentId}`), r.b.trip.agentCommission) })), { type: "FIXED_PER_PILGRIM", value: 0 });
+  const sum = agentStatement(rows.map((r) => ({ price: r.price, paid: r.paid, cancelled: r.cancelled, fixed: resolveCommission(overrides.get(`${r.b.tripId}:${agentId}`), r.b.trip.agentCommission) })));
   return { company, agent, rows, sum, currency: "USD" as const };
 }
 

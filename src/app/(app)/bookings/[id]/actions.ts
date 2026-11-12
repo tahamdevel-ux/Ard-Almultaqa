@@ -22,7 +22,7 @@ export async function savePrice(bookingId: string, _p: FormState, f: FormData): 
   return guard("prices.write", async (u) => {
     const amountRaw = s(f, "amount");
     const r = await setBookingPrice(u, bookingId, {
-      roomType: s(f, "roomType") || null, amount: amountRaw === "" ? null : Number(amountRaw), currency: s(f, "currency") === "IQD" ? "IQD" : "USD" });
+      roomType: s(f, "roomType") || null, amount: amountRaw === "" ? null : Number(amountRaw) });
     touch(bookingId);
     return r.ok ? { ok: true } : { error: r.error };
   });

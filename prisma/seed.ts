@@ -24,9 +24,9 @@ async function main() {
 
   if ((await db.agent.count()) === 0) {
     await db.agent.createMany({ data: [
-      { name: "أبو بكر الموصلي", officeName: "مكتب النور للسياحة", phones: ["07701112233"], commissionType: "PERCENT", commissionValue: 5, roomCode: "a" },
-      { name: "حسام العبيدي", officeName: "مكتب الرافدين", phones: ["07509998877"], commissionType: "FIXED_WHOLESALE", commissionValue: 450000, roomCode: "b" },
-      { name: "سلوى الطائي", officeName: "مكتب البشائر", phones: ["07712223344", "0501234567"], commissionType: "PERCENT", commissionValue: 7 }, // no room code: its rooms get plain numbers
+      { name: "أبو بكر الموصلي", officeName: "مكتب النور للسياحة", phones: ["07701112233"], roomCode: "a" },
+      { name: "حسام العبيدي", officeName: "مكتب الرافدين", phones: ["07509998877"], roomCode: "b" },
+      { name: "سلوى الطائي", officeName: "مكتب البشائر", phones: ["07712223344", "0501234567"], }, // no room code: its rooms get plain numbers
     ] });
   }
   const agents = await db.agent.findMany();

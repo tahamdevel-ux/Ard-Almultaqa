@@ -18,14 +18,14 @@ beforeEach(async () => {
 
 describe("payments", () => {
   it("uses the trip's default price for a room type and audits it", async () => {
-    expect((await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: null, currency: "USD" })).ok).toBe(true);
+    expect((await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: null })).ok).toBe(true);
     const b = await db.booking.findUniqueOrThrow({ where: { id: bookingId } });
     expect(b.priceAmount).toBe(1500);
     expect(await db.auditLog.count({ where: { entity: "Booking", field: "priceAmount" } })).toBe(1);
   });
   it("issues sequential receipt numbers and refuses wrong currency / no price", async () => {
     expect((await addPayment(user, bookingId, { kind: "PAYMENT", amount: 100, currency: "USD", method: "CASH", paidAt: D("2026-10-01") })).ok).toBe(false); // no price yet
-    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
     const a = await addPayment(user, bookingId, { kind: "PAYMENT", amount: 400, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
     const b = await addPayment(user, bookingId, { kind: "PAYMENT", amount: 140000, currency: "IQD", rate: 1400, method: "TRANSFER", paidAt: D("2026-10-02") });
     expect(a.ok && b.ok && b.receiptNo! > a.receiptNo!).toBe(true);
@@ -36,7 +36,7 @@ describe("payments", () => {
     expect(await db.auditLog.count({ where: { entity: "Payment", field: "amount" } })).toBe(2);
   });
   it("cancel with refund frees seat and records the refund", async () => {
-    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
     await addPayment(user, bookingId, { kind: "PAYMENT", amount: 500, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
     await db.seatAssignment.create({ data: { bookingId, ticketNo: "T1" } });
     expect((await cancelBooking(user, bookingId, "")).ok).toBe(false);
@@ -48,19 +48,19 @@ describe("payments", () => {
     expect((await cancelBooking(user, bookingId, "x")).ok).toBe(false);
   });
   it("refund cannot exceed what was paid", async () => {
-    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
     await addPayment(user, bookingId, { kind: "PAYMENT", amount: 100, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
     expect((await cancelBooking(user, bookingId, "x", { amount: 200, method: "CASH", paidAt: D("2026-10-05") })).ok).toBe(false);
     expect((await db.booking.findUniqueOrThrow({ where: { id: bookingId } })).status).toBe("ACTIVE");
   });
   it("rejects a fractional exchange rate with a message instead of crashing", async () => {
-    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
     const r = await addPayment(user, bookingId, { kind: "PAYMENT", amount: 145000, currency: "IQD", rate: 1450.5, method: "CASH", paidAt: D("2026-10-01") });
     expect(r.ok).toBe(false);
     expect(await db.payment.count()).toBe(0);
   });
   it("a payment waits for a concurrent change on the same booking and re-reads the balance", async () => {
-    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
     let release!: () => void;
     const held = new Promise<void>((r) => (release = r));
     let locked!: () => void;
@@ -82,7 +82,7 @@ describe("payments", () => {
     expect(await db.payment.count()).toBe(1);
   });
   it("a failed refund leaves the booking active (cancel is atomic)", async () => {
-    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
     await addPayment(user, bookingId, { kind: "PAYMENT", amount: 100, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
     await db.seatAssignment.create({ data: { bookingId, ticketNo: "T1" } });
     expect((await cancelBooking(user, bookingId, "x", { amount: 200, method: "CASH", paidAt: D("2026-10-05") })).ok).toBe(false);
@@ -91,14 +91,21 @@ describe("payments", () => {
     expect(await db.payment.count({ where: { kind: "REFUND" } })).toBe(0);
   });
   it("refuses a price below what was already paid, allows it after a refund", async () => {
-    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
     await addPayment(user, bookingId, { kind: "PAYMENT", amount: 600, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
-    expect((await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 500, currency: "USD" })).ok).toBe(false);
+    expect((await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 500 })).ok).toBe(false);
     expect((await db.booking.findUniqueOrThrow({ where: { id: bookingId } })).priceAmount).toBe(1000);
-    expect((await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 600, currency: "USD" })).ok).toBe(true);
+    expect((await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 600 })).ok).toBe(true);
+  });
+  it("bookings are always priced in USD (the database refuses anything else)", async () => {
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
+    expect((await db.booking.findUniqueOrThrow({ where: { id: bookingId } })).priceCurrency).toBe("USD");
+    await expect(db.booking.update({ where: { id: bookingId }, data: { priceCurrency: "IQD" } })).rejects.toThrow();
+    // paying in dinars still works: converted to dollars at the typed rate
+    expect((await addPayment(user, bookingId, { kind: "PAYMENT", amount: 140000, currency: "IQD", rate: 1400, method: "CASH", paidAt: D("2026-10-01") })).ok).toBe(true);
   });
   it("move keeps price, payments and history", async () => {
-    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
     await addPayment(user, bookingId, { kind: "PAYMENT", amount: 250, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
     const r = await moveToTrip(user, bookingId, tripB);
     expect(r.ok).toBe(true);

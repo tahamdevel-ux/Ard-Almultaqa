@@ -81,9 +81,8 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
           <MoneyForm action={savePrice.bind(null, b.id)} submit="حفظ">
             <div><label className="label">نوع الغرفة</label><select name="roomType" defaultValue={b.roomType ?? ""} className="input w-32"><option value="">—</option>{Object.entries(ROOM_TYPE_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
             <div><label className="label">السعر (فارغ = سعر الرحلة الافتراضي)</label><input name="amount" type="number" min={0} defaultValue={b.priceAmount ?? ""} className="input w-36" dir="ltr" /></div>
-            <input type="hidden" name="currency" value={cur} />
           </MoneyForm>
-          <p className="text-xs text-brand-mid">السعر موحّد حسب نوع الغرفة (يُحدَّد من صفحة الرحلة) ويمكن تعديله لحجز معيّن. العملة الأساسية: {cur === "USD" ? "الدولار" : "الدينار"}.</p>
+          <p className="text-xs text-brand-mid">السعر موحّد حسب نوع الغرفة (يُحدَّد من صفحة الرحلة) ويمكن تعديله لحجز معيّن. الأسعار دائماً بالدولار؛ يمكن استلام الدفعة بالدينار بسعر صرف.</p>
         </section>
       )}
 

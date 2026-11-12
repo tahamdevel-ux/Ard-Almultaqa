@@ -68,7 +68,7 @@ describe("trips without a code and without dates", () => {
   });
 
   it("every output's data and header lines are clean for a trip with no code and no dates", async () => {
-    const agent = await db.agent.create({ data: { name: "وكيل", commissionType: "PERCENT", commissionValue: 5 } });
+    const agent = await db.agent.create({ data: { name: "وكيل" } });
     const hotel = await db.hotel.create({ data: { officialName: "Hotel", city: "MAKKAH" } });
     const trip = await db.trip.create({ data: { tripNo: null, name: "عمرة بري - قافلة الأحد", transportType: "LAND", capacity: 10, makkahHotelId: hotel.id } });
     const bus = await db.bus.create({ data: { tripId: trip.id, number: "1", seatCount: 48 } });

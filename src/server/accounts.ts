@@ -59,7 +59,7 @@ export async function accountsOverview(f: AccountsFilter) {
       agent: a, pilgrims: mine.filter((r) => r.status === "ACTIVE").length, due: t.due, remaining: t.remaining,
       viaAgent: Math.round(sum((p) => p.source === "AGENT" && p.sourceAgentId === a.id) * 100) / 100,
       direct: Math.round(sum((p) => p.source === "DIRECT" && p.booking.agentId === a.id) * 100) / 100,
-      commission: agentCommission(mine.map((r) => ({ ...r, fixed: resolveCommission(overrides.get(`${r.b.tripId}:${a.id}`), r.b.trip.agentCommission) })), { type: "FIXED_PER_PILGRIM", value: 0 }),
+      commission: agentCommission(mine.map((r) => ({ ...r, fixed: resolveCommission(overrides.get(`${r.b.tripId}:${a.id}`), r.b.trip.agentCommission) }))),
     };
   }).filter((a) => a.pilgrims > 0 || a.viaAgent || a.direct);
 

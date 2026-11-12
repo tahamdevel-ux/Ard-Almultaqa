@@ -24,10 +24,6 @@ enum DocType {
   NATIONAL_ID
   OTHER
 }
-enum CommissionType {
-  PERCENT
-  FIXED_WHOLESALE
-}
 enum ProgramType {
   UMRAH
 }
@@ -128,8 +124,6 @@ model Agent {
   officeName      String?
   phones          String[]
   address         String?
-  commissionType  CommissionType @default(PERCENT)
-  commissionValue Decimal        @default(0)
   deletedAt       DateTime?
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt

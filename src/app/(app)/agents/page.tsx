@@ -24,8 +24,6 @@ async function addAgent(form: FormData) {
       phones: ph.values,
       roomCode: roomCode || null,
       address: String(form.get("address") ?? "").trim() || null,
-      commissionType: form.get("commissionType") === "FIXED_WHOLESALE" ? "FIXED_WHOLESALE" : "PERCENT",
-      commissionValue: Number(form.get("commissionValue") ?? 0) || 0,
     },
   });
   revalidatePath("/agents");
@@ -72,21 +70,17 @@ export default async function AgentsPage({ searchParams }: { searchParams: Promi
           <div><label className="label">الهواتف</label><PhoneInput name="phones" multi className="input" /></div>
           <div><label className="label">العنوان</label><input name="address" className="input" /></div>
           <div><label className="label" htmlFor="roomCode">رمز الغرف (اختياري)</label><input id="roomCode" name="roomCode" maxLength={2} pattern="[a-z]{1,2}" className="input" dir="ltr" placeholder="a" /></div>
-          <div><label className="label">نوع العمولة</label>
-            <select name="commissionType" className="input"><option value="PERCENT">نسبة %</option><option value="FIXED_WHOLESALE">سعر جملة ثابت</option></select></div>
-          <div><label className="label">القيمة</label><input name="commissionValue" type="number" step="any" className="input" dir="ltr" /></div>
           <div className="sm:col-span-3"><button className="btn">إضافة وكيل</button></div>
         </form>
       )}
       <div className="card overflow-x-auto p-0">
         <table className="w-full">
-          <thead><tr><th className="th">الوكيل</th><th className="th">المكتب</th><th className="th">الهواتف</th><th className="th">العمولة</th><th className="th">المعتمرون</th><th className="th">رمز الغرف</th><th className="th" /></tr></thead>
+          <thead><tr><th className="th">الوكيل</th><th className="th">المكتب</th><th className="th">الهواتف</th><th className="th">المعتمرون</th><th className="th">رمز الغرف</th><th className="th" /></tr></thead>
           <tbody>
             {agents.map((a) => (
               <tr key={a.id} data-href={can(user.role, "payments.view") ? `/agents/${a.id}` : undefined}>
                 <td className="td font-bold">{can(user.role, "payments.view") ? <a className="text-brand underline" href={`/agents/${a.id}`}>{a.name}</a> : a.name}</td><td className="td">{a.officeName}</td>
                 <td className="td ltr">{a.phones.join("، ")}</td>
-                <td className="td">{a.commissionType === "PERCENT" ? `${a.commissionValue}%` : `${a.commissionValue} جملة`}</td>
                 <td className="td">{a._count.pilgrims}</td>
                 <td className="td">{w ? (
                   <form action={setRoomCode.bind(null, a.id)} className="flex items-center gap-1">

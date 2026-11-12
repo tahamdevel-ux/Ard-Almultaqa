@@ -18,8 +18,8 @@ const pilgrim = (agentId?: string) => db.pilgrim.create({ data: { firstName: `م
 
 describe("accounts overview", () => {
   it("totals, per-trip, per-agent (direct vs via agent) and the payments log", async () => {
-    const agentA = await db.agent.create({ data: { name: "وكيل أ", commissionType: "PERCENT", commissionValue: 10 } });
-    const agentB = await db.agent.create({ data: { name: "وكيل ب", commissionType: "PERCENT", commissionValue: 0 } });
+    const agentA = await db.agent.create({ data: { name: "وكيل أ" } });
+    const agentB = await db.agent.create({ data: { name: "وكيل ب" } });
     const t1 = await db.trip.create({ data: { name: "الأولى", transportType: "AIR", capacity: 10, agentCommission: 100, createdAt: new Date("2026-01-01T00:00:00Z") } });
     const t2 = await db.trip.create({ data: { name: "الثانية (فارغة)", transportType: "AIR", capacity: 10, createdAt: new Date("2026-02-01T00:00:00Z") } });
     const [p1, p2, p3] = [await pilgrim(agentA.id), await pilgrim(agentA.id), await pilgrim()];

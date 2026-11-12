@@ -179,13 +179,13 @@ describe("money", () => {
     expect(checkPayment({ kind: "REFUND", amount: 2000, currency: "USD", reason: "x" }, "USD", ps)).toHaveProperty("error");
     expect(checkPayment({ kind: "REFUND", amount: 500, currency: "USD", reason: "x" }, "USD", ps)).toEqual({ credited: 500 });
   });
-  it("agent statement: percent", () => {
-    const s = agentStatement([{ price: 1000, paid: 400, cancelled: false }, { price: 1000, paid: 1000, cancelled: false }], { type: "PERCENT", value: 5 });
+  it("agent statement: fixed commission per pilgrim", () => {
+    const s = agentStatement([{ price: 1000, paid: 400, cancelled: false, fixed: 50 }, { price: 1000, paid: 1000, cancelled: false, fixed: 50 }]);
     expect(s).toMatchObject({ totalPrice: 2000, commission: 100, netToCompany: 1900, collected: 1400, dueToCompany: 500, count: 2 });
   });
-  it("agent statement: fixed wholesale, cancelled gives no commission", () => {
-    const s = agentStatement([{ price: 1000, paid: 0, cancelled: false }, { price: 1000, paid: 100, cancelled: true }], { type: "FIXED_WHOLESALE", value: 900 });
-    expect(s).toMatchObject({ totalPrice: 1000, commission: 100, netToCompany: 900, collected: 100, dueToCompany: 800, count: 1 });
+  it("agent statement: cancelled gives no commission, commission is capped at the price", () => {
+    const s = agentStatement([{ price: 1000, paid: 0, cancelled: false, fixed: 100 }, { price: 1000, paid: 100, cancelled: true, fixed: 100 }, { price: 80, paid: 0, cancelled: false, fixed: 100 }]);
+    expect(s).toMatchObject({ totalPrice: 1080, commission: 180, netToCompany: 900, collected: 100, dueToCompany: 800, count: 2 });
   });
 });
 

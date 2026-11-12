@@ -33,7 +33,7 @@ export default async function Dashboard() {
     where: { status: "ACTIVE", deletedAt: null, priceAmount: { not: null }, trip: { deletedAt: null, status: { not: "CANCELLED" } } },
     include: { pilgrim: true, trip: true, payments: true },
   })).map((b) => ({ b, bal: balance(b.priceAmount, b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) ?? 0 })).filter((x) => x.bal > 0) : [];
-  const totalDebt = debts.filter((x) => x.b.priceCurrency === "USD").reduce((n, x) => n + x.bal, 0);
+  const totalDebt = debts.reduce((n, x) => n + x.bal, 0);
   debts.sort((a, b) => b.bal - a.bal);
 
   return (
