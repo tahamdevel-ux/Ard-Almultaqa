@@ -25,7 +25,8 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   const q = (sp.q ?? "").trim();
   const f = { period, trip: sp.trip || undefined, agent: sp.agent || undefined, onlyDue: sp.due === "1", hideArchived: sp.hideArchived === "1" };
   const data = await accountsOverview(f);
-  const log = tab === "payments" ? await paymentsLog(period, q) : [];
+  const logData = tab === "payments" ? await paymentsLog(period, q, Number(sp.page) || 1) : null;
+  const log = logData?.rows ?? [];
   const link = (over: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
     const merged: Record<string, string | undefined> = { period: period === "all" ? undefined : period, tab, hideArchived: f.hideArchived ? "1" : undefined, ...over };
@@ -139,6 +140,13 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
             <input name="q" defaultValue={q} className="input" placeholder="بحث برقم الوصل أو اسم المعتمر" aria-label="بحث في الدفعات" />
             <button className="btn-secondary">بحث</button>
           </form>
+          {logData && (
+            <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
+              {([["عدد الحركات", String(logData.count)], ["المستلم", usd(logData.totals.received)], ["المُسترد", usd(logData.totals.refunded)], ["الصافي", usd(logData.totals.net)]] as const).map(([l, v]) => (
+                <div key={l} className="card"><div className="text-xs text-brand-mid">{l}</div><div className="font-bold tabular-nums">{v}</div></div>
+              ))}
+            </div>
+          )}
           <div className="card overflow-x-auto p-0">
             <table className="rt w-full">
               <thead><tr>{["التاريخ", "رقم الوصل", "المعتمر", "الرحلة"].map((h) => <th key={h} className="th">{h}</th>)}<th className="th text-right">المبلغ (USD)</th><th className="th">بالدينار</th><th className="th">المصدر</th><th className="th">سجّلها</th></tr></thead>
@@ -162,6 +170,13 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
               </tbody>
             </table>
           </div>
+          {logData && logData.pages > 1 && (
+            <nav className="flex items-center justify-between text-sm" aria-label="صفحات السجل">
+              {logData.page > 1 ? <Link className="btn-secondary" href={link({ q: q || undefined, page: String(logData.page - 1) })}>السابق</Link> : <span />}
+              <span className="text-brand-mid">صفحة {logData.page} من {logData.pages}</span>
+              {logData.page < logData.pages ? <Link className="btn-secondary" href={link({ q: q || undefined, page: String(logData.page + 1) })}>التالي</Link> : <span />}
+            </nav>
+          )}
         </section>
       )}
     </div>

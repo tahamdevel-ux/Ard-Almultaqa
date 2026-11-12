@@ -44,11 +44,29 @@ describe("accounts overview", () => {
     expect((await accountsOverview({ period: "all", agent: agentA.id })).pilgrimRows).toHaveLength(2);
     expect((await accountsOverview({ period: "all", trip: t2.id })).pilgrimRows).toHaveLength(0);
 
-    const log = await paymentsLog("all");
+    const { rows: log, totals } = await paymentsLog("all");
+    expect(totals.net).toBe(totals.received - totals.refunded);
     expect(log.map((p) => p.source)).toEqual(["DIRECT", "DIRECT", "AGENT", "DIRECT"]); // newest first: refund, b3, b2(agent), b1
     expect(log.find((p) => p.source === "AGENT")!.agentName).toBe("وكيل أ");
-    expect((await paymentsLog("all", String(log[0].receiptNo))).length).toBe(1);
-    expect((await paymentsLog("all", "معتمر" + n)).length).toBeGreaterThanOrEqual(1);
+    expect((await paymentsLog("all", String(log[0].receiptNo))).rows.length).toBe(1);
+    expect((await paymentsLog("all", "معتمر" + n)).rows.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("the payments log is paged and its totals cover every matching payment, not only the visible page", async () => {
+    const t = await db.trip.create({ data: { name: "ر", transportType: "AIR", capacity: 1 } });
+    const b = await db.booking.create({ data: { pilgrimId: (await pilgrim()).id, tripId: t.id, priceAmount: 100000 } });
+    const base = { bookingId: b.id, currency: "USD" as const, method: "CASH" as const, paidAt: D("2026-10-01"), receivedById: "u", receivedByName: "u" };
+    await db.payment.createMany({ data: [
+      ...Array.from({ length: 104 }, () => ({ ...base, kind: "PAYMENT" as const, amount: 10, credited: 10 })),
+      { ...base, kind: "REFUND" as const, amount: 40, credited: 40, reason: "x" },
+    ] });
+    const p1 = await paymentsLog("all");
+    expect(p1).toMatchObject({ count: 105, page: 1, pages: 2, totals: { received: 1040, refunded: 40, net: 1000 } });
+    expect(p1.rows).toHaveLength(100);
+    const p2 = await paymentsLog("all", undefined, 2);
+    expect(p2.rows).toHaveLength(5); expect(p2.totals).toEqual(p1.totals);
+    expect(new Set([...p1.rows, ...p2.rows].map((r) => r.id)).size).toBe(105);
+    expect((await paymentsLog("all", undefined, 99)).page).toBe(2); // out of range -> last page
   });
 
   it("an agent payment needs an existing agent", async () => {
@@ -64,7 +82,7 @@ describe("accounts overview", () => {
     await addPayment(user, b.id, { kind: "PAYMENT", amount: 10, currency: "USD", method: "CASH", paidAt: D("2020-01-02") });
     expect((await accountsOverview({ period: "3m" })).tripRows).toHaveLength(0);
     expect((await accountsOverview({ period: "all" })).tripRows).toHaveLength(1);
-    expect(await paymentsLog("month")).toHaveLength(0);
-    expect(await paymentsLog("all")).toHaveLength(1);
+    expect((await paymentsLog("month")).rows).toHaveLength(0);
+    expect((await paymentsLog("all")).rows).toHaveLength(1);
   });
 });

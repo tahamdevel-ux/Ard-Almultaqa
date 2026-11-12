@@ -554,6 +554,9 @@ model Payment {
   reason       String?
   source       PaymentSource @default(DIRECT) // DIRECT = the pilgrim paid the company; AGENT = paid through an agent
   sourceAgentId String?
+  /// What the receipt shows: the trip and the booking price when the payment was recorded (payments follow a pilgrim who moves to another trip)
+  tripId       String?
+  bookingPrice Int?
   createdAt    DateTime      @default(now())
   @@index([bookingId])
   @@index([paidAt])

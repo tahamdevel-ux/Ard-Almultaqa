@@ -112,9 +112,6 @@ export async function applyAccommodation(tripId: string, bookingId: string, a: A
         if (!r.ok) throw new RollbackError(r.error);
         data.priceAmount = r.amount; data.sarfAmount = r.sarf; data.priceCurrency = "USD";
       }
-    } else if (a.roomType && b.priceAmount == null) {
-      const price = await tx.tripPrice.findFirst({ where: { tripId, roomType: a.roomType as never } });
-      if (price) { data.priceAmount = price.amount; data.priceCurrency = "USD"; }
     }
     if (a.tripRole !== undefined) {
       const role: TripRole | null = isTripRole(a.tripRole) ? a.tripRole : null;

@@ -67,25 +67,36 @@ export async function accountsOverview(f: AccountsFilter) {
   return { totals: { ...totals, commission: Math.round(agentRows.reduce((n, a) => n + a.commission, 0) * 100) / 100 }, tripRows, pilgrimRows, agentRows, agents };
 }
 
-export async function paymentsLog(period: Period, q?: string) {
+export const LOG_PAGE_SIZE = 100;
+
+/** The payments log: one page of rows (newest first) plus the totals of EVERYTHING the filter matches, not only the visible page. */
+export async function paymentsLog(period: Period, q?: string, page = 1) {
   const from = periodStart(period);
   const term = (q ?? "").trim();
+  const where: Prisma.PaymentWhereInput = {
+    booking: { deletedAt: null },
+    ...(from ? { paidAt: { gte: from } } : {}),
+    ...(term ? { OR: [
+      ...(/^\d+$/.test(term) ? [{ receiptNo: Number(term) }] : []),
+      { booking: { pilgrim: { OR: term.split(/\s+/).map((w) => ({ OR: [{ firstName: { contains: w } }, { fatherName: { contains: w } }, { grandfatherName: { contains: w } }, { familyName: { contains: w } }, { enGivenName: { contains: w, mode: "insensitive" as const } }, { enSurname: { contains: w, mode: "insensitive" as const } }] })) } } },
+    ] } : {}),
+  };
+  const [count, sums] = await Promise.all([db.payment.count({ where }), db.payment.groupBy({ by: ["kind"], where, _sum: { credited: true } })]);
+  const pages = Math.max(1, Math.ceil(count / LOG_PAGE_SIZE));
+  const cur = Math.min(Math.max(1, Math.floor(page) || 1), pages);
   const rows = await db.payment.findMany({
-    where: {
-      booking: { deletedAt: null },
-      ...(from ? { paidAt: { gte: from } } : {}),
-      ...(term ? { OR: [
-        ...(/^\d+$/.test(term) ? [{ receiptNo: Number(term) }] : []),
-        { booking: { pilgrim: { OR: term.split(/\s+/).map((w) => ({ OR: [{ firstName: { contains: w } }, { fatherName: { contains: w } }, { grandfatherName: { contains: w } }, { familyName: { contains: w } }, { enGivenName: { contains: w, mode: "insensitive" as const } }, { enSurname: { contains: w, mode: "insensitive" as const } }] })) } } },
-      ] } : {}),
-    },
-    include: { booking: { include: { pilgrim: true, trip: true } } },
-    orderBy: [{ paidAt: "desc" }, { receiptNo: "desc" }], take: 500,
+    where, include: { booking: { include: { pilgrim: true, trip: true } } },
+    orderBy: [{ paidAt: "desc" }, { receiptNo: "desc" }], skip: (cur - 1) * LOG_PAGE_SIZE, take: LOG_PAGE_SIZE,
   });
   const agentIds = [...new Set(rows.map((r) => r.sourceAgentId).filter((x): x is string => !!x))];
   const agents = await db.agent.findMany({ where: { id: { in: agentIds } }, select: { id: true, name: true } });
   const an = new Map(agents.map((a) => [a.id, a.name]));
-  return rows.map((p) => ({ ...p, pilgrimName: fullNameAr(p.booking.pilgrim), agentName: p.sourceAgentId ? an.get(p.sourceAgentId) ?? "" : "" }));
+  const sum = (k: "PAYMENT" | "REFUND") => Math.round(Number(sums.find((s) => s.kind === k)?._sum.credited ?? 0) * 100) / 100;
+  const received = sum("PAYMENT"), refunded = sum("REFUND");
+  return {
+    rows: rows.map((p) => ({ ...p, pilgrimName: fullNameAr(p.booking.pilgrim), agentName: p.sourceAgentId ? an.get(p.sourceAgentId) ?? "" : "" })),
+    count, page: cur, pages, totals: { received, refunded, net: Math.round((received - refunded) * 100) / 100 },
+  };
 }
 
 export { TRIP_ORDER };

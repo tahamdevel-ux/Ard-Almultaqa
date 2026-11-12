@@ -12,17 +12,42 @@ beforeEach(async () => {
   const p = await db.pilgrim.create({ data: { firstName: "أ", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE", birthDate: D("1980-01-01"), passportNo: "P1", enGivenName: "A", enSurname: "B", passportExpiry: D("2032-01-01") } });
   const mk = (no: string) => db.trip.create({ data: { tripNo: no, name: no, transportType: "LAND", departDate: D("2026-11-01"), returnDate: D("2026-11-10"), capacity: 10 } });
   tripA = (await mk("TA")).id; tripB = (await mk("TB")).id;
-  await db.tripPrice.create({ data: { tripId: tripA, roomType: "QUAD", currency: "USD", amount: 1500 } });
   bookingId = (await db.booking.create({ data: { pilgrimId: p.id, tripId: tripA } })).id;
 });
 
 describe("payments", () => {
-  it("uses the trip's default price for a room type and audits it", async () => {
+  it("an empty price comes from the booking's hotel table and is audited", async () => {
+    const hotel = await db.hotel.create({ data: { officialName: "H", city: "MAKKAH" } });
+    const th = await db.tripHotel.create({ data: { tripId: tripA, hotelId: hotel.id, prices: { create: [{ roomType: "QUAD", amount: 1500 }] } } });
+    await db.booking.update({ where: { id: bookingId }, data: { tripHotelId: th.id } });
     expect((await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: null })).ok).toBe(true);
     const b = await db.booking.findUniqueOrThrow({ where: { id: bookingId } });
-    expect(b.priceAmount).toBe(1500);
+    expect(b.priceAmount).toBe(1500); expect(b.priceManual).toBe(false);
     expect(await db.auditLog.count({ where: { entity: "Booking", field: "priceAmount" } })).toBe(1);
+    await db.tripHotel.deleteMany({ where: { tripId: tripA } });
   });
+  it("an empty price with no priced hotel is refused (the old per-trip price list is no longer read)", async () => {
+    await db.tripPrice.create({ data: { tripId: tripA, roomType: "QUAD", currency: "USD", amount: 1500 } }); // stale legacy row
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 900 });
+    const r = await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: null });
+    expect(r.ok).toBe(false);
+    expect((await db.booking.findUniqueOrThrow({ where: { id: bookingId } })).priceAmount).toBe(900); // untouched
+  });
+  it("a receipt keeps the trip and price of the day it was issued, also after the pilgrim moves", async () => {
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
+    const a = await addPayment(user, bookingId, { kind: "PAYMENT", amount: 250, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
+    const moved = await moveToTrip(user, bookingId, tripB);
+    if (!moved.ok) throw new Error(moved.error);
+    const newId = moved.id!;
+    await setBookingPrice(user, newId, { roomType: "QUAD", amount: 1200 });
+    const b = await addPayment(user, newId, { kind: "PAYMENT", amount: 100, currency: "USD", method: "CASH", paidAt: D("2026-10-02") });
+    if (!a.ok || !b.ok) throw new Error("payment failed");
+    const pa = await db.payment.findUniqueOrThrow({ where: { receiptNo: a.receiptNo! } });
+    const pb = await db.payment.findUniqueOrThrow({ where: { receiptNo: b.receiptNo! } });
+    expect(pa).toMatchObject({ tripId: tripA, bookingPrice: 1000, bookingId: newId }); // re-pointed, but still describes trip A
+    expect(pb).toMatchObject({ tripId: tripB, bookingPrice: 1200 });
+  });
+
   it("issues sequential receipt numbers and refuses wrong currency / no price", async () => {
     expect((await addPayment(user, bookingId, { kind: "PAYMENT", amount: 100, currency: "USD", method: "CASH", paidAt: D("2026-10-01") })).ok).toBe(false); // no price yet
     await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
