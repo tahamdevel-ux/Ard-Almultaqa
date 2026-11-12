@@ -122,3 +122,8 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - Hotel rooming lists are built from office rooms and show only the hotel's room number (blank when not typed); the leak test now allows `outputs/viewmodels.ts` to read office rooms but forbids it from touching `roomLabel`/agent codes.
 - Tickets list is one list per trip (tickets are not tied to a flight in the data model), with the تصريف choice.
 - Internal rooming PDF additions: head-of-family tag, بدون طعام / بدون سكن marks, hotel name on the card when the trip has several hotels (rooms grouped by hotel); Excel export `?format=xlsx` of the same endpoint.
+
+### Price fix (Nov 12): hand-typed prices are protected
+- Found by reproduction: «apply to existing» in the hotel price table re-priced every booking (overwriting prices agreed by hand); the booking page's «empty = trip default price» read the OLD per-trip price list (and, with no room type, took an arbitrary row of it).
+- `Booking.priceManual` marks a price typed by hand (set when an amount is entered on the booking page, cleared when it is left empty = back to the hotel table incl. تصريف المعتمر). Accommodation saves and «apply to existing» never touch a manual price. The migration marks every existing priced booking whose price differs from its hotel-table price as manual.
+- The booking page now shows the table price (hotel, room type, + تصريف) next to the current price and warns when they differ.

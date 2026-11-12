@@ -101,7 +101,7 @@ export async function applyAccommodation(tripId: string, bookingId: string, a: A
         const err = await checkNoHousing(tx, tripId, bookingId, th.id);
         if (err) throw new RollbackError(err);
       }
-      if (th && (noHousing || roomType)) {
+      if (th && !b.priceManual && (noHousing || roomType)) { // a price typed by hand is never recomputed
         const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType, noHousing, sarfByPilgrim, sarfAmount: trip.sarfAmount });
         if (!r.ok) throw new RollbackError(r.error);
         data.priceAmount = r.amount; data.sarfAmount = r.sarf; data.priceCurrency = "USD";

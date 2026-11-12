@@ -310,6 +310,7 @@ model Booking {
   withFood    Boolean   @default(true)
   sarfByPilgrim Boolean @default(false) // air: تصريف المعتمر (amount added to the due) instead of تصريف الشركة
   sarfAmount  Int       @default(0)     // the تصريف amount included in priceAmount
+  priceManual Boolean   @default(false) // price typed by hand: never recomputed from the hotel table
   tripRole    TripRole? // متعهد / سايق / مساعد سايق: at most one of each per bus
   makkahHotelId  String? // this pilgrim's own hotel choice (the trip's hotel is only the default)
   madinahHotelId String?

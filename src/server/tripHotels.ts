@@ -59,7 +59,7 @@ export async function saveTripHotels(user: SessionUser, tripId: string, input: T
 /** Recomputes a booking's price from its hotel, room type, بدون سكن and تصريف. Returns true when the price changed. */
 export async function repriceBooking(tx: Tx, user: SessionUser, bookingId: string): Promise<boolean> {
   const b = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { trip: true, tripHotel: { include: { prices: true } } } });
-  if (!b.tripHotel) return false;
+  if (!b.tripHotel || b.priceManual) return false;
   const table = { prices: Object.fromEntries(b.tripHotel.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: b.tripHotel.noHousingPrice };
   const r = computePrice({ table, roomType: (b.roomType as RoomKind) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: b.trip.sarfAmount });
   if (!r.ok || r.amount === b.priceAmount) return false;

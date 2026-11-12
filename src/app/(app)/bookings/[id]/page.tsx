@@ -20,7 +20,7 @@ const METHOD = { CASH: "نقداً", TRANSFER: "حوالة", CARD: "بطاقة",
 export default async function BookingPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requirePage("payments.view");
   const { id } = await params;
-  const b = await db.booking.findUnique({ where: { id }, include: { pilgrim: true, trip: true, agent: true, payments: { orderBy: { receiptNo: "asc" } }, groups: { include: { group: true } } } });
+  const b = await db.booking.findUnique({ where: { id }, include: { pilgrim: true, trip: true, tripHotel: { include: { hotel: true, prices: true } }, agent: true, payments: { orderBy: { receiptNo: "asc" } }, groups: { include: { group: true } } } });
   if (!b) notFound();
   if (!canSeeTrip(user, b.trip)) redirect("/forbidden");
   const rate = await getSetting("usdRate");
@@ -61,6 +61,17 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
         <div className="card"><div className="text-xs text-brand-mid">المدفوع (صافي)</div><div className="text-lg font-bold text-green-800">{formatMoney(paid, cur)}</div></div>
         <div className="card"><div className="text-xs text-brand-mid">المتبقي</div><div className={"text-lg font-bold " + ((bal ?? 0) > 0 ? "text-red-700" : "")}>{bal == null ? "—" : formatMoney(bal, cur)}</div></div>
       </div>
+
+      {b.priceAmount != null && (() => {
+        const th = b.tripHotel, table = th ? (b.noHousing ? th.noHousingPrice : th.prices.find((p) => p.roomType === b.roomType)?.amount) : null;
+        const expected = table == null ? null : table + b.sarfAmount;
+        return (
+          <p className={"text-xs " + (b.priceManual || (expected != null && expected !== b.priceAmount) ? "alert-warn" : "text-brand-mid")}>
+            {th && table != null ? `جدول الفندق: ${th.hotel.localName ?? th.hotel.officialName} — ${b.noHousing ? "بدون سكن" : ROOM_TYPE_LABELS[b.roomType as keyof typeof ROOM_TYPE_LABELS]} ${formatMoney(table, "USD")}${b.sarfAmount ? ` + تصريف ${formatMoney(b.sarfAmount, "USD")}` : ""} = ${formatMoney(expected!, "USD")}` : "لا يوجد سعر في جدول فنادق الرحلة لهذا الحجز."}
+            {b.priceManual ? " — السعر الحالي مكتوب يدوياً ولا يتغير مع الجدول." : expected != null && expected !== b.priceAmount ? " — السعر الحالي يختلف عن الجدول." : ""}
+          </p>
+        );
+      })()}
 
       {wpr && active && (
         <section className="card space-y-2">

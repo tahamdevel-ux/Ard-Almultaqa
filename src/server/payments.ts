@@ -4,12 +4,13 @@ import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
 import { assignOfficeRooms, freeOfficeBeds } from "@/officeRooms/service";
 import { balance, checkPayment, paidTotal } from "@/domain/money";
+import { computePrice, type RoomKind } from "@/domain/pricing";
 
 type Tx = Prisma.TransactionClient;
 export type Result = { ok: true; id?: string; receiptNo?: number } | { ok: false; error: string };
 const fail = (error: string): Result => ({ ok: false, error });
 
-const BOOKING_PRICE_FIELDS = ["roomType", "priceAmount", "priceCurrency"] as const;
+const BOOKING_PRICE_FIELDS = ["roomType", "priceAmount", "priceCurrency", "priceManual"] as const;
 
 export async function defaultPrice(tripId: string, roomType: string | null) {
   if (!roomType) return null;
@@ -25,12 +26,23 @@ export async function setBookingPrice(
   return db.$transaction(async (tx) => {
     const before = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { payments: true } });
     let { amount, currency } = input;
+    let manual = true;
     if (amount == null) {
-      const d = await tx.tripPrice.findFirst({ where: { tripId: before.tripId, roomType: (input.roomType ?? undefined) as never } });
-      if (d) { amount = d.amount; currency = d.currency; }
+      // empty = back to the table: the booking's Makkah hotel (room type price or بدون سكن, + تصريف المعتمر); old per-trip prices only when the trip has no priced hotels
+      manual = false;
+      const trip = await tx.trip.findUniqueOrThrow({ where: { id: before.tripId } });
+      const th = before.tripHotelId ? await tx.tripHotel.findUnique({ where: { id: before.tripHotelId }, include: { prices: true } }) : null;
+      const rt = (input.roomType ?? before.roomType ?? null) as RoomKind | null;
+      if (th) {
+        const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: rt, noHousing: before.noHousing, sarfByPilgrim: before.sarfByPilgrim, sarfAmount: trip.sarfAmount });
+        if (r.ok) { amount = r.amount; currency = "USD"; } else return fail(r.error);
+      } else if (rt) {
+        const d = await tx.tripPrice.findFirst({ where: { tripId: before.tripId, roomType: rt as never } });
+        if (d) { amount = d.amount; currency = d.currency; }
+      }
     }
     if (before.payments.length && currency !== before.priceCurrency) return fail("لا يمكن تغيير عملة حجز عليه دفعات");
-    const after = await tx.booking.update({ where: { id: bookingId }, data: { roomType: input.roomType, priceAmount: amount, priceCurrency: currency } });
+    const after = await tx.booking.update({ where: { id: bookingId }, data: { roomType: input.roomType, priceAmount: amount, priceCurrency: currency, priceManual: manual && amount != null } });
     await auditChanges(tx, user, "Booking", bookingId, before, after, BOOKING_PRICE_FIELDS);
     return { ok: true } as Result;
   });
