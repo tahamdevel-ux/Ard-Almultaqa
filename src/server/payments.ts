@@ -110,6 +110,7 @@ export async function cancelBooking(
 /** Moves a pilgrim to another trip keeping price, history (old booking = MOVED) and payments (re-pointed). */
 export async function moveToTrip(user: SessionUser, bookingId: string, targetTripId: string): Promise<Result> {
   return db.$transaction(async (tx) => {
+    await lockBooking(tx, bookingId); // a payment recorded while we move must wait, otherwise it would stay on the old (MOVED) booking
     const old = await tx.booking.findUnique({ where: { id: bookingId } });
     if (!old || old.status !== "ACTIVE") return fail("الحجز غير فعّال");
     if (old.tripId === targetTripId) return fail("الرحلة نفسها");

@@ -144,6 +144,29 @@ describe("payments", () => {
     expect(ref.ok).toBe(true);
     expect(balance(1000.5, (await db.payment.findMany({ where: { bookingId } })).map((p) => ({ kind: p.kind, credited: p.credited })))).toBe(50.5);
   });
+  it("a move waits for a payment in progress, so no payment is left on the old booking", async () => {
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let locked!: () => void;
+    const lockedP = new Promise<void>((r) => (locked = r));
+    const pay = db.$transaction(async (tx) => {
+      const r = await addPaymentTx(tx, user, bookingId, { kind: "PAYMENT", amount: 300, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
+      locked(); await held; return r;
+    });
+    await lockedP;
+    let moved = false;
+    const mv = moveToTrip(user, bookingId, tripB).then((r) => { moved = true; return r; });
+    await new Promise((r) => setTimeout(r, 400));
+    expect(moved).toBe(false); // blocked on the booking row
+    release();
+    expect((await pay).ok).toBe(true);
+    const r = await mv;
+    expect(r.ok).toBe(true);
+    const nb = await db.booking.findFirstOrThrow({ where: { tripId: tripB }, include: { payments: true } });
+    expect(nb.payments.map((p) => p.amount)).toEqual([300]); // the payment travelled with the pilgrim
+    expect(await db.payment.count({ where: { bookingId } })).toBe(0);
+  });
   it("move keeps price, payments and history", async () => {
     await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
     await addPayment(user, bookingId, { kind: "PAYMENT", amount: 250, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
