@@ -13,7 +13,7 @@ test("accountant: pay in dinars at a rate, receipt, refund guard, cancel, move, 
   await expect(page.getByText("الأرصدة المستحقة")).toBeVisible();
 
   await page.goto("/trips");
-  await page.locator("tr", { hasText: "A-2612" }).locator("a[href^='/trips/']").first().click(); // the list links the trip name; the number sits in the same row
+  await page.locator("tr[data-href]", { hasText: "A-2612" }).first().locator("a").first().click();
   await page.waitForURL(/trips\/[0-9a-f-]{36}$/);
   const tripId = page.url().split("/").pop()!;
   await page.getByText("إعدادات الرحلة").first().click(); // collapsed on a trip that has pilgrims
@@ -112,7 +112,7 @@ test("every role sees the accounts; only admin and accountant can refund", async
   }
   await login(page, "reg");
   await page.goto("/trips");
-  await page.locator("tr", { hasText: "L-2611" }).locator("a[href^='/trips/']").first().click();
+  await page.locator("tr[data-href]", { hasText: "L-2611" }).first().locator("a").first().click();
   await page.waitForURL(/trips\/[0-9a-f-]{36}$/);
   await page.getByText("إعدادات الرحلة").first().click(); // collapsed on a trip that has pilgrims
   await expect(page.getByText("فنادق مكة والأسعار")).toBeVisible();      // prices are visible to everyone
@@ -134,7 +134,7 @@ test("accounts: summary cards, four tabs, drill-down, payment with source", asyn
   await login(page, "admin");
   // a priced booking on the seeded land trip
   await page.goto("/trips");
-  await page.locator("tr", { hasText: "L-2611" }).locator("a[href^='/trips/']").first().click();
+  await page.locator("tr[data-href]", { hasText: "L-2611" }).first().locator("a").first().click();
   await page.waitForURL(/trips\/[0-9a-f-]{36}$/);
   await page.waitForLoadState("networkidle"); // the trip page is heavy: let it hydrate before clicking
   await page.locator("a[href^='/bookings/']").first().click();

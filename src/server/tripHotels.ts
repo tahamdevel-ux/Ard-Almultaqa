@@ -2,6 +2,7 @@ import type { Prisma } from "@prisma/client";
 import { db, type DbTx } from "./db";
 import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
+import { creditedValue } from "@/domain/money";
 import { computePrice, noHousingError, type RoomKind } from "@/domain/pricing";
 import { isMoney, paidTotal } from "@/domain/money";
 
@@ -24,6 +25,9 @@ export interface TripHotelInput { hotelId: string; noHousingPrice: number | null
 export async function saveTripHotels(user: SessionUser, tripId: string, input: TripHotelInput[], applyToExisting: boolean): Promise<{ ok: true; repriced: number } | { ok: false; error: string }> {
   const ids = input.map((i) => i.hotelId);
   if (new Set(ids).size !== ids.length) return { ok: false, error: "فندق مكرر" };
+  const names = await db.hotel.findMany({ where: { id: { in: ids } } });
+  const seen = new Set<string>();
+  for (const h of names) { const n = normName(h); if (seen.has(n)) return { ok: false, error: `الفندق «${h.localName ?? h.officialName}» مكرر في الجدول — لا يمكن أن يكون لنفس الفندق سعران` }; seen.add(n); }
   for (const i of input) {
     if (i.noHousingPrice != null && (!isMoney(i.noHousingPrice) || i.noHousingPrice < 0)) return { ok: false, error: "سعر غير صحيح" };
     for (const v of Object.values(i.prices)) if (!isMoney(v) || (v as number) < 0) return { ok: false, error: "سعر غير صحيح" };
@@ -79,21 +83,53 @@ export async function checkNoHousing(tx: Tx, tripId: string, bookingId: string, 
   return noHousingError({ hasHead: !!head && head.bookingId !== bookingId, headBookingHotelId: head?.booking.tripHotelId, hotelId: tripHotelId });
 }
 
-export interface PriceAudit { total: number; noPrice: number; differs: number; manual: number }
+export interface PriceGroup { hotel: string; roomType: string; entries: { base: number; count: number; manual: boolean }[] }
+export interface PriceAudit {
+  total: number; noPrice: number; differs: number; manual: number;
+  /** same hotel name + same room type but different prices (hand-typed ones included) */
+  groups: PriceGroup[];
+  /** the same hotel name appears twice in the trip's price table */
+  duplicateHotels: string[];
+  /** payments whose counted value does not match amount × rate, and payments sitting on cancelled/moved bookings of the trip */
+  badPayments: number; paymentsOnInactive: number;
+}
 
-/** What is wrong with the prices of a trip: bookings without a price, bookings whose price differs from the hotel table, hand-typed prices. */
+const normName = (h: { localName: string | null; officialName: string }) => (h.localName ?? h.officialName).replace(/\s+/g, " ").trim().toLowerCase();
+
+/** What is wrong with the prices and payments of a trip: missing prices, prices that differ from the hotel table, the same hotel and room type priced differently, duplicate hotel rows, miscounted payments. */
 export async function auditTripPrices(tripId: string): Promise<PriceAudit> {
   const trip = await db.trip.findUniqueOrThrow({ where: { id: tripId } });
-  const hotels = await db.tripHotel.findMany({ where: { tripId }, include: { prices: true } });
-  const bookings = await db.booking.findMany({ where: { tripId, status: "ACTIVE", deletedAt: null } });
-  const a: PriceAudit = { total: bookings.length, noPrice: 0, differs: 0, manual: 0 };
+  const hotels = await db.tripHotel.findMany({ where: { tripId }, include: { prices: true, hotel: true } });
+  const all = await db.booking.findMany({ where: { tripId, deletedAt: null }, include: { payments: true } });
+  const bookings = all.filter((b) => b.status === "ACTIVE");
+  const a: PriceAudit = { total: bookings.length, noPrice: 0, differs: 0, manual: 0, groups: [], duplicateHotels: [], badPayments: 0, paymentsOnInactive: 0 };
+  const seen = new Map<string, number>();
+  for (const h of hotels) seen.set(normName(h.hotel), (seen.get(normName(h.hotel)) ?? 0) + 1);
+  a.duplicateHotels = [...seen].filter(([, n]) => n > 1).map(([name]) => name);
+  const groups = new Map<string, PriceGroup>();
   for (const b of bookings) {
     if (b.priceManual) a.manual++;
     if (b.priceAmount == null) { a.noPrice++; continue; }
     const th = hotels.find((h) => h.id === b.tripHotelId);
+    if (th) {
+      const key = `${normName(th.hotel)}|${b.noHousing ? "NOHOUSING" : b.roomType ?? "-"}`;
+      const g = groups.get(key) ?? { hotel: th.hotel.localName ?? th.hotel.officialName, roomType: b.noHousing ? "NOHOUSING" : b.roomType ?? "-", entries: [] };
+      const base = b.priceAmount - b.sarfAmount; // تصريف is not part of the room price
+      const e = g.entries.find((x) => x.base === base && x.manual === b.priceManual);
+      if (e) e.count++; else g.entries.push({ base, count: 1, manual: b.priceManual });
+      groups.set(key, g);
+    }
     if (!th || b.priceManual) continue;
     const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: (b.roomType as RoomKind) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: trip.sarfAmount });
     if (r.ok && r.amount !== b.priceAmount) a.differs++;
+  }
+  a.groups = [...groups.values()].filter((g) => new Set(g.entries.map((e) => e.base)).size > 1);
+  for (const b of all) {
+    if (b.status === "MOVED") a.paymentsOnInactive += b.payments.length; // payments follow the pilgrim to his new booking
+    for (const p of b.payments) {
+      const expect = creditedValue(p.amount, p.currency, b.priceCurrency, p.exchangeRate);
+      if (expect == null || Math.abs(Number(p.credited) - expect) > 0.011) a.badPayments++;
+    }
   }
   return a;
 }
@@ -121,5 +157,24 @@ export async function recalcTripPrices(user: SessionUser, tripId: string) {
       else out.unchanged++;
     }
     return out;
+  });
+}
+
+/**
+ * Merges two hotel rows of a trip: every pilgrim of `fromId` moves to `intoId`, the empty row is deleted and the moved pilgrims are
+ * priced from the surviving row's table (hand-typed prices stay). Used to clean up a hotel that was entered twice.
+ */
+export async function mergeTripHotels(user: SessionUser, tripId: string, fromId: string, intoId: string): Promise<{ ok: true; moved: number } | { ok: false; error: string }> {
+  if (fromId === intoId) return { ok: false, error: "اختر صفّين مختلفين" };
+  return db.$transaction(async (tx) => {
+    const [from, into] = await Promise.all([tx.tripHotel.findFirst({ where: { id: fromId, tripId }, include: { hotel: true } }), tx.tripHotel.findFirst({ where: { id: intoId, tripId }, include: { hotel: true } })]);
+    if (!from || !into) return { ok: false, error: "الفندق غير موجود في هذه الرحلة" } as const;
+    const moved = await tx.booking.updateMany({ where: { tripHotelId: fromId }, data: { tripHotelId: intoId } });
+    await tx.officeRoom.updateMany({ where: { tripHotelId: fromId }, data: { tripHotelId: intoId } });
+    await tx.tripHotel.delete({ where: { id: fromId } });
+    const bookings = await tx.booking.findMany({ where: { tripHotelId: intoId, status: "ACTIVE", deletedAt: null }, select: { id: true } });
+    for (const b of bookings) await repriceBooking(tx, user, b.id);
+    await tx.auditLog.create({ data: { userId: user.id, userName: user.name, entity: "TripHotels", entityId: tripId, field: "merge", oldValue: from.hotel.localName ?? from.hotel.officialName, newValue: `${into.hotel.localName ?? into.hotel.officialName} (${moved.count} معتمر)` } });
+    return { ok: true, moved: moved.count } as const;
   });
 }

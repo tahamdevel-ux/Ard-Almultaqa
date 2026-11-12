@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/server/db";
 import { requirePage, requirePermission } from "@/server/auth";
 import { can } from "@/lib/permissions";
@@ -13,6 +14,10 @@ async function saveHotel(form: FormData) {
   const data = { officialName: s("officialName"), localName: s("localName") || null, city: s("city") === "MADINAH" ? "MADINAH" as const : "MAKKAH" as const,
     address: s("address") || null, licenseNo: s("licenseNo") || null, mealsIncluded: form.get("mealsIncluded") === "on" };
   const id = s("id");
+  // the same hotel twice would give two price rows with the same name and different prices
+  const norm = (v: string | null | undefined) => (v ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  const others = await db.hotel.findMany({ where: { deletedAt: null, city: data.city, ...(id ? { NOT: { id } } : {}) }, select: { officialName: true, localName: true } });
+  if (others.some((o) => norm(o.officialName) === norm(data.officialName) || (data.localName && norm(o.localName) === norm(data.localName)))) redirect(`/hotels?dup=${encodeURIComponent(data.localName ?? data.officialName)}`);
   if (id) await db.hotel.update({ where: { id }, data }); else await db.hotel.create({ data });
   revalidatePath("/hotels");
 }
@@ -23,14 +28,15 @@ async function deleteHotel(id: string) {
   revalidatePath("/hotels");
 }
 
-export default async function HotelsPage({ searchParams }: { searchParams: Promise<{ edit?: string }> }) {
+export default async function HotelsPage({ searchParams }: { searchParams: Promise<{ edit?: string; dup?: string }> }) {
   const user = await requirePage("hotels.view");
-  const { edit } = await searchParams;
+  const { edit, dup } = await searchParams;
   const hotels = await db.hotel.findMany({ where: { deletedAt: null }, orderBy: [{ city: "asc" }, { officialName: "asc" }] });
   const cur = hotels.find((h) => h.id === edit);
   const w = can(user.role, "hotels.write");
   return (
     <div className="space-y-4">
+      {dup && <p role="alert" className="alert-bad">الفندق «{dup}» موجود مسبقاً في هذه المدينة — عدّل الفندق الموجود بدل إضافة نسخة ثانية.</p>}
       <h1 className="page-title">الفنادق</h1>
       {w && (
         <form action={saveHotel} className="card grid gap-3 sm:grid-cols-3" key={cur?.id ?? "new"}>

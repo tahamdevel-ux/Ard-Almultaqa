@@ -3,7 +3,8 @@ import { db } from "./db";
 import { applyAccommodation } from "./accommodation";
 import { addPilgrimToTrips } from "./bookings";
 import { setBookingPrice } from "./payments";
-import { auditTripPrices, recalcTripPrices, saveTripHotels } from "./tripHotels";
+import { addPayment } from "./payments";
+import { auditTripPrices, mergeTripHotels, recalcTripPrices, saveTripHotels } from "./tripHotels";
 import { agentStatementData } from "@/outputs/viewmodels";
 
 const user = { id: "u1", username: "a", name: "مدير", role: "ADMIN" as const };
@@ -167,6 +168,58 @@ describe("prices come only from an explicit hotel", () => {
     expect((await db.booking.findUniqueOrThrow({ where: { id: m.id } })).priceAmount).toBe(777);
     expect((await db.booking.findUniqueOrThrow({ where: { id: c.id } })).priceAmount).toBeNull();
     expect(await auditTripPrices(t.id)).toMatchObject({ noPrice: 1, differs: 0 });
+  });
+});
+
+describe("price and payment audit, duplicate hotels", () => {
+  async function dupSetup() {
+    const a = await db.hotel.create({ data: { officialName: "Anwar Al Aseel", localName: "انوار الاصيل", city: "MAKKAH" } });
+    const b = await db.hotel.create({ data: { officialName: "Anwar Al Aseel 2", localName: "انوار  الاصيل", city: "MAKKAH" } }); // same name, extra space
+    const t = await db.trip.create({ data: { name: "جوية", transportType: "AIR", capacity: 20 } });
+    const ra = await db.tripHotel.create({ data: { tripId: t.id, hotelId: a.id } }); await db.tripHotelPrice.create({ data: { tripHotelId: ra.id, roomType: "DOUBLE", amount: 850 } });
+    const rb = await db.tripHotel.create({ data: { tripId: t.id, hotelId: b.id } }); await db.tripHotelPrice.create({ data: { tripHotelId: rb.id, roomType: "DOUBLE", amount: 550 } });
+    return { a, b, t, ra, rb };
+  }
+  it("saving a price table with the same hotel name twice is refused", async () => {
+    const a = await db.hotel.create({ data: { officialName: "Same", city: "MAKKAH" } });
+    const b = await db.hotel.create({ data: { officialName: " same ", city: "MAKKAH" } });
+    const t = await db.trip.create({ data: { name: "ر", transportType: "AIR", capacity: 5 } });
+    const r = await saveTripHotels(user, t.id, [{ hotelId: a.id, noHousingPrice: null, prices: { DOUBLE: 1 } }, { hotelId: b.id, noHousingPrice: null, prices: { DOUBLE: 2 } }], false);
+    expect(r.ok).toBe(false);
+  });
+  it("the audit shows the same hotel and room type with different prices, including a hand-typed one", async () => {
+    const { t, ra, rb } = await dupSetup();
+    const [p1, p2, p3] = [await book(t.id), await book(t.id), await book(t.id)];
+    await db.booking.update({ where: { id: p1.id }, data: { tripHotelId: ra.id, roomType: "DOUBLE", priceAmount: 850 } });
+    await db.booking.update({ where: { id: p2.id }, data: { tripHotelId: rb.id, roomType: "DOUBLE", priceAmount: 550 } });
+    await db.booking.update({ where: { id: p3.id }, data: { tripHotelId: ra.id, roomType: "DOUBLE", priceAmount: 5555, priceManual: true } });
+    const a = await auditTripPrices(t.id);
+    expect(a.duplicateHotels).toHaveLength(1);
+    expect(a.groups).toHaveLength(1);
+    expect(a.groups[0].entries.map((e) => `${e.base}${e.manual ? "m" : ""}`).sort()).toEqual(["550", "5555m", "850"]);
+  });
+  it("merging a duplicated hotel row moves the pilgrims, re-prices them from the kept row and keeps hand-typed prices", async () => {
+    const { t, ra, rb } = await dupSetup();
+    const [p1, p2, p3] = [await book(t.id), await book(t.id), await book(t.id)];
+    await db.booking.update({ where: { id: p1.id }, data: { tripHotelId: ra.id, roomType: "DOUBLE", priceAmount: 850 } });
+    await db.booking.update({ where: { id: p2.id }, data: { tripHotelId: rb.id, roomType: "DOUBLE", priceAmount: 550 } });
+    await db.booking.update({ where: { id: p3.id }, data: { tripHotelId: rb.id, roomType: "DOUBLE", priceAmount: 5555, priceManual: true } });
+    const r = await mergeTripHotels(user, t.id, rb.id, ra.id);
+    expect(r).toMatchObject({ ok: true, moved: 2 });
+    expect((await db.booking.findUniqueOrThrow({ where: { id: p2.id } })).priceAmount).toBe(850);
+    expect((await db.booking.findUniqueOrThrow({ where: { id: p3.id } })).priceAmount).toBe(5555); // typed by hand: left as it is
+    expect(await db.tripHotel.count({ where: { tripId: t.id } })).toBe(1);
+    expect((await auditTripPrices(t.id)).duplicateHotels).toHaveLength(0);
+  });
+  it("payments: a correct payment passes, a miscounted one is reported", async () => {
+    const t = await db.trip.create({ data: { name: "ر", transportType: "LAND", capacity: 5 } });
+    const b = await book(t.id);
+    await db.booking.update({ where: { id: b.id }, data: { priceAmount: 850 } });
+    expect((await addPayment(user, b.id, { kind: "PAYMENT", amount: 1190000, currency: "IQD", rate: 1400, method: "CASH", paidAt: new Date("2026-11-01T00:00:00Z") })).ok).toBe(true);
+    expect((await auditTripPrices(t.id)).badPayments).toBe(0);
+    expect(Number((await db.payment.findFirstOrThrow({ where: { bookingId: b.id } })).credited)).toBe(850);
+    await db.payment.updateMany({ where: { bookingId: b.id }, data: { credited: 550 } }); // a corrupted value
+    expect((await auditTripPrices(t.id)).badPayments).toBe(1);
   });
 });
 

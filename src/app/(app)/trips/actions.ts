@@ -12,7 +12,7 @@ import { busRoleConflict, moveBookingsToBus } from "@/server/buses";
 import { freeOfficeBeds, gatherGroupInOfficeRooms } from "@/officeRooms/service";
 import { applyAccommodation, accommodationFromForm, type Accommodation } from "@/server/accommodation";
 import { setTransport } from "@/server/transport";
-import { recalcTripPrices, saveTripHotels, type TripHotelInput } from "@/server/tripHotels";
+import { mergeTripHotels, recalcTripPrices, saveTripHotels, type TripHotelInput } from "@/server/tripHotels";
 import { getSetting } from "@/server/settings";
 import { parseDate } from "@/domain/dates";
 import { parseTripIdentity } from "@/domain/tripFields";
@@ -416,5 +416,15 @@ export async function recalcPrices(tripId: string, _p: TripActionState, _f: Form
     touch(tripId);
     const left = [r.skippedManual && `${r.skippedManual} بسعر يدوي (لم يُمسّ)`, r.noHotel && `${r.noHotel} بلا فندق مكة`, r.noRoomType && `${r.noRoomType} بلا نوع غرفة`, r.noTablePrice && `${r.noTablePrice} لا سعر لهم في الجدول`].filter(Boolean);
     return { ok: true, warning: `تم: ${r.updated} سعر تغيّر، ${r.unchanged} بلا تغيير.${left.length ? " تبقّى: " + left.join("، ") + "." : ""}` };
+  });
+}
+
+/** Merges two hotel rows of the trip (a hotel entered twice): pilgrims move to the kept row and are re-priced from it. */
+export async function mergeHotelRows(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  return guarded("prices.write", async (u) => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
+    const r = await mergeTripHotels(u, tripId, s(f, "from"), s(f, "into"));
+    if (!r.ok) return { error: r.error };
+    touch(tripId); return { ok: true, warning: `تم الدمج: نُقل ${r.moved} معتمر وأُعيد حساب أسعارهم من الصف المُبقى.` };
   });
 }
