@@ -34,7 +34,8 @@ test("trips list: edit and delete from the list; pilgrims list is grouped by tri
   // edit from the trips list
   await page.goto("/trips");
   const row = page.locator("tr", { hasText: name });
-  await row.getByRole("link", { name: "تعديل" }).click();
+  await row.getByRole("button", { name: /^إجراءات/ }).click();
+  await page.getByRole("link", { name: "تعديل الرحلة" }).click();
   await page.fill("[name=name]", `${name} معدّلة`);
   await page.fill("[name=capacity]", "55");
   await page.click("button:has-text('حفظ التعديلات')");
@@ -44,7 +45,8 @@ test("trips list: edit and delete from the list; pilgrims list is grouped by tri
 
   // delete (confirm dialog) — allowed even with pilgrims
   page.once("dialog", (d) => d.accept());
-  await page.locator("tr", { hasText: `${name} معدّلة` }).getByRole("button", { name: "حذف" }).click();
+  await page.locator("tr", { hasText: `${name} معدّلة` }).getByRole("button", { name: /^إجراءات/ }).click();
+  await page.getByRole("button", { name: "حذف", exact: true }).click();
   await expect(page.locator("tr", { hasText: `${name} معدّلة` })).toHaveCount(0, { timeout: 10000 });
   // the pilgrim is still registered but no longer on that trip
   await page.goto("/pilgrims?q=A10000137");
@@ -98,7 +100,7 @@ test("accommodation with hotel and room, family head and family account", async 
   await page.goto(tripUrl);
   const rowHead = page.locator("tbody tr", { hasText: `A${RUN}1` }), rowMember = page.locator("tbody tr", { hasText: `A${RUN}2` });
   for (const row of [rowHead, rowMember]) { // room type on both so each has the trip's price
-    await row.locator("details summary").click();
+    await row.getByText("تعديل التسكين").click();
     await row.locator("select[name=roomType]").selectOption("QUAD");
     await row.getByRole("button", { name: "حفظ التسكين" }).click();
     await expect(row.getByText("تم", { exact: true })).toBeVisible();
@@ -106,7 +108,6 @@ test("accommodation with hotel and room, family head and family account", async 
   await page.reload();
   await rowHead.locator("input[name=bookingIds]").check();
   await rowMember.locator("input[name=bookingIds]").check();
-  await rowHead.locator("input[name=headBookingId]").check();
   await page.selectOption("select[name=kind]", "FAMILY");
   await page.click("button:has-text('اجعل المحددين مجموعة واحدة')");
   await expect(page.locator(".chip", { hasText: "رب الأسرة" }).first()).toBeVisible();

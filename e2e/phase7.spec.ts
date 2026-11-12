@@ -179,6 +179,7 @@ test("archive a trip (hidden from lists and pickers, read-only) and search insid
   // archive: hidden everywhere, shown in the archive, read-only
   page.once("dialog", (d) => d.accept());
   await page.goto(tripUrl);
+  await page.getByRole("button", { name: "إجراءات الرحلة" }).click();
   await page.getByRole("button", { name: "أرشفة الرحلة" }).click();
   await page.waitForURL(/\/trips$/);
   await expect(page.locator("tr", { hasText: tripName })).toHaveCount(0);
@@ -191,6 +192,7 @@ test("archive a trip (hidden from lists and pickers, read-only) and search insid
   await expect(page.getByRole("button", { name: "إضافة معتمر" })).toHaveCount(0);
   // unarchive (admin)
   await page.goto(tripUrl);
+  await page.getByRole("button", { name: "إجراءات الرحلة" }).click();
   await page.getByRole("button", { name: "إلغاء الأرشفة" }).click();
   await page.waitForURL(new RegExp(`/trips/${tripId}$`));
   await page.goto("/trips");
@@ -199,5 +201,6 @@ test("archive a trip (hidden from lists and pickers, read-only) and search insid
   await page.context().clearCookies();
   await login(page, "acc");
   await page.goto(tripUrl);
+  await page.getByRole("button", { name: "إجراءات الرحلة" }).click();
   await expect(page.getByRole("button", { name: "أرشفة الرحلة" })).toBeVisible();
 });

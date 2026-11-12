@@ -18,6 +18,10 @@ import { seatsLabel, vacancyLabel } from "@/domain/labels";
 import { TransportCell } from "@/components/TransportCell";
 import { effectiveMode, transportText } from "@/domain/transport";
 import { ConfirmForm } from "@/components/ConfirmForm";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { RowMenu } from "@/components/RowMenu";
+import { Icon } from "@/components/icons";
+import { Bar, EmptyState } from "@/components/charts";
 import { TripTabs } from "@/components/TripTabs";
 import { HotelPricesForm, TripExtrasForm, type HotelRow } from "@/components/TripPricingForms";
 import { auditTripPrices, loadTripHotels } from "@/server/tripHotels";
@@ -76,107 +80,168 @@ export default async function TripPage({ params, searchParams }: { params: Promi
     return tokens.every((t) => hay.includes(t));
   });
 
+  const STATUS_CHIP = { OPEN: "chip-ok", FULL: "chip-warn", TRAVELLING: "chip-gray", RETURNED: "chip-gray", CANCELLED: "chip-bad" } as const;
+  const seats = seatsLabel(counter.registered, counter.capacity);
+  const owed = money ? Math.round(rows.reduce((n, r) => n + Math.max(0, balance(r.booking.priceAmount, r.booking.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) ?? 0), 0)) : 0;
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h1 className="page-title">{tripLabel(trip)}{archived && <span className="chip chip-gray ms-2 align-middle">مؤرشفة</span>}</h1>
-          <p className="text-sm text-brand-mid">{TRANSPORT_LABELS[trip.transportType]} · {dateRangeLabel(trip.departDate, trip.returnDate)} · {TRIP_STATUS_LABELS[trip.status]}{trip.supervisor && ` · المشرف: ${trip.supervisor.name}`}</p>
+      <Breadcrumbs items={[{ label: "الرحلات", href: "/trips" }, { label: trip.tripNo ?? trip.name }]} />
+
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-brand-light text-brand"><Icon name={trip.transportType === "AIR" ? "plane" : "bus"} size={24} /></span>
+          <div className="min-w-0">
+            <h1 className="page-title">{trip.name}{archived && <span className="chip chip-gray ms-2 align-middle">مؤرشفة</span>}</h1>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+              {trip.tripNo && <span className="chip chip-gray" dir="ltr">{trip.tripNo}</span>}
+              <span className="chip chip-gray">{TRANSPORT_LABELS[trip.transportType]}</span>
+              <span className={"chip " + STATUS_CHIP[trip.status]}>{TRIP_STATUS_LABELS[trip.status]}</span>
+              <span className="text-brand-mid">{dateRangeLabel(trip.departDate, trip.returnDate)}</span>
+              {trip.supervisor && <span className="text-brand-mid">· المشرف: {trip.supervisor.name}</span>}
+            </div>
+          </div>
         </div>
-      </div>
+        <div className="flex items-center gap-2">
+          {bw && <AddPilgrimDialog tripId={trip.id} hotels={hotelOpts} tables={money ? priceTables : undefined} sarfAmount={trip.sarfAmount} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} defaults={{ makkahHotelId: trip.makkahHotelId ?? "", madinahHotelId: trip.madinahHotelId ?? "" }} />}
+          <RowMenu label="إجراءات الرحلة">
+            {w && <Link className="menu-item" href={`/trips/${trip.id}/edit`}>تعديل الرحلة</Link>}
+            {can(user.role, "outputs.view") && <Link className="menu-item" href={`/trips/${trip.id}/prints`}>المطبوعات</Link>}
+            {can(user.role, "programs.write") && <form action={saveAsProgram.bind(null, trip.id)}><button className="menu-item">حفظ كقالب</button></form>}
+            <TripArchiveButton tripId={trip.id} name={trip.name} archived={archived} canArchive={can(user.role, "trips.archive")} canUnarchive={can(user.role, "trips.unarchive")} menuItem />
+          </RowMenu>
+        </div>
+      </header>
+
       <TripTabs tripId={trip.id} active="details" land={trip.transportType === "LAND"} rooming={can(user.role, "officeRooms.view")} prints={can(user.role, "outputs.view")} />
 
       {archived && <p className="alert-warn">هذه رحلة مؤرشفة: للعرض والطباعة فقط. لا يمكن التعديل عليها.</p>}
-      <div className="flex flex-wrap gap-2"><TripArchiveButton tripId={trip.id} name={trip.name} archived={archived} canArchive={can(user.role, "trips.archive")} canUnarchive={can(user.role, "trips.unarchive")} /></div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {[["المسجّلون", seatsLabel(counter.registered, counter.capacity).text, "chip-" + ({ ok: "ok", bad: "bad", warn: "warn" } as const)[seatsLabel(counter.registered, counter.capacity).tone]], ["الجاهزون", String(counter.ready), "chip-ok"], ["الشواغر", vacancyLabel(counter.registered, counter.capacity), "chip-gray"]].map(([l, v, c]) => (
-          <div key={l} className="card text-center"><div className="text-xs text-brand-mid">{l}</div><div className={"chip mt-1 text-base " + c}>{v}</div></div>
-        ))}
-      </div>
+
+      <section className="card grid grid-cols-2 divide-x-reverse divide-line p-0 sm:grid-cols-4 sm:divide-x" aria-label="ملخص الرحلة">
+        <div className="p-4">
+          <div className="text-xs font-bold text-brand-mid">المسجّلون</div>
+          <div className="mt-1 text-xl font-bold">{counter.registered}{counter.capacity > 0 && <span className="text-sm font-normal text-brand-mid"> من {counter.capacity}</span>}</div>
+          {counter.capacity > 0 ? <div className="mt-2"><Bar value={counter.registered} max={counter.capacity} tone={counter.over ? "red" : "brand"} /></div> : <span className="chip chip-warn mt-2">{seats.text}</span>}
+        </div>
+        <div className="p-4"><div className="text-xs font-bold text-brand-mid">جاهزون للسفر</div><div className="mt-1 text-xl font-bold text-emerald-800">{counter.ready}<span className="text-sm font-normal text-brand-mid"> من {counter.registered}</span></div></div>
+        <div className="p-4"><div className="text-xs font-bold text-brand-mid">الشواغر</div><div className="mt-1 text-xl font-bold">{vacancyLabel(counter.registered, counter.capacity)}</div></div>
+        {money && <div className="p-4"><div className="text-xs font-bold text-brand-mid">المتبقي على المعتمرين</div><div className={"mt-1 text-xl font-bold " + (owed > 0 ? "text-red-700" : "text-emerald-800")}>{formatMoney(owed, "USD")}</div></div>}
+      </section>
       {counter.over && counter.capacity > 0 && <p className="alert-bad">⚠ عدد المسجلين تجاوز السعة القصوى للرحلة بـ {counter.registered - counter.capacity}</p>}
       {counter.capacity <= 0 && <p className="alert-warn">لم تُحدَّد سعة لهذه الرحلة — حدّدها من «تعديل الرحلة» ليظهر عدد الشواغر.</p>}
 
       {money && <RecalcPrices action={recalcPrices.bind(null, trip.id)} audit={priceAudit} canEdit={pw} />}
 
       <form id="groupform" action={createCompanionGroup.bind(null, trip.id)} />
-      <section className="card overflow-x-auto p-0">
-        <div className="flex flex-wrap items-center justify-between gap-2 p-3">
-          <div className="flex flex-1 flex-wrap items-center gap-3">
-          <h2 className="font-bold">المعتمرون ({shownRows.length}{shownRows.length !== rows.length ? ` من ${rows.length}` : ""})</h2>
-          <TripSearch placeholder="بحث: اسم، أم، جواز، هاتف، وكيل، فندق، غرفة المكتب" />
-          {seeNotes && <a className={"rounded-lg border px-3 py-1.5 text-sm font-bold " + (sp.notes === "1" ? "bg-brand text-white" : "bg-white border-line text-brand-dark")} href={`?${new URLSearchParams({ ...(sp.q ? { q: sp.q } : {}), ...(sp.notes === "1" ? {} : { notes: "1" }) })}`}>لديهم ملاحظات</a>}
-          </div>
-          {bw && <AddPilgrimDialog tripId={trip.id} hotels={hotelOpts} tables={money ? priceTables : undefined} sarfAmount={trip.sarfAmount} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} defaults={{ makkahHotelId: trip.makkahHotelId ?? "", madinahHotelId: trip.madinahHotelId ?? "" }} />}
+      <section className="card p-0">
+        <div className="flex flex-wrap items-center gap-3 border-b border-line p-3">
+          <h2 className="text-base font-bold">المعتمرون <span className="font-normal text-brand-mid">({shownRows.length}{shownRows.length !== rows.length ? ` من ${rows.length}` : ""})</span></h2>
+          <div className="min-w-[14rem] flex-1"><TripSearch placeholder="بحث: اسم، أم، جواز، هاتف، وكيل، فندق، غرفة المكتب" /></div>
+          {seeNotes && <Link className={"rounded-full border px-3.5 py-1.5 text-sm font-bold " + (sp.notes === "1" ? "border-brand bg-brand text-white" : "border-line bg-white text-brand-dark hover:bg-canvas")} href={`?${new URLSearchParams({ ...(sp.q ? { q: sp.q } : {}), ...(sp.notes === "1" ? {} : { notes: "1" }) })}`}>لديهم ملاحظات</Link>}
           {bw && (
-            <div className="flex items-center gap-2 text-sm">
-              <select form="groupform" name="kind" className="input w-auto"><option value="COMPANIONS">عصبة</option><option value="FAMILY">عائلة (اختر رب الأسرة بالدائرة)</option></select>
-              <button form="groupform" className="btn-secondary">اجعل المحددين مجموعة واحدة</button>
+            <div className="flex items-center gap-2 rounded-xl bg-canvas px-2 py-1.5 text-sm" title="علّم المعتمرين في العمود الأول ثم اجمعهم">
+              <span className="font-bold text-brand-mid">تجميع المحددين:</span>
+              <select form="groupform" name="kind" aria-label="نوع المجموعة" className="input w-auto py-1"><option value="COMPANIONS">عصبة</option><option value="FAMILY">عائلة (الأول رب الأسرة)</option></select>
+              <button form="groupform" className="btn-secondary btn-sm">اجمع</button>
             </div>
           )}
         </div>
-        <table className="w-full">
-          <thead><tr><th className="th" />{["الاسم", "الجواز", "الوكيل", ...(seeNotes ? ["ملاحظات"] : []), "المجموعة", "التسكين", "النقل", ...(money ? ["السعر", "المتبقي"] : []), "تنبيهات", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
-          <tbody>
-            {shownRows.map((r) => {
-              const b = r.booking, gid = groupOf(r);
-              return (
-                <tr key={b.id} data-href={`/pilgrims/${b.pilgrimId}`}>
-                  <td className="td">{bw && <><input form="groupform" type="checkbox" name="bookingIds" value={b.id} aria-label="تحديد" /><label className="mt-1 flex items-center gap-1 text-[11px] text-brand-mid"><input form="groupform" type="radio" name="headBookingId" value={b.id} aria-label="رب الأسرة" />رب</label></>}</td>
-                  <td className="td"><Link className="font-bold underline" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link>{gid && groups.get(gid)?.head === b.id && groups.get(gid)?.kind === "FAMILY" && <HeadTag />}{b.tripRole && <span className="chip chip-warn ms-2">{TRIP_ROLE_LABELS[b.tripRole]}</span>}</td>
-                  <td className="td ltr">{b.pilgrim.passportNo}</td>
-                  <td className="td">{b.agent?.name ?? "—"}</td>
-                  {seeNotes && <td className="td">{(b.pilgrim.healthNotes ?? "").trim() ? <span title={b.pilgrim.healthNotes ?? ""} aria-label={`ملاحظة: ${b.pilgrim.healthNotes}`} tabIndex={0} role="img" className="cursor-help text-base">📝</span> : ""}</td>}
-                  <td className="td space-y-1">{gid ? (
-                    <>
-                      <span className="chip chip-gray">{groups.get(gid)!.kind === "COMPANIONS" ? "عصبة" : "عائلة"} ({groups.get(gid)!.members.length})</span>
-                      {groups.get(gid)!.kind === "FAMILY" && groups.get(gid)!.head !== b.id && groups.get(gid)!.headName && <div className="text-xs text-brand-mid">تابع لـ {groups.get(gid)!.headName}</div>}
-                      {groups.get(gid)!.kind === "FAMILY" && (groups.get(gid)!.head === b.id
-                        ? <div><span className="chip chip-ok">رب الأسرة</span>{money && <> <Link className="text-xs underline" href={`/families/${gid}`}>حساب الأسرة</Link></>}</div>
-                        : bw && <form action={setFamilyHead.bind(null, trip.id, gid, b.id)}><button className="text-xs underline">اجعله رب الأسرة</button></form>)}
-                    </>
-                  ) : ""}</td>
-
-                  <td className="td">
-                    {(() => {
-                      const roomOf = (c: "MAKKAH" | "MADINAH") => b.rooms.find((x) => x.city === c)?.room;
-                      const mkR = roomOf("MAKKAH"), mdR = roomOf("MADINAH");
-                      const nm = (h?: { localName: string | null; officialName: string } | null) => (h ? h.localName ?? h.officialName : "");
-                      const summary = [mkR && `مكة: ${nm(mkR.hotel)} / ${mkR.roomNo}`, mdR && `المدينة: ${nm(mdR.hotel)} / ${mdR.roomNo}`, b.noHousing ? "بدون سكن" : b.roomType && ROOM_TYPE_LABELS[b.roomType as keyof typeof ROOM_TYPE_LABELS], b.tripHotelId && `فندق مكة: ${hotelName(tripHotels.find((h) => h.id === b.tripHotelId)?.hotel)}`, !b.withFood && "بدون طعام", b.officeMember && `غرفة ${b.officeMember.officeRoom.code ?? ""}${b.officeMember.officeRoom.seq}`].filter(Boolean).join(" · ");
-                      return accWrite ? (
-                        <AccommodationEditor action={setAccommodation.bind(null, trip.id, b.id)} hotels={hotelOpts} tables={money ? priceTables : undefined} sarfAmount={trip.sarfAmount} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} summary={summary}
+        <div className="overflow-x-auto md:overflow-visible">
+          <table className="rt w-full">
+            <thead><tr>
+              <th className="th w-10"><span className="sr-only">تحديد</span></th><th className="th">المعتمر</th><th className="th">المجموعة</th><th className="th">التسكين</th><th className="th">النقل</th>{money && <th className="th">السعر / المتبقي</th>}<th className="th w-24">تنبيهات</th><th className="th w-12"><span className="sr-only">إجراءات</span></th>
+            </tr></thead>
+            <tbody>
+              {shownRows.map((r) => {
+                const b = r.booking, gid = groupOf(r);
+                const grp = gid ? groups.get(gid) : undefined;
+                const roomOf = (c: "MAKKAH" | "MADINAH") => b.rooms.find((x) => x.city === c)?.room;
+                const mkR = roomOf("MAKKAH"), mdR = roomOf("MADINAH");
+                const nm = (h?: { localName: string | null; officialName: string } | null) => (h ? h.localName ?? h.officialName : "");
+                const hotel = b.tripHotelId ? hotelName(tripHotels.find((h) => h.id === b.tripHotelId)?.hotel) : "";
+                const typeLabel = b.noHousing ? "بدون سكن" : b.roomType ? ROOM_TYPE_LABELS[b.roomType as keyof typeof ROOM_TYPE_LABELS] : "";
+                const accSummary = (
+                  <>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {hotel && <span className="font-bold">{hotel}</span>}
+                      {typeLabel && <span className={"chip " + (b.noHousing ? "chip-warn" : "chip-gray")}>{typeLabel}</span>}
+                      {!hotel && !typeLabel && <span className="text-brand-mid">لم يُحدَّد</span>}
+                    </div>
+                    <div className="mt-0.5 text-xs text-brand-mid">
+                      {[mkR && `مكة: ${nm(mkR.hotel)} / ${mkR.roomNo}`, mdR && `المدينة: ${nm(mdR.hotel)} / ${mdR.roomNo}`, !b.withFood && "بدون طعام", b.officeMember && `غرفة ${b.officeMember.officeRoom.code ?? ""}${b.officeMember.officeRoom.seq}`].filter(Boolean).join(" · ")}
+                    </div>
+                  </>
+                );
+                const bal = money ? balance(b.priceAmount, b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) : null;
+                return (
+                  <tr key={b.id} data-href={`/pilgrims/${b.pilgrimId}`}>
+                    <td className="td">{bw && <input form="groupform" type="checkbox" name="bookingIds" value={b.id} aria-label={`تحديد ${fullNameAr(b.pilgrim)}`} className="h-4 w-4" />}</td>
+                    <td className="td">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Link className="font-bold text-ink hover:text-brand" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link>
+                        {grp && grp.kind === "FAMILY" && grp.head === b.id && <HeadTag />}
+                        {b.tripRole && <span className="chip chip-warn">{TRIP_ROLE_LABELS[b.tripRole]}</span>}
+                        {seeNotes && (b.pilgrim.healthNotes ?? "").trim() && <span title={b.pilgrim.healthNotes ?? ""} aria-label={`ملاحظة: ${b.pilgrim.healthNotes}`} tabIndex={0} role="img" className="cursor-help text-base">📝</span>}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-brand-mid"><span dir="ltr">{b.pilgrim.passportNo}</span>{b.agent && <span>· {b.agent.name}</span>}</div>
+                    </td>
+                    <td className="td text-sm">
+                      {grp ? (
+                        <div className="space-y-1">
+                          <span className="chip chip-gray">{grp.kind === "COMPANIONS" ? "عصبة" : "عائلة"} ({grp.members.length})</span>
+                          {grp.kind === "FAMILY" && grp.head !== b.id && grp.headName && <div className="text-xs text-brand-mid">تابع لـ {grp.headName}</div>}
+                          {grp.kind === "FAMILY" && grp.head === b.id && money && <div><Link className="text-xs font-bold text-brand underline" href={`/families/${gid}`}>حساب الأسرة</Link></div>}
+                          {grp.kind === "FAMILY" && grp.head !== b.id && bw && <form action={setFamilyHead.bind(null, trip.id, gid!, b.id)}><button className="btn-ghost btn-sm">اجعله رب الأسرة</button></form>}
+                        </div>
+                      ) : <span className="text-brand-mid">—</span>}
+                    </td>
+                    <td className="td">
+                      {accWrite ? (
+                        <AccommodationEditor action={setAccommodation.bind(null, trip.id, b.id)} hotels={hotelOpts} tables={money ? priceTables : undefined} sarfAmount={trip.sarfAmount} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} summary={accSummary}
                           values={{ makkahHotelId: b.tripHotelId ? tripHotels.find((h) => h.id === b.tripHotelId)?.hotelId ?? "" : b.makkahHotelId ?? "", madinahHotelId: "", roomType: b.roomType ?? "", makkahRoomNo: "", madinahRoomNo: "", housing: b.noHousing ? "NO" : "", food: b.withFood ? "1" : "0", sarf: b.sarfByPilgrim ? "PILGRIM" : "COMPANY", tripRole: b.tripRole ?? "", officeRoom: b.officeMember ? `${b.officeMember.officeRoom.code ?? ""}${b.officeMember.officeRoom.seq}` : "" }} />
-                      ) : <span className="text-sm">{summary}</span>;
-                    })()}
-                  </td>
-
-                  <td className="td">
-                    <TransportCell action={saveTransport.bind(null, trip.id, b.id)} canEdit={sw} mode={effectiveMode(b.transport, trip.transportType)} carId={b.seat?.carId ?? ""} flightId={b.seat?.flightId ?? ""}
-                      opts={{ cars: trip.cars.map((c) => ({ id: c.id, label: c.label })), flights: trip.flights.map((f) => ({ id: f.id, label: `رحلة ${f.flightNo}` })), seatText: b.seat?.bus ? transportText("BUS", b.seat) : null, busHref: b.seat?.bus ? `/trips/${trip.id}/bus/${b.seat.bus.id}` : null }} />
-                  </td>
-                  {money && (() => {
-                    const bal = balance(b.priceAmount, b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) })));
-                    return (<>
-                      <td className="td">{b.priceAmount == null ? <span className="chip chip-warn">بلا سعر</span> : formatMoney(b.priceAmount, b.priceCurrency)}{(() => {
-                        if (b.priceAmount == null) return null;
-                        if (b.priceManual) return <span className="chip chip-gray ms-1" title="سعر مكتوب يدوياً">يدوي</span>;
-                        const th = tripHotels.find((h) => h.id === b.tripHotelId);
-                        if (!th) return null;
-                        const rr = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: (b.roomType as never) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: trip.sarfAmount });
-                        return rr.ok && rr.amount !== b.priceAmount ? <span className="chip chip-warn ms-1" title={`جدول الفندق يعطي ${formatMoney(rr.amount, "USD")}`}>≠ الجدول</span> : null;
-                      })()}</td>
-                      <td className="td"><Link className={"underline " + ((bal ?? 0) > 0 ? "text-red-700 font-bold" : "")} href={`/bookings/${b.id}`}>{bal == null ? "الحساب" : formatMoney(bal, b.priceCurrency)}</Link></td>
-                    </>);
-                  })()}
-                  <td className="td space-y-0.5 text-xs text-amber-800">{r.warnings.map((x) => <div key={x}>⚠ {x}</div>)}</td>
-                  <td className="td">
-                    {gid && bw && <ConfirmForm action={dissolveGroup.bind(null, trip.id, gid)} message="فك هذه المجموعة؟ يبقى المعتمرون في الرحلة لكنهم لن يكونوا أسرة/عصبة."><button className="text-xs underline">فك المجموعة</button></ConfirmForm>}
-                    {bw && <ConfirmForm action={removeBooking.bind(null, trip.id, b.id)} message={`إزالة ${fullNameAr(b.pilgrim)} من هذه الرحلة؟ يُلغى حجزه وتُحرَّر غرفته ومقعده.`}><button className="text-xs font-bold text-red-700 underline">إزالة</button></ConfirmForm>}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      ) : <div className="text-sm">{accSummary}</div>}
+                    </td>
+                    <td className="td">
+                      <TransportCell action={saveTransport.bind(null, trip.id, b.id)} canEdit={sw} mode={effectiveMode(b.transport, trip.transportType)} carId={b.seat?.carId ?? ""} flightId={b.seat?.flightId ?? ""}
+                        opts={{ cars: trip.cars.map((c) => ({ id: c.id, label: c.label })), flights: trip.flights.map((f) => ({ id: f.id, label: `رحلة ${f.flightNo}` })), seatText: b.seat?.bus ? transportText("BUS", b.seat) : null, busHref: b.seat?.bus ? `/trips/${trip.id}/bus/${b.seat.bus.id}` : null }} />
+                    </td>
+                    {money && (
+                      <td className="td">
+                        {b.priceAmount == null ? <span className="chip chip-warn">بلا سعر</span> : (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-bold">{formatMoney(b.priceAmount, b.priceCurrency)}</span>
+                            {(() => {
+                              if (b.priceManual) return <span className="chip chip-gray" title="سعر مكتوب يدوياً">يدوي</span>;
+                              const th = tripHotels.find((h) => h.id === b.tripHotelId);
+                              if (!th) return null;
+                              const rr = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: (b.roomType as never) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: trip.sarfAmount });
+                              return rr.ok && rr.amount !== b.priceAmount ? <span className="chip chip-warn" title={`جدول الفندق يعطي ${formatMoney(rr.amount, "USD")}`}>≠ الجدول</span> : null;
+                            })()}
+                          </div>
+                        )}
+                        <div className="mt-0.5 text-xs"><Link className={"underline " + ((bal ?? 0) > 0 ? "font-bold text-red-700" : "text-brand-mid")} href={`/bookings/${b.id}`}>{bal == null ? "فتح الحساب" : (bal ?? 0) > 0 ? `متبقٍ ${formatMoney(bal, b.priceCurrency)}` : "مسدّد"}</Link></div>
+                      </td>
+                    )}
+                    <td className="td">
+                      {r.warnings.length > 0 && (
+                        <span className="chip chip-warn cursor-help" tabIndex={0} title={r.warnings.join("\n")} aria-label={r.warnings.join("، ")}>⚠ {r.warnings.length}</span>
+                      )}
+                    </td>
+                    <td className="td text-end">
+                      <RowMenu label={`إجراءات ${fullNameAr(b.pilgrim)}`}>
+                        <Link className="menu-item" href={`/pilgrims/${b.pilgrimId}`}>ملف المعتمر</Link>
+                        {money && <Link className="menu-item" href={`/bookings/${b.id}`}>حساب الحجز</Link>}
+                        {gid && bw && <ConfirmForm action={dissolveGroup.bind(null, trip.id, gid)} message="فك هذه المجموعة؟ يبقى المعتمرون في الرحلة لكنهم لن يكونوا أسرة/عصبة."><button className="menu-item">فك المجموعة</button></ConfirmForm>}
+                        {bw && <ConfirmForm action={removeBooking.bind(null, trip.id, b.id)} message={`إزالة ${fullNameAr(b.pilgrim)} من هذه الرحلة؟ يُلغى حجزه وتُحرَّر غرفته ومقعده.`}><button className="menu-item menu-item-danger">إزالة من الرحلة</button></ConfirmForm>}
+                      </RowMenu>
+                    </td>
+                  </tr>
+                );
+              })}
+              {shownRows.length === 0 && <tr><td colSpan={8}><EmptyState icon={<Icon name="inbox" size={36} />} text={rows.length === 0 ? "لا يوجد معتمرون في هذه الرحلة بعد — اضغط «إضافة معتمر»" : "لا توجد نتائج بهذا البحث"} /></td></tr>}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <section id="buses" className="card space-y-3">

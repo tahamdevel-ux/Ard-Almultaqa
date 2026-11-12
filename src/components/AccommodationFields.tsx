@@ -57,17 +57,22 @@ export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc"
 }
 
 /** Inline editor for an existing booking (trip page row). */
-export function AccommodationEditor({ action, hotels, values, summary, priced, air, tables, sarfAmount }: { priced?: PricedHotel[]; air?: boolean; tables?: PriceTables; sarfAmount?: number | null; action: (p: TripActionState, f: FormData) => Promise<TripActionState>; hotels: HotelOpt[]; values: AccValues; summary: string }) {
+export function AccommodationEditor({ action, hotels, values, summary, priced, air, tables, sarfAmount }: { priced?: PricedHotel[]; air?: boolean; tables?: PriceTables; sarfAmount?: number | null; action: (p: TripActionState, f: FormData) => Promise<TripActionState>; hotels: HotelOpt[]; values: AccValues; summary: React.ReactNode }) {
   const [st, fa, pending] = useActionState(action, {} as TripActionState);
   return (
-    <details className="text-sm">
-      <summary className="cursor-pointer">{summary || <span className="text-brand-mid">غير مسكّن</span>} <span className="text-xs underline">تعديل</span></summary>
-      <form action={fa} className="mt-2 w-72 space-y-2 rounded border border-line p-2">
-        <AccommodationFields hotels={hotels} priced={priced} air={air} tables={tables} sarfAmount={sarfAmount} values={values} idPrefix={"e" + values.roomType + values.makkahRoomNo + values.madinahRoomNo} />
-        <button className="btn py-1" disabled={pending}>حفظ التسكين</button>
-        {st.error && <p role="alert" className="text-xs font-bold text-red-700">{st.error}</p>}
-        {st.ok && <p role="status" className="text-xs font-bold text-emerald-800">تم</p>}
-      </form>
-    </details>
+    <div className="text-sm">
+      <div>{summary || <span className="text-brand-mid">غير مسكّن</span>}</div>
+      <details className="relative mt-1">
+        <summary className="btn-ghost btn-sm inline-flex cursor-pointer list-none">تعديل التسكين</summary>
+        <form action={fa} className="absolute end-0 z-30 mt-1 w-80 max-w-[85vw] space-y-3 rounded-xl border border-line bg-white p-3 shadow-xl">
+          <AccommodationFields hotels={hotels} priced={priced} air={air} tables={tables} sarfAmount={sarfAmount} values={values} idPrefix={"e" + values.roomType + values.makkahRoomNo + values.madinahRoomNo} />
+          <div className="flex items-center gap-2">
+            <button className="btn btn-sm" disabled={pending}>حفظ التسكين</button>
+            {st.error && <p role="alert" className="text-xs font-bold text-red-700">{st.error}</p>}
+            {st.ok && <p role="status" className="text-xs font-bold text-emerald-800">تم الحفظ</p>}
+          </div>
+        </form>
+      </details>
+    </div>
   );
 }

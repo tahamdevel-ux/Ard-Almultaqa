@@ -23,27 +23,34 @@ export function TransportCell({ action, mode, carId, flightId, opts, canEdit }: 
     : (flight?.label ?? "رحلة جوية");
   if (!canEdit) return <span className="text-sm">{summary}</span>;
   return (
-    <form action={fa} className="flex flex-col gap-1 text-sm">
-      <div className="flex items-center gap-1">
-        <select name="mode" aria-label="وسيلة النقل" value={m} onChange={(e) => setM(e.target.value as TransportMode)} className="input w-28 py-1">
-          {TRANSPORT_MODES.map((k) => <option key={k} value={k}>{MODE_LABELS[k]}</option>)}
-        </select>
-        {m === "CAR" && (
-          <select name="carId" aria-label="السيارة" defaultValue={carId} className="input w-28 py-1" required>
-            <option value="">{opts.cars.length ? "اختر السيارة" : "لا سيارات — أضف سيارة"}</option>
-            {opts.cars.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+    <div className="text-sm">
+      <div className="flex flex-wrap items-center gap-1.5"><span className="chip chip-gray">{MODE_LABELS[mode]}</span><span>{summary}</span></div>
+      <details className="relative mt-1">
+        <summary className="btn-ghost btn-sm inline-flex cursor-pointer list-none">تعديل النقل</summary>
+        <form action={fa} className="absolute end-0 z-30 mt-1 w-72 max-w-[85vw] space-y-2 rounded-xl border border-line bg-white p-3 shadow-xl">
+          <label className="label" htmlFor={"mode-" + (carId || flightId || mode)}>وسيلة النقل</label>
+          <select id={"mode-" + (carId || flightId || mode)} name="mode" aria-label="وسيلة النقل" value={m} onChange={(e) => setM(e.target.value as TransportMode)} className="input">
+            {TRANSPORT_MODES.map((k) => <option key={k} value={k}>{MODE_LABELS[k]}</option>)}
           </select>
-        )}
-        {m === "FLIGHT" && opts.flights.length > 0 && (
-          <select name="flightId" aria-label="الرحلة الجوية" defaultValue={flightId} className="input w-32 py-1">
-            <option value="">— الرحلة الجوية —</option>
-            {opts.flights.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
-          </select>
-        )}
-        <button className="btn-secondary py-1" disabled={pending || (m === mode && m === "BUS")}>حفظ</button>
-      </div>
-      <div className="text-xs text-brand-mid">{summary}</div>
-      {st.error && <span role="alert" className="text-xs font-bold text-red-700">{st.error}</span>}
-    </form>
+          {m === "CAR" && (
+            <select name="carId" aria-label="السيارة" defaultValue={carId} className="input" required>
+              <option value="">{opts.cars.length ? "اختر السيارة" : "لا سيارات — أضف سيارة"}</option>
+              {opts.cars.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </select>
+          )}
+          {m === "FLIGHT" && opts.flights.length > 0 && (
+            <select name="flightId" aria-label="الرحلة الجوية" defaultValue={flightId} className="input">
+              <option value="">— الرحلة الجوية —</option>
+              {opts.flights.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+            </select>
+          )}
+          <div className="flex items-center gap-2">
+            <button className="btn btn-sm" disabled={pending || (m === mode && m === "BUS")}>حفظ</button>
+            {st.error && <span role="alert" className="text-xs font-bold text-red-700">{st.error}</span>}
+            {st.ok && <span role="status" className="text-xs font-bold text-emerald-800">تم الحفظ</span>}
+          </div>
+        </form>
+      </details>
+    </div>
   );
 }

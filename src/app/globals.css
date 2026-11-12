@@ -13,10 +13,16 @@ input[dir="ltr"], .ltr { direction: ltr; text-align: left; unicode-bidi: plainte
 
 @layer components {
   .card { @apply bg-white rounded-xl2 shadow-card border border-line p-4; }
-  .btn { @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-white text-sm font-bold transition-colors hover:bg-brand-dark active:bg-brand-deeper disabled:opacity-50; }
+  .btn { @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-brand px-4 text-white text-sm font-bold transition-colors hover:bg-brand-dark active:bg-brand-deeper disabled:opacity-50; }
   .btn-gold { @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-gold-bright px-4 py-2 text-ink text-sm font-bold transition-colors hover:bg-gold active:bg-gold-dark disabled:opacity-50; }
-  .btn-secondary { @apply inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-4 py-2 text-sm font-bold text-ink transition-colors hover:bg-brand-light; }
-  .btn-danger { @apply inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-700 px-3 py-1.5 text-white text-sm font-bold hover:bg-red-800; }
+  .btn-secondary { @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-4 text-sm font-bold text-ink transition-colors hover:bg-brand-light disabled:opacity-50; }
+  .btn-ghost { @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-bold text-brand transition-colors hover:bg-brand-light disabled:opacity-50; }
+  .btn-sm { @apply min-h-8 px-3 text-xs; }
+  .icon-btn { @apply inline-grid h-9 w-9 place-items-center rounded-lg border border-transparent text-brand-dark transition-colors hover:border-line hover:bg-brand-light; }
+  .menu-panel { @apply absolute end-0 z-30 mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-line bg-white py-1 shadow-xl; }
+  .menu-item { @apply flex w-full items-center gap-2 px-3 py-2 text-start text-sm font-bold text-ink hover:bg-brand-light disabled:opacity-50; }
+  .menu-item-danger { @apply text-red-700 hover:bg-red-50; }
+  .btn-danger { @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-red-700 px-4 text-white text-sm font-bold hover:bg-red-800 disabled:opacity-50; }
   .input { @apply w-full rounded-lg border border-line bg-white px-3 py-2 text-sm transition-colors placeholder:text-gray-400 focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold/30; }
   .label { @apply mb-1 block text-xs font-bold text-brand-mid; }
   .th { @apply px-3 py-2.5 text-right text-xs font-bold text-brand-mid bg-canvas whitespace-nowrap; }

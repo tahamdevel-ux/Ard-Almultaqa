@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { RowMenu } from "@/components/RowMenu";
 import { archiveTrip, deleteTrip, unarchiveTrip } from "@/app/(app)/trips/actions";
 
 export function TripRowActions({ tripId, name, pilgrims, payments, archived, canWrite, canArchive, canUnarchive }: { tripId: string; name: string; pilgrims: number; payments: number; archived: boolean; canWrite: boolean; canArchive: boolean; canUnarchive: boolean }) {
@@ -20,12 +21,15 @@ export function TripRowActions({ tripId, name, pilgrims, payments, archived, can
   function unarchive() {
     start(async () => { const r = await unarchiveTrip(tripId); if (r.error) setErr(r.error); else router.refresh(); });
   }
+  if (!canWrite && !canArchive && !canUnarchive) return null;
   return (
-    <span className="flex items-center gap-3 text-sm">
-      {canWrite && <Link className="text-brand underline" href={`/trips/${tripId}/edit`}>تعديل</Link>}
-      {canArchive && !archived && <button type="button" className="text-brand-mid underline" disabled={pending} onClick={archive}>أرشفة</button>}
-      {canUnarchive && archived && <button type="button" className="text-brand underline" disabled={pending} onClick={unarchive}>إلغاء الأرشفة</button>}
-      {canWrite && <button type="button" className="text-red-700 underline" disabled={pending} onClick={remove}>حذف</button>}
+    <span className="inline-flex flex-col items-end">
+      <RowMenu label={`إجراءات ${name}`}>
+        {canWrite && <Link className="menu-item" href={`/trips/${tripId}/edit`}>تعديل الرحلة</Link>}
+        {canArchive && !archived && <button type="button" className="menu-item" disabled={pending} onClick={archive}>أرشفة</button>}
+        {canUnarchive && archived && <button type="button" className="menu-item" disabled={pending} onClick={unarchive}>إلغاء الأرشفة</button>}
+        {canWrite && <button type="button" className="menu-item menu-item-danger" disabled={pending} onClick={remove}>حذف</button>}
+      </RowMenu>
       {err && <span role="alert" className="text-xs font-bold text-red-700">{err}</span>}
     </span>
   );
