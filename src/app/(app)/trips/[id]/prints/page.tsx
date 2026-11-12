@@ -40,7 +40,7 @@ export default async function PrintsPage({ params }: { params: Promise<{ id: str
       {!land && (
         <Group title="جو">
           <Btn href={out("flight-list", "format=pdf")}>قائمة الطيران PDF</Btn><Btn href={out("flight-list", "format=xlsx")}>قائمة الطيران Excel</Btn>
-          <Btn href={out("tickets", "format=pdf")}>قائمة التذاكر PDF</Btn><Btn href={out("tickets", "format=xlsx")}>قائمة التذاكر Excel</Btn>
+          <Btn href={out("tickets", "format=pdf")}>قائمة التصريف PDF</Btn><Btn href={out("tickets", "format=xlsx")}>قائمة التصريف Excel</Btn>
         </Group>
       )}
       {land && (

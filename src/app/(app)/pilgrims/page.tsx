@@ -128,7 +128,7 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
                 </th>
               </tr>
               {g.list.map((p) => (
-                <tr key={p.id} className={"hover:bg-canvas " + (p.id === saved ? "saved-row" : "")}>
+                <tr key={p.id} data-href={`/pilgrims/${p.id}?${rt}`} className={"hover:bg-canvas " + (p.id === saved ? "saved-row" : "")}>
                   <td className="td"><Link className="font-bold text-brand underline" href={`/pilgrims/${p.id}?${rt}`}>{fullNameAr(p)}</Link>{p.bookings.find((b) => b.tripId === g.trip?.id)?.groups.some((x) => x.isHead) && <HeadTag />}{showRooms && (() => { const r = p.bookings.find((b) => b.tripId === g.trip?.id)?.officeMember?.officeRoom; return r ? <span className="chip chip-gray ms-2" title="غرفة المكتب" dir="ltr">{roomLabel(r)}</span> : null; })()}</td>
                   <td className="td ltr">{fullNameEn(p)}</td>
                   <td className="td ltr">{p.passportNo}</td>

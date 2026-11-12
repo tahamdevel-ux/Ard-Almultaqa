@@ -34,7 +34,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
           <thead><tr><th className="th">الرقم</th><th className="th">الاسم</th><th className="th">النوع</th><th className="th">الذهاب</th><th className="th">العودة</th><th className="th">المسجّلون / السعة</th><th className="th">الحالة</th>{tw && <th className="th">إجراءات</th>}</tr></thead>
           <tbody>
             {trips.map((t) => (
-              <tr key={t.id} className="hover:bg-canvas">
+              <tr key={t.id} data-href={`/trips/${t.id}`} className="hover:bg-canvas">
                 <td className="td font-bold"><Link className="text-brand underline" href={`/trips/${t.id}`}>{t.tripNo ?? "بدون رقم"}</Link></td>
                 <td className="td">{t.name}</td><td className="td">{TRANSPORT_LABELS[t.transportType]}</td>
                 <td className="td">{dateOrNotSet(t.departDate)}</td><td className="td">{dateOrNotSet(t.returnDate)}</td>

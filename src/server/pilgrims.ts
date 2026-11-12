@@ -6,6 +6,7 @@ import { auditChanges, PILGRIM_AUDITED } from "./audit";
 import { normalizePassport, normalizePhone, validatePassport, validatePhone } from "@/domain/identity";
 import { parseDate } from "@/domain/dates";
 import { addPilgrimToTrips } from "./bookings";
+import { assignOfficeRooms } from "@/officeRooms/service";
 import { applyAccommodation, AccommodationError, type Accommodation } from "./accommodation";
 import { applyFamilyChoice, type FamilyChoice } from "./families";
 
@@ -120,7 +121,7 @@ export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInp
       const live = await tx.trip.count({ where: { id: { in: tripIds }, deletedAt: null } });
       if (live !== new Set(tripIds).size) return { error: "إحدى الرحلات المختارة غير موجودة", fieldErrors: { tripIds: "إحدى الرحلات المختارة غير موجودة" } } as ActionState;
       const p = await tx.pilgrim.create({ data: data as Prisma.PilgrimUncheckedCreateInput });
-      await addPilgrimToTrips(tx, p.id, p.agentId, tripIds, { skipOfficeTrips: tripIds.filter((t) => acc[t]) });
+      await addPilgrimToTrips(tx, p.id, p.agentId, tripIds, { skipOfficeTrips: tripIds.filter((t) => acc[t] || fam[t]) }); // rooming waits for the family / hotel choices below
       const bookingIds: Record<string, string> = {};
       for (const tripId of tripIds) {
         const booking = await tx.booking.findUniqueOrThrow({ where: { pilgrimId_tripId: { pilgrimId: p.id, tripId } } });
@@ -132,6 +133,7 @@ export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInp
           const r = await applyAccommodation(tripId, booking.id, a, tx);
           if (!r.ok) throw new AccommodationError(r.error); // rolls back the pilgrim and every booking
         }
+        if (!(await tx.officeRoomMember.findUnique({ where: { bookingId: booking.id } }))) await assignOfficeRooms(tx, tripId, [booking.id]); // together with his family, automatically
       }
       return { ok: true, id: p.id, bookingIds } as ActionState;
     });

@@ -15,6 +15,8 @@ import { DeleteBusButton } from "@/components/BusTools";
 import { AddPilgrimDialog } from "@/components/AddPilgrimDialog";
 import { computePrice } from "@/domain/pricing";
 import { seatsLabel, vacancyLabel } from "@/domain/labels";
+import { TransportCell } from "@/components/TransportCell";
+import { effectiveMode, transportText } from "@/domain/transport";
 import { ConfirmForm } from "@/components/ConfirmForm";
 import { TripTabs } from "@/components/TripTabs";
 import { HotelPricesForm, TripExtrasForm, type HotelRow } from "@/components/TripPricingForms";
@@ -26,7 +28,7 @@ import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
 import { balance, formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAirAssignment, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo, recalcPrices } from "../actions";
+import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo, recalcPrices, saveTransport } from "../actions";
 import { DateInput } from "@/components/DateInput";
 
 export default async function TripPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ q?: string; notes?: string }> }) {
@@ -113,12 +115,12 @@ export default async function TripPage({ params, searchParams }: { params: Promi
           )}
         </div>
         <table className="w-full">
-          <thead><tr><th className="th" />{["الاسم", "الجواز", "الوكيل", ...(seeNotes ? ["ملاحظات"] : []), "المجموعة", "التسكين", "المقعد / التذكرة", ...(money ? ["السعر", "المتبقي"] : []), "تنبيهات", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
+          <thead><tr><th className="th" />{["الاسم", "الجواز", "الوكيل", ...(seeNotes ? ["ملاحظات"] : []), "المجموعة", "التسكين", "النقل", ...(money ? ["السعر", "المتبقي"] : []), "تنبيهات", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
             {shownRows.map((r) => {
               const b = r.booking, gid = groupOf(r);
               return (
-                <tr key={b.id}>
+                <tr key={b.id} data-href={`/pilgrims/${b.pilgrimId}`}>
                   <td className="td">{bw && <><input form="groupform" type="checkbox" name="bookingIds" value={b.id} aria-label="تحديد" /><label className="mt-1 flex items-center gap-1 text-[11px] text-brand-mid"><input form="groupform" type="radio" name="headBookingId" value={b.id} aria-label="رب الأسرة" />رب</label></>}</td>
                   <td className="td"><Link className="font-bold underline" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link>{gid && groups.get(gid)?.head === b.id && groups.get(gid)?.kind === "FAMILY" && <HeadTag />}{b.tripRole && <span className="chip chip-warn ms-2">{TRIP_ROLE_LABELS[b.tripRole]}</span>}</td>
                   <td className="td ltr">{b.pilgrim.passportNo}</td>
@@ -148,15 +150,8 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                   </td>
 
                   <td className="td">
-                    {trip.transportType === "LAND"
-                      ? (b.seat?.seatNo ? `باص ${b.seat.bus?.number} / ${b.seat.seatNo}` : <span className="chip chip-warn">بلا مقعد</span>)
-                      : sw ? (
-                        <form action={setAirAssignment.bind(null, trip.id, b.id)} className="flex gap-1">
-                          <input name="ticketNo" defaultValue={b.seat?.ticketNo ?? ""} dir="ltr" placeholder="رقم التذكرة" className="input w-32 py-1" />
-                          <select name="carId" defaultValue={b.seat?.carId ?? ""} className="input w-28 py-1"><option value="">سيارة</option>{trip.cars.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}</select>
-                          <button className="btn-secondary py-1">حفظ</button>
-                        </form>
-                      ) : b.seat?.ticketNo}
+                    <TransportCell action={saveTransport.bind(null, trip.id, b.id)} canEdit={sw} mode={effectiveMode(b.transport, trip.transportType)} carId={b.seat?.carId ?? ""} flightId={b.seat?.flightId ?? ""}
+                      opts={{ cars: trip.cars.map((c) => ({ id: c.id, label: c.label })), flights: trip.flights.map((f) => ({ id: f.id, label: `رحلة ${f.flightNo}` })), seatText: b.seat?.bus ? transportText("BUS", b.seat) : null, busHref: b.seat?.bus ? `/trips/${trip.id}/bus/${b.seat.bus.id}` : null }} />
                   </td>
                   {money && (() => {
                     const bal = balance(b.priceAmount, b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) })));
@@ -185,9 +180,9 @@ export default async function TripPage({ params, searchParams }: { params: Promi
       </section>
 
       <section id="buses" className="card space-y-3">
-        <h2 className="font-bold">{trip.transportType === "LAND" ? "الباصات" : "الطيران والسيارات"}</h2>
-        {trip.transportType === "LAND" ? (
-          <>
+        <h2 className="font-bold">وسائل النقل (باص، سيارة، رحلة جوية)</h2>
+        <>
+          <h3 className="text-sm font-bold text-brand-mid">الباصات</h3>
             <ul className="space-y-1 text-sm">
               {trip.buses.map((b) => (
                 <li key={b.id}>
@@ -198,9 +193,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
               ))}
             </ul>
             {w && <SmallForm action={addBus.bind(null, trip.id)} submit="إضافة باص" fields={[{ name: "name", label: "اسم الباص (اختياري)" }, { name: "number", label: "رقم الباص (تلقائي)" }, { name: "seatCount", label: "عدد المقاعد", ltr: true, type: "number" }, { name: "driverName", label: "السائق" }, { name: "driverPhone", label: "هاتف السائق", ltr: true, type: "tel" }, { name: "company", label: "شركة النقل" }]} />}
-          </>
-        ) : (
-          <>
+          <h3 className="mt-2 text-sm font-bold text-brand-mid">الرحلات الجوية والسيارات</h3>
             <ul className="space-y-1 text-sm">
               {trip.flights.map((f) => <li key={f.id}>✈ <span className="ltr">{f.flightNo}</span> {f.airline} · {f.ticketCount} تذكرة · {f.departAt?.toLocaleString("en-GB", { timeZone: "Asia/Baghdad" })}</li>)}
               {trip.cars.map((c) => <li key={c.id}>🚗 {c.label} — {c.driverName} <span className="ltr">{c.driverPhone}</span> ({c.capacity} ركاب)</li>)}
@@ -212,7 +205,6 @@ export default async function TripPage({ params, searchParams }: { params: Promi
               </div>
             )}
           </>
-        )}
       </section>
 
       {(w || money) && (

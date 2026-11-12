@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { db } from "@/server/db";
 import { addPilgrimToTrips } from "@/server/bookings";
 import { cancelBooking, moveToTrip } from "@/server/payments";
-import { assignOfficeRooms, createOfficeRoom, deleteOfficeRoom, moveOfficeMember, renumberOfficeRooms, rerunAssignment } from "./service";
+import { assignOfficeRooms, gatherGroupInOfficeRooms, createOfficeRoom, deleteOfficeRoom, moveOfficeMember, renumberOfficeRooms, rerunAssignment } from "./service";
 import { roomLabel } from "@/domain/officeRooms";
 
 const D = (s: string) => new Date(s + "T00:00:00Z");
@@ -135,5 +135,28 @@ describe("office rooms: manual changes", () => {
     await db.$transaction((tx) => renumberOfficeRooms(tx, t.id));
     rs = await rooms(t.id);
     expect(rs.map((r) => r.seq).sort()).toEqual([1, 2, 3]);
+  });
+
+  it("a group formed later is gathered into one office room automatically, hand-placed and locked members stay", async () => {
+    const t = await trip();
+    const ps = [] as { id: string }[];
+    for (let i = 0; i < 6; i++) ps.push(await pilgrim());
+    const bookings: string[] = [];
+    for (const p of ps) { await addPilgrimToTrips(db, p.id, null, [t.id]); bookings.push((await db.booking.findFirstOrThrow({ where: { pilgrimId: p.id, tripId: t.id } })).id); }
+    await db.booking.updateMany({ where: { id: { in: bookings } }, data: { roomType: "QUAD" } });
+    const roomOf = async (id: string) => (await db.officeRoomMember.findUniqueOrThrow({ where: { bookingId: id } })).officeRoomId;
+    // 6 men: a room of 4 and a room of 2. Make the first and the last a family: they must end up together.
+    expect(await roomOf(bookings[0])).not.toBe(await roomOf(bookings[5]));
+    const g = await db.familyGroup.create({ data: { kind: "FAMILY" } });
+    await db.bookingGroupMember.createMany({ data: [{ bookingId: bookings[0], groupId: g.id, isHead: true }, { bookingId: bookings[5], groupId: g.id }] });
+    await db.$transaction((tx) => gatherGroupInOfficeRooms(tx, t.id, g.id));
+    expect(await roomOf(bookings[0])).toBe(await roomOf(bookings[5]));
+    // a member placed by hand is not taken away
+    const g2 = await db.familyGroup.create({ data: { kind: "FAMILY" } });
+    await db.officeRoomMember.update({ where: { bookingId: bookings[2] }, data: { assignedBy: "MANUAL" } });
+    const before = await roomOf(bookings[2]);
+    await db.bookingGroupMember.createMany({ data: [{ bookingId: bookings[2], groupId: g2.id, isHead: true }, { bookingId: bookings[3], groupId: g2.id }] });
+    await db.$transaction((tx) => gatherGroupInOfficeRooms(tx, t.id, g2.id));
+    expect(await roomOf(bookings[2])).toBe(before);
   });
 });

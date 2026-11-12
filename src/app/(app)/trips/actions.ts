@@ -8,8 +8,9 @@ import { autoSeat, validateSeat } from "@/domain/seating";
 import { overlapWarning } from "@/server/trips";
 import { addPilgrimToTrips, overlapWarnings } from "@/server/bookings";
 import { busRoleConflict, moveBookingsToBus } from "@/server/buses";
-import { freeOfficeBeds } from "@/officeRooms/service";
+import { freeOfficeBeds, gatherGroupInOfficeRooms } from "@/officeRooms/service";
 import { applyAccommodation, accommodationFromForm, type Accommodation } from "@/server/accommodation";
+import { setTransport } from "@/server/transport";
 import { recalcTripPrices, saveTripHotels, type TripHotelInput } from "@/server/tripHotels";
 import { getSetting } from "@/server/settings";
 import { parseDate } from "@/domain/dates";
@@ -117,8 +118,9 @@ export async function autoSeatBus(tripId: string, busId: string) {
   const bus = await db.bus.findFirstOrThrow({ where: { id: busId, tripId } });
   const taken = await db.seatAssignment.findMany({ where: { busId } });
   const occ = new Map(taken.filter((t) => t.seatNo != null).map((t) => [t.seatNo!, t.bookingId]));
+  const tripType = (await db.trip.findUniqueOrThrow({ where: { id: tripId }, select: { transportType: true } })).transportType;
   const unseated = await db.booking.findMany({
-    where: { tripId, status: "ACTIVE", deletedAt: null, seat: null },
+    where: { tripId, status: "ACTIVE", deletedAt: null, seat: null, OR: [{ transport: "BUS" }, ...(tripType === "LAND" ? [{ transport: null }] : [])] }, // only those who travel by bus
     include: { groups: true, pilgrim: true }, orderBy: { createdAt: "asc" },
   });
   const plan = autoSeat(bus.seatCount, occ, unseated.map((b) => ({ bookingId: b.id, groupId: b.groups[0]?.groupId ?? b.pilgrim.familyGroupId })));
@@ -126,11 +128,14 @@ export async function autoSeatBus(tripId: string, busId: string) {
   touch(tripId);
 }
 
-export async function setAirAssignment(tripId: string, bookingId: string, f: FormData) {
-  await requirePermission("seats.write");
-  const ticketNo = s(f, "ticketNo") || null, carId = s(f, "carId") || null;
-  await db.seatAssignment.upsert({ where: { bookingId }, create: { bookingId, ticketNo, carId }, update: { ticketNo, carId, busId: null, seatNo: null } });
-  touch(tripId);
+/** How this pilgrim travels: bus, car or flight (default: bus on land trips, flight on air trips). */
+export async function saveTransport(tripId: string, bookingId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  return guarded("seats.write", async (u) => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
+    const r = await setTransport(u, tripId, bookingId, { mode: s(f, "mode"), carId: s(f, "carId") || null, flightId: s(f, "flightId") || null });
+    if (!r.ok) return { error: r.error };
+    touch(tripId); return { ok: true };
+  });
 }
 
 export async function createCompanionGroup(tripId: string, f: FormData) {
@@ -146,7 +151,9 @@ export async function createCompanionGroup(tripId: string, f: FormData) {
   const g = await db.familyGroup.create({ data: { kind, label: s(f, "label") || null } });
   await db.bookingGroupMember.deleteMany({ where: { bookingId: { in: ids } } });
   await db.bookingGroupMember.createMany({ data: ids.map((bookingId) => ({ bookingId, groupId: g.id, isHead: kind === "FAMILY" && bookingId === head })) });
+  await db.$transaction((tx) => gatherGroupInOfficeRooms(tx, tripId, g.id)); // the group shares an office room, no number typed
   touch(tripId);
+  revalidatePath(`/trips/${tripId}/office-rooms`);
 }
 
 /** Makes one member the head of his FAMILY group (exactly one head per family). */

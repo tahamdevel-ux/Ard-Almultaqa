@@ -53,7 +53,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ groupId
           <thead><tr>{["الاسم", "الغرفة", "السعر", "المدفوع", "المتبقي", ""].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
             {fam.members.map((m) => (
-              <tr key={m.bookingId}>
+              <tr key={m.bookingId} data-href={`/bookings/${m.bookingId}`}>
                 <td className="td font-bold">{m.pilgrimName}{m.isHead && <span className="chip chip-ok ms-2">رب الأسرة</span>}</td>
                 <td className="td">{m.roomType ? ROOM_TYPE_LABELS[m.roomType as keyof typeof ROOM_TYPE_LABELS] : "—"}</td>
                 <td className="td">{m.price == null ? <span className="chip chip-warn">بلا سعر</span> : formatMoney(m.price, m.currency)}</td>

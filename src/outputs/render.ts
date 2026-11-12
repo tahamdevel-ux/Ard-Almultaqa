@@ -26,13 +26,13 @@ export async function renderManifest(tripId: string, busId: string, format: "pdf
 
 export async function renderFlightList(tripId: string, format: "pdf" | "xlsx") {
   const d = await flightListData(tripId);
-  const headers = ["#", "Name as in passport", "الاسم بالعربي", "رقم الجواز", "رقم التذكرة", "سيارة المطار"];
-  const rows = d.rows.map((r) => [r.n, r.nameEn, r.nameAr, r.passportNo, r.ticketNo, r.car]);
+  const headers = ["#", "Name as in passport", "الاسم بالعربي", "رقم الجواز", "وسيلة النقل"];
+  const rows = d.rows.map((r) => [r.n, r.nameEn, r.nameAr, r.passportNo, r.transport]);
   if (format === "xlsx") {
     return buildXlsx({ name: "Flight", title: `${d.title} — ${d.meta}`, company: d.company as Company,
-      columns: [{ header: headers[0], width: 6 }, { header: headers[1], width: 34 }, { header: headers[2], width: 34 }, { header: headers[3], width: 16 }, { header: headers[4], width: 18 }, { header: headers[5], width: 14 }], rows });
+      columns: [{ header: headers[0], width: 6 }, { header: headers[1], width: 34 }, { header: headers[2], width: 34 }, { header: headers[3], width: 16 }, { header: headers[4], width: 26 }], rows });
   }
-  return htmlToPdf(pageHtml(d.company as Company, d.title, esc(d.meta), table(headers, rows, [1, 3, 4])));
+  return htmlToPdf(pageHtml(d.company as Company, d.title, esc(d.meta), table(headers, rows, [1, 3])));
 }
 
 import { roomingData } from "./viewmodels";
@@ -136,17 +136,17 @@ export async function renderSeatMaps(tripId: string, busId?: string) {
 }
 const busLabelOf = (b: { number: string; name: string | null }) => `باص ${b.number}${b.name ? ` — ${b.name}` : ""}`;
 
-/** Tickets list: one row per pilgrim — name as in passport, passport no., ticket number, تصريف choice. */
+/** تصريف list: one row per pilgrim — name as in passport, passport no., تصريف choice (no ticket numbers are kept). */
 export async function renderTickets(tripId: string, format: "pdf" | "xlsx") {
   const { fullNameEn } = await import("@/server/pilgrims");
   const { db } = await import("@/server/db");
   const { getSetting } = await import("@/server/settings");
   const [company, trip] = await Promise.all([getSetting("company"), db.trip.findFirstOrThrow({ where: { id: tripId, deletedAt: null }, include: { flights: true } })]);
   const bookings = await db.booking.findMany({ where: { tripId, status: "ACTIVE", deletedAt: null }, include: { pilgrim: true, seat: true }, orderBy: { createdAt: "asc" } });
-  const headers = ["#", "Name as in passport", "رقم الجواز", "رقم التذكرة", "التصريف"];
-  const rows = bookings.map((b, i) => [i + 1, fullNameEn(b.pilgrim), b.pilgrim.passportNo, b.seat?.ticketNo ?? "", b.sarfByPilgrim ? "تصريف المعتمر" : "تصريف الشركة"]);
+  const headers = ["#", "Name as in passport", "رقم الجواز", "التصريف"];
+  const rows = bookings.map((b, i) => [i + 1, fullNameEn(b.pilgrim), b.pilgrim.passportNo, b.sarfByPilgrim ? "تصريف المعتمر" : "تصريف الشركة"]);
   const f = trip.flights[0];
   const meta = joinMeta([...tripMetaParts(trip).slice(0, 1), f ? `${f.flightNo} ${f.airline ?? ""}`.trim() : null, ...tripMetaParts(trip).slice(1)]);
-  if (format === "xlsx") return buildXlsx({ name: "التذاكر", title: `قائمة التذاكر — ${meta}`, company: company as Company, columns: [{ header: headers[0], width: 6 }, { header: headers[1], width: 36 }, { header: headers[2], width: 16 }, { header: headers[3], width: 18 }, { header: headers[4], width: 16 }], rows });
-  return htmlToPdf(pageHtml(company as Company, "قائمة التذاكر", esc(meta), table(headers, rows, [1, 2, 3])));
+  if (format === "xlsx") return buildXlsx({ name: "التصريف", title: `قائمة التصريف — ${meta}`, company: company as Company, columns: [{ header: headers[0], width: 6 }, { header: headers[1], width: 36 }, { header: headers[2], width: 16 }, { header: headers[3], width: 18 }], rows });
+  return htmlToPdf(pageHtml(company as Company, "قائمة التصريف", esc(meta), table(headers, rows, [1, 2])));
 }

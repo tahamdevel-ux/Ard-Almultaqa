@@ -46,8 +46,7 @@ export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc"
         <select id={`${idPrefix}-tripRole`} name={"tripRole" + nameSuffix} className="input" {...(onChange ? { value: values.tripRole ?? "", onChange: set("tripRole") } : { defaultValue: values.tripRole ?? "" })}>
           <option value="">— لا شيء —</option><option value="CONTRACTOR">متعهد</option><option value="DRIVER">سايق</option><option value="ASSISTANT">مساعد سايق</option>
         </select></div>
-      <div className="sm:col-span-2"><label className="label" htmlFor={`${idPrefix}-officeRoom`}>غرفة المكتب الداخلية (اختياري — اتركها فارغة للتوزيع التلقائي)</label>
-        <input id={`${idPrefix}-officeRoom`} name={"officeRoom" + nameSuffix} className="input" dir="ltr" placeholder="مثلاً 1 أو a3 — كل من تكتب له نفس الرقم يُجمَعون في غرفة واحدة" {...(onChange ? { value: values.officeRoom ?? "", onChange: set("officeRoom") } : { defaultValue: values.officeRoom ?? "" })} /></div>
+
       <div><label className="label" htmlFor={`${idPrefix}-roomType`}>نوع الغرفة</label>
         <select id={`${idPrefix}-roomType`} name={"roomType" + nameSuffix} className="input" {...(onChange ? { value: values.roomType, onChange: set("roomType") } : { defaultValue: values.roomType })}>
           {TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}

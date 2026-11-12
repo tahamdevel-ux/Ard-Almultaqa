@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { effectiveMode, transportText } from "@/domain/transport";
 import Link from "next/link";
 import { db } from "@/server/db";
 import { requirePage } from "@/server/auth";
@@ -23,7 +24,7 @@ export default async function PilgrimPage({ params, searchParams }: { params: Pr
   const returnTo = safeReturnTo((await searchParams).returnTo);
   const p = await db.pilgrim.findFirst({
     where: { id, deletedAt: null },
-    include: { mahram: true, bookings: { include: { trip: true, seat: { include: { bus: true } }, officeMember: { include: { officeRoom: true } } }, orderBy: { createdAt: "desc" } } },
+    include: { mahram: true, bookings: { include: { trip: true, seat: { include: { bus: true, car: true, flight: true } }, officeMember: { include: { officeRoom: true } } }, orderBy: { createdAt: "desc" } } },
   });
   if (!p) notFound();
   const agents = await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
@@ -66,13 +67,13 @@ export default async function PilgrimPage({ params, searchParams }: { params: Pr
           <thead><tr><th className="th">الرحلة</th><th className="th">النوع</th><th className="th">الذهاب</th><th className="th">العودة</th><th className="th">الحالة</th><th className="th">المقعد</th>{canOffice && <th className="th">غرفة المكتب</th>}</tr></thead>
           <tbody>
             {p.bookings.map((b) => (
-              <tr key={b.id}>
+              <tr key={b.id} data-href={`/bookings/${b.id}`}>
                 <td className="td"><Link className="underline" href={`/trips/${b.tripId}`}>{tripLabel(b.trip)}</Link></td>
                 <td className="td">{TRANSPORT_LABELS[b.trip.transportType]}</td>
                 <td className="td">{dateOrNotSet(b.trip.departDate)}</td>
                 <td className="td">{dateOrNotSet(b.trip.returnDate)}</td>
                 <td className="td">{TRIP_STATUS_LABELS[b.trip.status]}</td>
-                <td className="td">{b.seat?.bus ? `${busLabel(b.seat.bus)} / ${b.seat.seatNo}` : b.seat?.ticketNo ?? "—"}</td>
+                <td className="td">{transportText(effectiveMode(b.transport, b.trip.transportType), b.seat)}</td>
                 {canOffice && <td className="td" dir="ltr">{b.status === "ACTIVE" && b.officeMember ? roomLabel(b.officeMember.officeRoom) : "—"}</td>}
               </tr>
             ))}

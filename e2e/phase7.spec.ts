@@ -75,9 +75,9 @@ test("office rooms: automatic assignment, board, badge, filter, internal print, 
   expect((await page.request.get(`/api/trips/${tripId}/office-rooms/print`)).status()).toBe(403);
 });
 
-test("choose the office room when adding pilgrims: two pilgrims typed room 1 end up together", async ({ page }) => {
+test("no room number is typed: a family added one after the other ends up in one office room automatically", async ({ page }) => {
   await login(page, "admin");
-  const tripName = `اختيار غرفة ${RUN}`;
+  const tripName = `غرفة العائلة ${RUN}`;
   await page.goto("/trips/new");
   await page.fill("[name=name]", tripName); await page.selectOption("[name=transportType]", "AIR");
   await page.getByRole("button", { name: "إنشاء" }).click();
@@ -86,18 +86,20 @@ test("choose the office room when adding pilgrims: two pilgrims typed room 1 end
   for (const n of [1, 2]) {
     await page.goto("/pilgrims/new");
     const f = (k: string, v: string) => page.fill(`[name=${k}]`, v);
-    await f("fullNameAr", `غرفة${n} سالم محمود`); await f("familyName", "المولى");
+    await f("fullNameAr", `عائلة${n} سالم محمود`); await f("familyName", "المولى");
     await page.selectOption("[name=gender]", "MALE"); await page.fill("[name=motherName]", "ام الاختبار"); await f("birthDate", "12/05/1975"); await f("passportNo", `A${RUN}${n}`);
     await f("enGivenName", "ROOM"); await f("enSurname", "ONE"); await f("passportExpiry", "10/10/2031");
     await page.locator("label", { hasText: tripName }).locator("input[name=tripIds]").check();
-    await page.locator(`input[name="officeRoom__${tripId}"]`).fill("1");
+    await expect(page.locator(`input[name="officeRoom__${tripId}"]`)).toHaveCount(0); // nobody types a room number any more
+    if (n === 1) await page.locator(`input[name="isHead__${tripId}"]`).check();
+    else await page.locator(`select[name="headOf__${tripId}"]`).selectOption({ index: 1 });
     await page.getByRole("button", { name: "حفظ", exact: true }).click();
     await page.waitForURL(/\/pilgrims\?.*saved=/);
   }
   await page.goto(`${tripUrl}/office-rooms`);
   await expect(page.locator("[data-room]")).toHaveCount(1);
-  await expect(page.locator("[data-room='1']")).toContainText("غرفة1");
-  await expect(page.locator("[data-room='1']")).toContainText("غرفة2");
+  await expect(page.locator("[data-room]").first()).toContainText("عائلة1");
+  await expect(page.locator("[data-room]").first()).toContainText("عائلة2");
 });
 
 test("Enter saves and opens a new form that keeps trip and agent; head of family + add a family member", async ({ page }) => {

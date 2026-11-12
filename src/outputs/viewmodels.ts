@@ -28,17 +28,18 @@ export async function flightListData(tripId: string) {
   ]);
   const bookings = await db.booking.findMany({
     where: { tripId, status: "ACTIVE", deletedAt: null },
-    include: { pilgrim: true, seat: { include: { car: true } } },
+    include: { pilgrim: true, seat: { include: { car: true, bus: true, flight: true } } },
     orderBy: { createdAt: "asc" },
   });
   const rows = bookings.map((b, i) => ({
     n: i + 1, nameEn: fullNameEn(b.pilgrim), nameAr: fullNameAr(b.pilgrim), passportNo: b.pilgrim.passportNo,
-    ticketNo: b.seat?.ticketNo ?? "", car: b.seat?.car?.label ?? "",
+    transport: transportText(effectiveMode(b.transport, trip.transportType), b.seat),
   }));
   const f = trip.flights[0];
   return { company, trip, rows, title: "قائمة ركاب الطيران", meta: joinMeta([...tripMetaParts(trip).slice(0, 1), f ? `${f.flightNo} ${f.airline ?? ""}`.trim() : null, ...tripMetaParts(trip).slice(1)]) };
 }
 
+import { effectiveMode, transportText } from "@/domain/transport";
 import { stayDates, ROOM_TYPE_LABELS } from "@/domain/rooming";
 import { joinMeta, tripMetaParts } from "./meta";
 import { readiness } from "@/domain/readiness";

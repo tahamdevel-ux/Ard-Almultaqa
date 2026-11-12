@@ -39,7 +39,7 @@ export default async function AgentStatementPage({ params, searchParams }: { par
           <thead><tr>{["المعتمر", "الرحلة", "السعر", "المدفوع", "المتبقي", "الحالة"].map((h) => <th key={h} className="th">{h}</th>)}</tr></thead>
           <tbody>
             {d.rows.map((r) => (
-              <tr key={r.b.id}>
+              <tr key={r.b.id} data-href={`/bookings/${r.b.id}`}>
                 <td className="td"><Link className="underline" href={`/bookings/${r.b.id}`}>{fullNameAr(r.b.pilgrim)}</Link></td><td className="td">{r.b.trip.tripNo ?? r.b.trip.name}</td>
                 <td className="td">{r.price == null ? "—" : formatMoney(r.price, c)}</td><td className="td">{formatMoney(r.paid, c)}</td>
                 <td className="td">{r.price == null || r.cancelled ? "—" : formatMoney(r.price - r.paid, c)}</td>

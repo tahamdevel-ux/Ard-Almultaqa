@@ -71,7 +71,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
             <thead><tr><th className="th">الرحلة</th><th className="th">المعتمرون</th><th className="th text-right">المطلوب</th><th className="th text-right">المستلم</th><th className="th text-right">الباقي</th><th className="th w-40">نسبة التسديد</th></tr></thead>
             <tbody>
               {data.tripRows.map((r) => (
-                <tr key={r.trip.id} className="hover:bg-canvas">
+                <tr key={r.trip.id} data-href={link({ tab: "pilgrims", trip: r.trip.id })} className="hover:bg-canvas">
                   <td className="td font-bold"><Link className="text-brand underline" href={link({ tab: "pilgrims", trip: r.trip.id })}>{tripLabel(r.trip)}</Link></td>
                   <td className="td">{r.pilgrims}</td>
                   <td className={num}>{usd(r.due)}</td><td className={num + " text-green-800"}>{usd(r.received)}</td>
@@ -99,7 +99,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
               <thead><tr><th className="th">الاسم</th><th className="th">الرحلة</th><th className="th">الوكيل</th><th className="th text-right">المطلوب</th><th className="th text-right">المستلم</th><th className="th text-right">الباقي</th></tr></thead>
               <tbody>
                 {data.pilgrimRows.map((r) => (
-                  <tr key={r.bookingId} className="hover:bg-canvas">
+                  <tr key={r.bookingId} data-href={`/bookings/${r.bookingId}`} className="hover:bg-canvas">
                     <td className="td font-bold"><Link className="text-brand underline" href={`/bookings/${r.bookingId}`}>{r.name}</Link>{r.status === "CANCELLED" && <span className="chip chip-bad ms-2">ملغى</span>}</td>
                     <td className="td">{tripLabel(r.trip)}</td><td className="td">{r.agent?.name ?? "—"}</td>
                     <td className={num}>{usd(r.due)}</td><td className={num + " text-green-800"}>{usd(r.received)}</td>
@@ -119,7 +119,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
             <thead><tr><th className="th">الوكيل</th><th className="th">المعتمرون</th><th className="th text-right">المطلوب</th><th className="th text-right">مستلم عن طريقه</th><th className="th text-right">مستلم مباشر من معتمريه</th><th className="th text-right">الباقي</th><th className="th text-right">العمولة</th></tr></thead>
             <tbody>
               {data.agentRows.map((r) => (
-                <tr key={r.agent.id} className="hover:bg-canvas">
+                <tr key={r.agent.id} data-href={link({ tab: "pilgrims", agent: r.agent.id })} className="hover:bg-canvas">
                   <td className="td font-bold"><Link className="text-brand underline" href={link({ tab: "pilgrims", agent: r.agent.id })}>{r.agent.name}</Link></td>
                   <td className="td">{r.pilgrims}</td>
                   <td className={num}>{usd(r.due)}</td><td className={num + " text-green-800"}>{usd(r.viaAgent)}</td><td className={num + " text-green-800"}>{usd(r.direct)}</td>
@@ -146,7 +146,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                 {log.map((p) => {
                   const sign = p.kind === "PAYMENT" ? 1 : -1;
                   return (
-                    <tr key={p.id} className="hover:bg-canvas">
+                    <tr key={p.id} data-href={`/bookings/${p.bookingId}`} className="hover:bg-canvas">
                       <td className="td">{formatDate(p.paidAt)}</td>
                       <td className="td ltr"><a className="text-brand underline" href={`/api/payments/${p.id}/receipt`}>{p.receiptNo}</a>{p.kind === "REFUND" && <span className="chip chip-bad ms-1">استرداد</span>}</td>
                       <td className="td"><Link className="underline" href={`/bookings/${p.bookingId}`}>{p.pilgrimName}</Link></td>

@@ -33,6 +33,11 @@ export async function autoSeatNewBooking(tx: Tx, tripId: string, bookingId: stri
   const trip = await tx.trip.findUnique({ where: { id: tripId }, select: { transportType: true } });
   if (!trip || trip.transportType !== "LAND") return;
   if (await tx.seatAssignment.findUnique({ where: { bookingId } })) return;
+  await seatOnBus(tx, tripId, bookingId);
+}
+
+/** Puts a booking on the first free seat of the trip's general buses (opening a new bus when all are full). */
+export async function seatOnBus(tx: Tx, tripId: string, bookingId: string): Promise<void> {
   await ensureFirstBus(tx, tripId);
   const buses = (await tx.bus.findMany({ where: { tripId }, include: { seats: { select: { seatNo: true } } } }))
     .sort((a, b) => numeric(a.number) - numeric(b.number));

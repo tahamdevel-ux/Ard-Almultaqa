@@ -50,3 +50,6 @@ input[dir="ltr"], .ltr { direction: ltr; text-align: left; unicode-bidi: plainte
   table.rt td:empty { display: none; }
   table.rt td.ltr { flex-direction: row-reverse; }
 }
+
+[data-href] { cursor: pointer; }
+tr[data-href]:hover > td, tr[data-href]:hover > th { background-color: rgb(246 246 242 / 0.8); }

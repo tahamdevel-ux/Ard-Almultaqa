@@ -80,7 +80,7 @@ export default async function Dashboard() {
               {trips.map((t) => {
                 const n = t.bookings.length;
                 return (
-                  <li key={t.id}>
+                  <li key={t.id} data-href={`/trips/${t.id}`} className="rounded-lg p-1.5 hover:bg-canvas">
                     <div className="mb-1 flex flex-wrap items-center gap-x-3 text-sm">
                       <Link className="font-bold text-brand underline-offset-2 hover:underline" href={`/trips/${t.id}`}>{tripLabel(t)}</Link>
                       <span className="chip chip-gray"><Icon name={t.transportType === "AIR" ? "plane" : "bus"} size={13} className="ml-1" />{TRANSPORT_LABELS[t.transportType]}</span>
@@ -104,7 +104,7 @@ export default async function Dashboard() {
             <thead><tr><th className="th">المعتمر</th><th className="th">الرحلة</th><th className="th">المتبقي</th></tr></thead>
             <tbody>
               {debts.slice(0, 8).map(({ b, bal }) => (
-                <tr key={b.id}><td className="td"><Link className="font-bold text-brand hover:underline" href={`/bookings/${b.id}`}>{fullNameAr(b.pilgrim)}</Link></td><td className="td">{b.trip.tripNo ?? b.trip.name}</td><td className="td font-bold text-red-700">{formatMoney(bal, b.priceCurrency)}</td></tr>
+                <tr key={b.id} data-href={`/bookings/${b.id}`}><td className="td"><Link className="font-bold text-brand hover:underline" href={`/bookings/${b.id}`}>{fullNameAr(b.pilgrim)}</Link></td><td className="td">{b.trip.tripNo ?? b.trip.name}</td><td className="td font-bold text-red-700">{formatMoney(bal, b.priceCurrency)}</td></tr>
               ))}
               {debts.length === 0 && <tr><td colSpan={3}><EmptyState icon={<Icon name="check" size={36} />} text="لا توجد أرصدة مستحقة" /></td></tr>}
             </tbody>

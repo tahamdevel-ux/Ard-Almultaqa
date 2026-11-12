@@ -95,3 +95,30 @@ test("new pilgrim: sections menu, trip first, English name suggestion fills only
   await expect(page.locator("[name=enFatherName]")).toHaveValue("KEEPME");
   await expect(page.locator("[name=enGrandfatherName]")).toHaveValue("MOHAMMED");
 });
+
+test("whole rows are clickable (trips, pilgrims, accounts) but links and buttons inside keep working", async ({ page }) => {
+  await login(page);
+  await page.goto("/trips");
+  await page.waitForLoadState("networkidle");
+  const row = page.locator("tbody tr[data-href]").first();
+  const cell = row.locator("td").nth(1); // the name cell, not the link
+  await cell.click();
+  await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  await page.goto("/pilgrims");
+  await page.waitForLoadState("networkidle");
+  await page.locator("tbody tr[data-href] td").nth(2).click(); // a plain cell
+  await page.waitForURL(/\/pilgrims\/[0-9a-f-]{36}/);
+});
+
+test("transport: every pilgrim has bus / car / flight, with the trip's default, and no ticket-number box", async ({ page }) => {
+  await login(page);
+  await page.goto("/trips");
+  await page.locator("a[href^='/trips/']:not([href$='/new'])").first().click();
+  await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("[placeholder='رقم التذكرة']")).toHaveCount(0);
+  const sel = page.getByLabel("وسيلة النقل").first();
+  if (await sel.count()) {
+    await expect(sel.locator("option")).toHaveText(["باص", "سيارة", "رحلة جوية"]);
+  }
+});

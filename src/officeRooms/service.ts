@@ -95,6 +95,18 @@ export async function assignOfficeRooms(tx: Tx, tripId: string, bookingIds?: str
   return { placed: plan.placements.size, splitGroups: plan.splitGroups };
 }
 
+/**
+ * A family or companion group is put in the same office room automatically: its members that were placed by the system
+ * (AUTO, in unlocked rooms) are taken out and placed again together; hand-placed members and locked rooms stay as they are.
+ */
+export async function gatherGroupInOfficeRooms(tx: Tx, tripId: string, groupId: string) {
+  const members = await tx.bookingGroupMember.findMany({ where: { groupId, booking: { tripId, status: "ACTIVE", deletedAt: null } }, select: { bookingId: true } });
+  const ids = members.map((m) => m.bookingId);
+  if (ids.length < 2) return { placed: 0, splitGroups: [] as string[] };
+  await tx.officeRoomMember.deleteMany({ where: { bookingId: { in: ids }, assignedBy: "AUTO", officeRoom: { locked: false } } });
+  return assignOfficeRooms(tx, tripId, ids);
+}
+
 /** A cancelled / removed / moved booking leaves its room; the room keeps its number. */
 export async function freeOfficeBeds(tx: DbLike, bookingIds: string[]) {
   if (bookingIds.length) await tx.officeRoomMember.deleteMany({ where: { bookingId: { in: bookingIds } } });
