@@ -77,6 +77,8 @@ test("trip with no code and no dates: create, list order, pickers, edit + audit,
 
   // 5) fill then clear the three fields from the trip page; both are audited
   await page.goto(`/trips/${landId}`);
+  await page.waitForLoadState("networkidle");
+  if (!(await page.locator("details[open]", { hasText: "إعدادات الرحلة" }).count())) await page.getByText("إعدادات الرحلة").first().click(); // collapsed once the trip has pilgrims
   const form = page.locator("section", { hasText: "رقم الرحلة والتواريخ" });
   await form.locator("[name=tripNo]").fill(`E2E-${RUN}`);
   await form.locator("[name=departDate]").fill("20/12/2026");
