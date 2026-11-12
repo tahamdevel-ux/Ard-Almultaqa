@@ -90,96 +90,6 @@ export default async function TripPage({ params, searchParams }: { params: Promi
       {counter.over && counter.capacity > 0 && <p className="alert-bad">⚠ عدد المسجلين تجاوز السعة القصوى للرحلة بـ {counter.registered - counter.capacity}</p>}
       {counter.capacity <= 0 && <p className="alert-warn">لم تُحدَّد سعة لهذه الرحلة — حدّدها من «تعديل الرحلة» ليظهر عدد الشواغر.</p>}
 
-      {w && (
-        <section className="card space-y-2">
-          <h2 className="font-bold">رقم الرحلة والتواريخ</h2>
-          <SmallForm action={updateTripBasics.bind(null, trip.id)} submit="حفظ" fields={[
-            { name: "tripNo", label: "رقم الرحلة", ltr: true, defaultValue: trip.tripNo ?? "" },
-            { name: "departDate", label: "تاريخ الذهاب", ltr: true, date: true, placeholder: "DD/MM/YYYY", defaultValue: formatDate(trip.departDate) },
-            { name: "returnDate", label: "تاريخ العودة", ltr: true, date: true, placeholder: "DD/MM/YYYY", defaultValue: formatDate(trip.returnDate) },
-          ]} />
-          <p className="text-xs text-brand-mid">الحقول الثلاثة اختيارية ويمكن تركها فارغة.</p>
-        </section>
-      )}
-
-      <section className="card space-y-2">
-        <h2 className="font-bold">الفنادق والإقامة</h2>
-        <p className="text-sm">مكة: <b>{tripHotels.map((h) => hotelName(h.hotel)).join("، ") || hotelName(mk)}</b> ({trip.nightsMakkah} ليالي) · المدينة (ثابت): <b>{hotelName(md)}</b> ({trip.nightsMadinah} ليالي) · البداية من: {trip.firstCity === "MAKKAH" ? "مكة" : "المدينة"}</p>
-        {w && (
-          <form action={setTripHotels.bind(null, trip.id)} className="flex flex-wrap items-end gap-3">
-            <div><label className="label" htmlFor="madinahHotelId">فندق المدينة (ثابت)</label>
-              <select id="madinahHotelId" name="madinahHotelId" defaultValue={trip.madinahHotelId ?? ""} className="input w-56"><option value="">— اختر —</option>{hotels.filter((h) => h.city === "MADINAH").map((h) => <option key={h.id} value={h.id}>{hotelName(h)}</option>)}</select></div>
-            <div><label className="label" htmlFor="firstCity">المدينة الأولى</label>
-              <select id="firstCity" name="firstCity" defaultValue={trip.firstCity} className="input w-40"><option value="MADINAH">نبدأ بالمدينة</option><option value="MAKKAH">نبدأ بمكة</option></select></div>
-            <div><label className="label" htmlFor="nightsMadinah">ليالي المدينة</label>
-              <input id="nightsMadinah" name="nightsMadinah" type="number" min={0} defaultValue={trip.nightsMadinah} className="input w-24" dir="ltr" /></div>
-            <div><label className="label" htmlFor="nightsMakkah">ليالي مكة</label>
-              <input id="nightsMakkah" name="nightsMakkah" type="number" min={0} defaultValue={trip.nightsMakkah} className="input w-24" dir="ltr" /></div>
-            <button className="btn">حفظ</button>
-          </form>
-        )}
-        {can(user.role, "programs.write") && <form action={saveAsProgram.bind(null, trip.id)}><button className="text-sm underline">حفظ هذه الرحلة كقالب</button></form>}
-      </section>
-
-      {w && trip.transportType === "LAND" && (
-        <section className="card space-y-2">
-          <h2 className="font-bold">بيانات منفيست الهيئة</h2>
-          <SmallForm action={saveHayaInfo.bind(null, trip.id)} submit="حفظ" fields={[
-            { name: "transportCompany", label: "شركة النقل", defaultValue: trip.transportCompany ?? "" },
-            { name: "departGovernorate", label: "محافظة الانطلاق", defaultValue: trip.departGovernorate ?? "" },
-            { name: "routeText", label: "طريق الانطلاق", defaultValue: trip.routeText ?? "" },
-            { name: "sequenceNo", label: "التسلسل", ltr: true, defaultValue: trip.sequenceNo ?? "" },
-          ]} />
-          <p className="text-xs text-brand-mid">تظهر في أعلى منفيست الهيئة. المنفذ (عرعر) والموسم ثابتان في النموذج.</p>
-        </section>
-      )}
-
-      <section id="buses" className="card space-y-3">
-        <h2 className="font-bold">{trip.transportType === "LAND" ? "الباصات" : "الطيران والسيارات"}</h2>
-        {trip.transportType === "LAND" ? (
-          <>
-            <ul className="space-y-1 text-sm">
-              {trip.buses.map((b) => (
-                <li key={b.id}>
-                  <Link className="font-bold text-brand underline" href={`/trips/${trip.id}/bus/${b.id}`}>{busLabel(b)}</Link>
-                  {" "}— {b.seatCount} مقعد{b.driverName ? ` · ${b.driverName}` : ""} {b.driverPhone && <span className="ltr">{b.driverPhone}</span>}{b.company ? ` · ${b.company}` : ""}
-                  {w && <span className="ms-3"><DeleteBusButton tripId={trip.id} busId={b.id} /></span>}
-                </li>
-              ))}
-            </ul>
-            {w && <SmallForm action={addBus.bind(null, trip.id)} submit="إضافة باص" fields={[{ name: "name", label: "اسم الباص (اختياري)" }, { name: "number", label: "رقم الباص (تلقائي)" }, { name: "seatCount", label: "عدد المقاعد", ltr: true, type: "number" }, { name: "driverName", label: "السائق" }, { name: "driverPhone", label: "هاتف السائق", ltr: true, type: "tel" }, { name: "company", label: "شركة النقل" }]} />}
-          </>
-        ) : (
-          <>
-            <ul className="space-y-1 text-sm">
-              {trip.flights.map((f) => <li key={f.id}>✈ <span className="ltr">{f.flightNo}</span> {f.airline} · {f.ticketCount} تذكرة · {f.departAt?.toLocaleString("en-GB", { timeZone: "Asia/Baghdad" })}</li>)}
-              {trip.cars.map((c) => <li key={c.id}>🚗 {c.label} — {c.driverName} <span className="ltr">{c.driverPhone}</span> ({c.capacity} ركاب)</li>)}
-            </ul>
-            {w && (
-              <div className="space-y-2">
-                <SmallForm action={addFlight.bind(null, trip.id)} submit="إضافة رحلة جوية" fields={[{ name: "flightNo", label: "رقم الرحلة", ltr: true, required: true }, { name: "airline", label: "الشركة" }, { name: "departAt", label: "الإقلاع", type: "datetime-local", ltr: true }, { name: "arriveAt", label: "الوصول", type: "datetime-local", ltr: true }, { name: "ticketCount", label: "عدد التذاكر", type: "number", ltr: true }]} />
-                <SmallForm action={addCar.bind(null, trip.id)} submit="إضافة سيارة" fields={[{ name: "label", label: "السيارة", required: true }, { name: "driverName", label: "السائق" }, { name: "driverPhone", label: "هاتف", ltr: true, type: "tel" }, { name: "capacity", label: "الركاب", type: "number", ltr: true }]} />
-              </div>
-            )}
-          </>
-        )}
-      </section>
-
-      {money && (
-        <section className="card space-y-2">
-          <h2 className="font-bold">فنادق مكة والأسعار (بالدولار)</h2>
-          {pw ? <HotelPricesForm action={saveHotelPrices.bind(null, trip.id)} rows={hotelRows} candidates={hotels.filter((h) => h.city === "MAKKAH").map((h) => ({ id: h.id, name: hotelName(h) }))} />
-            : <ul className="text-sm">{hotelRows.map((r) => <li key={r.hotelId}><b>{r.name}</b>: {Object.entries(r.prices).map(([k, v]) => `${ROOM_TYPE_LABELS[k as keyof typeof ROOM_TYPE_LABELS]} ${v}`).join(" · ")}{r.noHousingPrice != null ? ` · بدون سكن ${r.noHousingPrice}` : ""}</li>)}{hotelRows.length === 0 && <li>غير محددة</li>}</ul>}
-        </section>
-      )}
-      {money && pw && (
-        <section className="card space-y-2">
-          <h2 className="font-bold">الطعام والتصريف وعمولة الوكيل</h2>
-          <TripExtrasForm action={saveTripExtras.bind(null, trip.id)} air={trip.transportType === "AIR"} values={{ foodDefault: trip.foodDefault, sarfAmount: trip.sarfAmount, agentCommission: trip.agentCommission }}
-            agents={allAgents.map((a) => ({ id: a.id, name: a.name, amount: agentOverrides.get(a.id) ?? null }))} />
-        </section>
-      )}
-
       <form id="groupform" action={createCompanionGroup.bind(null, trip.id)} />
       <section className="card overflow-x-auto p-0">
         <div className="flex flex-wrap items-center justify-between gap-2 p-3">
@@ -260,6 +170,103 @@ export default async function TripPage({ params, searchParams }: { params: Promi
           </tbody>
         </table>
       </section>
+
+      <section id="buses" className="card space-y-3">
+        <h2 className="font-bold">{trip.transportType === "LAND" ? "الباصات" : "الطيران والسيارات"}</h2>
+        {trip.transportType === "LAND" ? (
+          <>
+            <ul className="space-y-1 text-sm">
+              {trip.buses.map((b) => (
+                <li key={b.id}>
+                  <Link className="font-bold text-brand underline" href={`/trips/${trip.id}/bus/${b.id}`}>{busLabel(b)}</Link>
+                  {" "}— {b.seatCount} مقعد{b.driverName ? ` · ${b.driverName}` : ""} {b.driverPhone && <span className="ltr">{b.driverPhone}</span>}{b.company ? ` · ${b.company}` : ""}
+                  {w && <span className="ms-3"><DeleteBusButton tripId={trip.id} busId={b.id} /></span>}
+                </li>
+              ))}
+            </ul>
+            {w && <SmallForm action={addBus.bind(null, trip.id)} submit="إضافة باص" fields={[{ name: "name", label: "اسم الباص (اختياري)" }, { name: "number", label: "رقم الباص (تلقائي)" }, { name: "seatCount", label: "عدد المقاعد", ltr: true, type: "number" }, { name: "driverName", label: "السائق" }, { name: "driverPhone", label: "هاتف السائق", ltr: true, type: "tel" }, { name: "company", label: "شركة النقل" }]} />}
+          </>
+        ) : (
+          <>
+            <ul className="space-y-1 text-sm">
+              {trip.flights.map((f) => <li key={f.id}>✈ <span className="ltr">{f.flightNo}</span> {f.airline} · {f.ticketCount} تذكرة · {f.departAt?.toLocaleString("en-GB", { timeZone: "Asia/Baghdad" })}</li>)}
+              {trip.cars.map((c) => <li key={c.id}>🚗 {c.label} — {c.driverName} <span className="ltr">{c.driverPhone}</span> ({c.capacity} ركاب)</li>)}
+            </ul>
+            {w && (
+              <div className="space-y-2">
+                <SmallForm action={addFlight.bind(null, trip.id)} submit="إضافة رحلة جوية" fields={[{ name: "flightNo", label: "رقم الرحلة", ltr: true, required: true }, { name: "airline", label: "الشركة" }, { name: "departAt", label: "الإقلاع", type: "datetime-local", ltr: true }, { name: "arriveAt", label: "الوصول", type: "datetime-local", ltr: true }, { name: "ticketCount", label: "عدد التذاكر", type: "number", ltr: true }]} />
+                <SmallForm action={addCar.bind(null, trip.id)} submit="إضافة سيارة" fields={[{ name: "label", label: "السيارة", required: true }, { name: "driverName", label: "السائق" }, { name: "driverPhone", label: "هاتف", ltr: true, type: "tel" }, { name: "capacity", label: "الركاب", type: "number", ltr: true }]} />
+              </div>
+            )}
+          </>
+        )}
+      </section>
+
+      {(w || money) && (
+      <details className="card space-y-3" open={counter.registered === 0}>
+        <summary className="cursor-pointer text-lg font-bold">إعدادات الرحلة <span className="text-sm font-normal text-brand-mid">(الرقم والتواريخ، الفنادق، الأسعار، العمولة، بيانات الهيئة)</span></summary>
+        <div className="space-y-4 pt-3">
+      {w && (
+        <section className="card space-y-2">
+          <h2 className="font-bold">رقم الرحلة والتواريخ</h2>
+          <SmallForm action={updateTripBasics.bind(null, trip.id)} submit="حفظ" fields={[
+            { name: "tripNo", label: "رقم الرحلة", ltr: true, defaultValue: trip.tripNo ?? "" },
+            { name: "departDate", label: "تاريخ الذهاب", ltr: true, date: true, placeholder: "DD/MM/YYYY", defaultValue: formatDate(trip.departDate) },
+            { name: "returnDate", label: "تاريخ العودة", ltr: true, date: true, placeholder: "DD/MM/YYYY", defaultValue: formatDate(trip.returnDate) },
+          ]} />
+          <p className="text-xs text-brand-mid">الحقول الثلاثة اختيارية ويمكن تركها فارغة.</p>
+        </section>
+      )}
+
+      <section className="card space-y-2">
+        <h2 className="font-bold">الفنادق والإقامة</h2>
+        <p className="text-sm">مكة: <b>{tripHotels.map((h) => hotelName(h.hotel)).join("، ") || hotelName(mk)}</b> ({trip.nightsMakkah} ليالي) · المدينة (ثابت): <b>{hotelName(md)}</b> ({trip.nightsMadinah} ليالي) · البداية من: {trip.firstCity === "MAKKAH" ? "مكة" : "المدينة"}</p>
+        {w && (
+          <form action={setTripHotels.bind(null, trip.id)} className="flex flex-wrap items-end gap-3">
+            <div><label className="label" htmlFor="madinahHotelId">فندق المدينة (ثابت)</label>
+              <select id="madinahHotelId" name="madinahHotelId" defaultValue={trip.madinahHotelId ?? ""} className="input w-56"><option value="">— اختر —</option>{hotels.filter((h) => h.city === "MADINAH").map((h) => <option key={h.id} value={h.id}>{hotelName(h)}</option>)}</select></div>
+            <div><label className="label" htmlFor="firstCity">المدينة الأولى</label>
+              <select id="firstCity" name="firstCity" defaultValue={trip.firstCity} className="input w-40"><option value="MADINAH">نبدأ بالمدينة</option><option value="MAKKAH">نبدأ بمكة</option></select></div>
+            <div><label className="label" htmlFor="nightsMadinah">ليالي المدينة</label>
+              <input id="nightsMadinah" name="nightsMadinah" type="number" min={0} defaultValue={trip.nightsMadinah} className="input w-24" dir="ltr" /></div>
+            <div><label className="label" htmlFor="nightsMakkah">ليالي مكة</label>
+              <input id="nightsMakkah" name="nightsMakkah" type="number" min={0} defaultValue={trip.nightsMakkah} className="input w-24" dir="ltr" /></div>
+            <button className="btn">حفظ</button>
+          </form>
+        )}
+        {can(user.role, "programs.write") && <form action={saveAsProgram.bind(null, trip.id)}><button className="text-sm underline">حفظ هذه الرحلة كقالب</button></form>}
+      </section>
+
+      {w && trip.transportType === "LAND" && (
+        <section className="card space-y-2">
+          <h2 className="font-bold">بيانات منفيست الهيئة</h2>
+          <SmallForm action={saveHayaInfo.bind(null, trip.id)} submit="حفظ" fields={[
+            { name: "transportCompany", label: "شركة النقل", defaultValue: trip.transportCompany ?? "" },
+            { name: "departGovernorate", label: "محافظة الانطلاق", defaultValue: trip.departGovernorate ?? "" },
+            { name: "routeText", label: "طريق الانطلاق", defaultValue: trip.routeText ?? "" },
+            { name: "sequenceNo", label: "التسلسل", ltr: true, defaultValue: trip.sequenceNo ?? "" },
+          ]} />
+          <p className="text-xs text-brand-mid">تظهر في أعلى منفيست الهيئة. المنفذ (عرعر) والموسم ثابتان في النموذج.</p>
+        </section>
+      )}
+      {money && (
+        <section className="card space-y-2">
+          <h2 className="font-bold">فنادق مكة والأسعار (بالدولار)</h2>
+          {pw ? <HotelPricesForm action={saveHotelPrices.bind(null, trip.id)} rows={hotelRows} candidates={hotels.filter((h) => h.city === "MAKKAH").map((h) => ({ id: h.id, name: hotelName(h) }))} />
+            : <ul className="text-sm">{hotelRows.map((r) => <li key={r.hotelId}><b>{r.name}</b>: {Object.entries(r.prices).map(([k, v]) => `${ROOM_TYPE_LABELS[k as keyof typeof ROOM_TYPE_LABELS]} ${v}`).join(" · ")}{r.noHousingPrice != null ? ` · بدون سكن ${r.noHousingPrice}` : ""}</li>)}{hotelRows.length === 0 && <li>غير محددة</li>}</ul>}
+        </section>
+      )}
+      {money && pw && (
+        <section className="card space-y-2">
+          <h2 className="font-bold">الطعام والتصريف وعمولة الوكيل</h2>
+          <TripExtrasForm action={saveTripExtras.bind(null, trip.id)} air={trip.transportType === "AIR"} values={{ foodDefault: trip.foodDefault, sarfAmount: trip.sarfAmount, agentCommission: trip.agentCommission }}
+            agents={allAgents.map((a) => ({ id: a.id, name: a.name, amount: agentOverrides.get(a.id) ?? null }))} />
+        </section>
+      )}
+
+        </div>
+      </details>
+      )}
     </div>
   );
 }

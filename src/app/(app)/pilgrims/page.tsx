@@ -9,16 +9,32 @@ import { dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { Toast } from "@/components/Toast";
 import { HeadTag } from "@/components/HeadTag";
 import { roomLabel } from "@/domain/officeRooms";
+import { addMonths } from "@/domain/dates";
+import { getSetting } from "@/server/settings";
+import { TRIP_ORDER } from "@/server/trips";
+import { listQuery, nextSort, parseListParams, type PilgrimSort } from "@/domain/listParams";
 
 const LIMIT = 300;
 
-export default async function PilgrimsPage({ searchParams }: { searchParams: Promise<{ q?: string; saved?: string; room?: string }> }) {
+function SortTh({ col, lp, children }: { col: PilgrimSort; lp: ReturnType<typeof parseListParams>; children: React.ReactNode }) {
+  const n = nextSort(lp, col), on = lp.sort === col;
+  return (
+    <th className="th md:sticky md:top-[3.75rem]" aria-sort={on ? (lp.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <Link href={`/pilgrims?${listQuery({ ...lp, ...n })}`} className="inline-flex items-center gap-1 hover:underline">{children}<span aria-hidden="true" className="text-xs">{on ? (lp.dir === "asc" ? "▲" : "▼") : "↕"}</span></Link>
+    </th>
+  );
+}
+
+export default async function PilgrimsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requirePage("pilgrims.view");
-  const { q = "", saved, room = "" } = await searchParams;
+  const sp = await searchParams;
+  const saved = sp.saved;
+  const lp = parseListParams(sp);
+  const { q, room } = lp;
+  const canMoney = can(user.role, "payments.view");
   const showRooms = can(user.role, "officeRooms.view");
   const roomMatch = /^([a-z]{0,2})(\d+)$/i.exec(room.trim());
-  const listQs = new URLSearchParams(); if (q) listQs.set("q", q); if (room) listQs.set("room", room);
-  const listUrl = "/pilgrims" + (listQs.toString() ? `?${listQs}` : ""); // where the user is: Save returns here
+  const listUrl = "/pilgrims" + (listQuery(lp) ? `?${listQuery(lp)}` : ""); // where the user is: Save returns here
   const rt = `returnTo=${encodeURIComponent(listUrl)}`;
   const savedPilgrim = saved ? await db.pilgrim.findUnique({ where: { id: saved } }) : null;
   const term = q.trim();
@@ -38,12 +54,25 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
     : { deletedAt: null };
   // optional filter by office room (e.g. a12 or 3): pilgrims with an active booking in that room
   const roomFilter = showRooms && roomMatch ? { bookings: { some: { status: "ACTIVE" as const, deletedAt: null, officeMember: { officeRoom: { code: roomMatch[1] ? roomMatch[1].toLowerCase() : null, seq: Number(roomMatch[2]) } } } } } : {};
-  const [rows, total] = await Promise.all([
+  // filters: only the booking-based ones need an ACTIVE booking on a live trip
+  const live = { status: "ACTIVE" as const, deletedAt: null, trip: { deletedAt: null } };
+  const minMonths = await getSetting("passportMinMonths");
+  const extra: object[] = [];
+  if (lp.trip) extra.push({ bookings: { some: { ...live, tripId: lp.trip } } });
+  if (lp.agent) extra.push({ agentId: lp.agent });
+  if (lp.f === "expiring") extra.push({ passportExpiry: { lt: addMonths(new Date(), minMonths) }, bookings: { some: { ...live, trip: { deletedAt: null, archivedAt: null, status: { in: ["OPEN", "FULL", "TRAVELLING"] as ("OPEN" | "FULL" | "TRAVELLING")[] } } } } });
+  if (lp.f === "noroom" && showRooms) extra.push({ bookings: { some: { ...live, officeMember: null } } });
+  if (lp.f === "noprice" && canMoney) extra.push({ bookings: { some: { ...live, priceAmount: null } } });
+  const dir = lp.dir;
+  const orderBy = lp.sort === "name" ? [{ firstName: dir }, { fatherName: dir }] : lp.sort === "passport" ? [{ passportNo: dir }] : lp.sort === "expiry" ? [{ passportExpiry: dir }] : [{ createdAt: dir }];
+  const [rows, total, tripOpts, agentOpts] = await Promise.all([
     db.pilgrim.findMany({
-      where: { ...where, ...roomFilter }, orderBy: { createdAt: "desc" }, take: LIMIT + 1,
+      where: { ...where, ...roomFilter, ...(extra.length ? { AND: extra } : {}) }, orderBy: orderBy as never, take: LIMIT + 1,
       include: { agent: true, bookings: { where: { status: "ACTIVE", deletedAt: null, trip: { deletedAt: null } }, include: { trip: true, groups: true, officeMember: { include: { officeRoom: true } } } } },
     }),
     db.pilgrim.count({ where: { deletedAt: null } }),
+    db.trip.findMany({ where: { deletedAt: null, archivedAt: null }, orderBy: TRIP_ORDER, select: { id: true, tripNo: true, name: true } }),
+    db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   const truncated = rows.length > LIMIT;
   const shown = rows.slice(0, LIMIT);
@@ -69,14 +98,27 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
         {can(user.role, "pilgrims.write") && <Link href={`/pilgrims/new?${rt}`} className="btn">+ معتمر جديد</Link>}
       </div>
       {savedPilgrim && <Toast text={`تم حفظ ${fullNameAr(savedPilgrim)}`} />}
-      <form className="flex flex-wrap gap-2">
-        <input name="q" defaultValue={q} placeholder="بحث: رقم الجواز، الاسم بالعربي أو الإنكليزي، الهاتف" className="input flex-1" />
+      <form className="flex flex-wrap items-end gap-2">
+        <input name="q" defaultValue={q} placeholder="بحث: رقم الجواز، الاسم بالعربي أو الإنكليزي، الهاتف" aria-label="بحث" className="input min-w-[12rem] flex-1" />
         {showRooms && <input name="room" defaultValue={room} placeholder="غرفة المكتب (مثل a12)" aria-label="غرفة المكتب" className="input w-44" dir="ltr" />}
+        <select name="trip" aria-label="الرحلة" defaultValue={lp.trip} className="input w-48"><option value="">كل الرحلات</option>{tripOpts.map((t) => <option key={t.id} value={t.id}>{t.tripNo ?? t.name}</option>)}</select>
+        <select name="agent" aria-label="الوكيل" defaultValue={lp.agent} className="input w-44"><option value="">كل الوكلاء</option>{agentOpts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
+        {lp.f && <input type="hidden" name="f" value={lp.f} />}{lp.sort !== "new" && <><input type="hidden" name="sort" value={lp.sort} /><input type="hidden" name="dir" value={lp.dir} /></>}
         <button className="btn-secondary">بحث</button>
       </form>
-      <div className="card overflow-x-auto p-0">
+      <div className="flex flex-wrap items-center gap-2 text-sm" aria-label="تصفية سريعة">
+        {([["", "الكل"], ["expiring", "جوازات تنتهي قريباً"], ...(showRooms ? [["noroom", "بلا غرفة"]] : []), ...(canMoney ? [["noprice", "بلا سعر"]] : [])] as [string, string][]).map(([v, l]) => (
+          <Link key={v} href={`/pilgrims?${listQuery({ ...lp, f: v as never })}`} aria-current={lp.f === v ? "true" : undefined}
+            className={"rounded-full border px-3 py-1 font-bold " + (lp.f === v ? "border-brand bg-brand text-white" : "border-line bg-white text-brand-dark hover:bg-canvas")}>{l}</Link>
+        ))}
+        {(lp.f || lp.trip || lp.agent || q || room || lp.sort !== "new") && <Link href="/pilgrims" className="text-brand-mid underline">مسح الكل</Link>}
+      </div>
+      <div className="card overflow-x-auto p-0 md:overflow-visible">
         <table className="w-full">
-          <thead><tr><th className="th">الاسم</th><th className="th">English</th><th className="th">الجواز</th><th className="th">الجنس</th><th className="th">الهاتف</th><th className="th">الوكيل</th><th className="th">انتهاء الجواز</th></tr></thead>
+          <thead><tr>
+            <SortTh col="name" lp={lp}>الاسم</SortTh><th className="th md:sticky md:top-[3.75rem]">English</th><SortTh col="passport" lp={lp}>الجواز</SortTh>
+            <th className="th md:sticky md:top-[3.75rem]">الجنس</th><th className="th md:sticky md:top-[3.75rem]">الهاتف</th><th className="th md:sticky md:top-[3.75rem]">الوكيل</th><SortTh col="expiry" lp={lp}>انتهاء الجواز</SortTh>
+          </tr></thead>
           {ordered.map((g) => (
             <tbody key={g.trip?.id ?? "none"}>
               <tr className="bg-brand-light">

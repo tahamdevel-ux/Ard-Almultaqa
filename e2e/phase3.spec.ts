@@ -16,6 +16,7 @@ test("accountant: pay in dinars at a rate, receipt, refund guard, cancel, move, 
   await page.click("a:has-text('A-2612')");
   await page.waitForURL(/trips\/[0-9a-f-]{36}$/);
   const tripId = page.url().split("/").pop()!;
+  await page.getByText("إعدادات الرحلة").first().click(); // collapsed on a trip that has pilgrims
   await expect(page.getByText("فنادق مكة والأسعار")).toBeVisible();
 
   // open the account of the last (unpaid) booking
@@ -113,6 +114,7 @@ test("every role sees the accounts; only admin and accountant can refund", async
   await page.goto("/trips");
   await page.click("a:has-text('L-2611')");
   await page.waitForURL(/trips\/[0-9a-f-]{36}$/);
+  await page.getByText("إعدادات الرحلة").first().click(); // collapsed on a trip that has pilgrims
   await expect(page.getByText("فنادق مكة والأسعار")).toBeVisible();      // prices are visible to everyone
   await expect(page.getByRole("button", { name: "حفظ الأسعار" })).toHaveCount(0); // but only admin/accountant edit them
   // a payment can be recorded by anyone, a refund form is for admin/accountant only

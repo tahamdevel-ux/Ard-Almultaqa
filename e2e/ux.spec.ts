@@ -30,9 +30,42 @@ test("trip page: labelled hotel fields and a breadcrumb on sub-pages; destructiv
   await page.goto("/trips");
   await page.locator("a[href^='/trips/']:not([href$='/new'])").first().click();
   await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  await page.getByText("إعدادات الرحلة").first().click(); // set-up forms are collapsed on a trip that already has pilgrims
   await expect(page.getByLabel("ليالي المدينة")).toBeVisible();
   await expect(page.getByLabel("فندق المدينة (ثابت)")).toBeVisible();
   await page.getByRole("link", { name: "المطبوعات" }).click();
   await page.waitForURL(/\/prints$/);
   await expect(page.getByRole("navigation", { name: "مسار الصفحة" })).toContainText("المطبوعات");
+});
+
+test("dashboard shows what needs attention and the links open the matching filtered list", async ({ page }) => {
+  await login(page);
+  await expect(page.getByRole("region", { name: "يحتاج انتباهك" })).toBeVisible();
+  await page.goto("/pilgrims?f=noroom");
+  await expect(page.getByRole("link", { name: "بلا غرفة" })).toHaveAttribute("aria-current", "true");
+});
+
+test("pilgrims list: sort by clicking a column, quick filters, clear all", async ({ page }) => {
+  await login(page);
+  await page.goto("/pilgrims");
+  await page.getByRole("link", { name: /^الجواز/ }).click();
+  await expect(page).toHaveURL(/sort=passport&dir=asc/);
+  await page.getByRole("link", { name: /^الجواز/ }).click();
+  await expect(page).toHaveURL(/dir=desc/);
+  await page.getByRole("link", { name: "جوازات تنتهي قريباً" }).click();
+  await expect(page).toHaveURL(/f=expiring/);
+  await page.getByRole("link", { name: "مسح الكل" }).click();
+  await expect(page).toHaveURL(/\/pilgrims$/);
+});
+
+test("trip page: pilgrims come first, set-up forms sit in a collapsible section", async ({ page }) => {
+  await login(page);
+  await page.goto("/trips");
+  await page.locator("a[href^='/trips/']:not([href$='/new'])").first().click();
+  await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  const list = page.getByRole("heading", { name: /^المعتمرون/ });
+  const settings = page.getByText("إعدادات الرحلة").first();
+  await expect(list).toBeVisible();
+  const a = await list.boundingBox(), b = await settings.boundingBox();
+  expect(a!.y).toBeLessThan(b!.y);
 });

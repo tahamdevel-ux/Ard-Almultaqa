@@ -6,8 +6,10 @@ import { can } from "@/lib/permissions";
 import { balance, formatMoney } from "@/domain/money";
 import { readiness } from "@/domain/readiness";
 import { fullNameAr } from "@/server/pilgrims";
-import { dateOrNotSet, tripLabel } from "@/lib/tripLabel";
+import { tripLabel } from "@/lib/tripLabel";
 import { TRANSPORT_LABELS } from "@/lib/labels";
+import { attentionCounts } from "@/server/attention";
+import { formatDate } from "@/domain/dates";
 import { Bar, Donut, EmptyState, Legend, StatCard } from "@/components/charts";
 import { Icon } from "@/components/icons";
 
@@ -21,6 +23,8 @@ export default async function Dashboard() {
     include: { bookings: { where: { status: "ACTIVE", deletedAt: null }, include: { pilgrim: true } } },
   });
   const pilgrims = await db.pilgrim.count({ where: { deletedAt: null } });
+  const rooms = can(user.role, "officeRooms.view");
+  const att = await attentionCounts({ rooms, money });
 
   const rows = trips.flatMap((t) => t.bookings.map((b) => ({ b, ...readiness({ bookingActive: true, passportNo: b.pilgrim.passportNo }) })));
   const ready = rows.filter((r) => r.ready).length;
@@ -45,6 +49,29 @@ export default async function Dashboard() {
           : <StatCard label="شواغر الرحلات" value={String(trips.reduce((n, t) => n + Math.max(0, t.capacity - t.bookings.length), 0))} icon={<Icon name="alert" size={22} />} tone="red" />}
       </div>
 
+      {(() => {
+        const items: { label: string; n: number | null; href: string; tone: "bad" | "warn" }[] = [
+          { label: "جوازات تنتهي قريباً", n: att.expiring, href: "/pilgrims?f=expiring", tone: "bad" },
+          ...(rooms ? [{ label: "معتمرون بلا غرفة", n: att.noRoom, href: "/pilgrims?f=noroom", tone: "warn" as const }] : []),
+          ...(money ? [{ label: "حجوزات بلا سعر", n: att.noPrice, href: "/pilgrims?f=noprice", tone: "warn" as const }] : []),
+          { label: "رحلات تجاوزت السعة", n: att.overCapacity, href: "/trips", tone: "bad" },
+        ];
+        const open = items.filter((i) => (i.n ?? 0) > 0);
+        return (
+          <section className="card" aria-label="يحتاج انتباهك">
+            <h2 className="section-title"><Icon name="alert" size={18} />يحتاج انتباهك</h2>
+            {open.length === 0 ? <p className="flex items-center gap-2 text-sm font-bold text-green-800"><Icon name="check" size={18} />لا شيء يحتاج انتباهاً الآن</p> : (
+              <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {open.map((i) => (
+                  <li key={i.label}><Link href={i.href} className={"flex items-center justify-between rounded-lg border px-3 py-2 font-bold hover:shadow-sm " + (i.tone === "bad" ? "border-red-200 bg-red-50 text-red-800" : "border-amber-200 bg-amber-50 text-amber-900")}>
+                    <span className="text-sm">{i.label}</span><span className="text-xl">{i.n}</span></Link></li>
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      })()}
+
       <div className="grid gap-4">
         <section className="card">
           <h2 className="section-title"><Icon name="bus" size={18} />الرحلات القادمة ونسبة الامتلاء</h2>
@@ -57,7 +84,7 @@ export default async function Dashboard() {
                     <div className="mb-1 flex flex-wrap items-center gap-x-3 text-sm">
                       <Link className="font-bold text-brand underline-offset-2 hover:underline" href={`/trips/${t.id}`}>{tripLabel(t)}</Link>
                       <span className="chip chip-gray"><Icon name={t.transportType === "AIR" ? "plane" : "bus"} size={13} className="ml-1" />{TRANSPORT_LABELS[t.transportType]}</span>
-                      <span className="text-xs text-brand-mid">{dateOrNotSet(t.departDate)}</span>
+                      <span className="text-xs text-brand-mid">{t.departDate ? formatDate(t.departDate) : "بدون تاريخ"}</span>
                       <span className="mr-auto text-xs text-brand-mid">{n} من {t.capacity}</span>
                     </div>
                     <Bar value={n} max={t.capacity} tone={t.capacity && n > t.capacity ? "red" : "brand"} />
