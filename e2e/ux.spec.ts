@@ -16,7 +16,7 @@ test("phone: bottom navigation reaches every section; desktop keeps the top bar"
   await expect(page.getByRole("navigation", { name: "القائمة الرئيسية" })).toBeHidden();
   await bottom.getByRole("link", { name: "الرحلات" }).click();
   await page.waitForURL("**/trips");
-  await bottom.getByRole("button", { name: "المزيد" }).click();
+  await bottom.getByRole("button", { name: "المزيد" }).dispatchEvent("click"); // the dev-mode Next badge sits over this corner
   await expect(page.getByRole("dialog", { name: "المزيد" }).getByRole("link", { name: "الفنادق" })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "المزيد" })).toHaveCount(0);
@@ -30,6 +30,7 @@ test("trip page: labelled hotel fields and a breadcrumb on sub-pages; destructiv
   await page.goto("/trips");
   await page.locator("a[href^='/trips/']:not([href$='/new'])").first().click();
   await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  await page.waitForLoadState("networkidle"); // the trip page is heavy: let it hydrate before clicking
   await page.getByText("إعدادات الرحلة").first().click(); // set-up forms are collapsed on a trip that already has pilgrims
   await expect(page.getByLabel("ليالي المدينة")).toBeVisible();
   await expect(page.getByLabel("فندق المدينة (ثابت)")).toBeVisible();
@@ -63,6 +64,7 @@ test("trip page: pilgrims come first, set-up forms sit in a collapsible section"
   await page.goto("/trips");
   await page.locator("a[href^='/trips/']:not([href$='/new'])").first().click();
   await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  await page.waitForLoadState("networkidle");
   const list = page.getByRole("heading", { name: /^المعتمرون/ });
   const settings = page.getByText("إعدادات الرحلة").first();
   await expect(list).toBeVisible();
