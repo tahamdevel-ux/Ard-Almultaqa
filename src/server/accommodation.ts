@@ -83,7 +83,9 @@ export async function applyAccommodation(tripId: string, bookingId: string, a: A
     if (!b) return { ok: false, error: "الحجز غير موجود" } as AccResult;
     const trip = await tx.trip.findUniqueOrThrow({ where: { id: tripId } });
     const mk = a.makkahHotelId || trip.makkahHotelId, md = a.madinahHotelId || trip.madinahHotelId;
-    const data: Prisma.BookingUncheckedUpdateInput = { makkahHotelId: a.makkahHotelId || null, madinahHotelId: a.madinahHotelId || null };
+    const data: Prisma.BookingUncheckedUpdateInput = {};
+    if (a.makkahHotelId !== undefined) data.makkahHotelId = a.makkahHotelId || null; // a partial save never wipes the hotel
+    if (a.madinahHotelId !== undefined) data.madinahHotelId = a.madinahHotelId || null;
     if (a.roomType) data.roomType = a.roomType;
     if (a.food !== undefined) data.withFood = a.food !== "0";
     if (a.housing !== undefined) data.noHousing = a.housing === "NO";
@@ -91,9 +93,12 @@ export async function applyAccommodation(tripId: string, bookingId: string, a: A
     const offered = await tx.tripHotel.findMany({ where: { tripId }, include: { prices: true } });
     if (offered.length) {
       // priced Makkah hotels exist: the pilgrim's Makkah hotel must be one of them and decides the price
-      const th = offered.find((h) => h.hotelId === (a.makkahHotelId || b.makkahHotelId || trip.makkahHotelId)) ?? (offered.length === 1 ? offered[0] : null);
+      // the price comes ONLY from an explicit choice: the hotel picked now, else the one already on the booking, else the trip's only priced hotel.
+      // Never from the trip's old default hotel (that silently priced pilgrims from a stale list).
+      const th = a.makkahHotelId ? offered.find((h) => h.hotelId === a.makkahHotelId) ?? null
+        : offered.find((h) => h.id === b.tripHotelId) ?? (offered.length === 1 ? offered[0] : null);
       if (a.makkahHotelId && !th) throw new RollbackError("فندق مكة غير مُدرج في أسعار الرحلة");
-      data.tripHotelId = th?.id ?? null;
+      if (th) data.tripHotelId = th.id;
       const noHousing = a.housing !== undefined ? a.housing === "NO" : b.noHousing;
       const roomType = (a.roomType ?? b.roomType ?? null) as RoomKind | null;
       const sarfByPilgrim = a.sarf !== undefined ? a.sarf === "PILGRIM" : b.sarfByPilgrim;
@@ -101,6 +106,7 @@ export async function applyAccommodation(tripId: string, bookingId: string, a: A
         const err = await checkNoHousing(tx, tripId, bookingId, th.id);
         if (err) throw new RollbackError(err);
       }
+      if (!th && (noHousing || roomType) && !b.priceManual && b.priceAmount == null) throw new RollbackError("اختر فندق مكة — هو الذي يحدد السعر");
       if (th && !b.priceManual && (noHousing || roomType)) { // a price typed by hand is never recomputed
         const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType, noHousing, sarfByPilgrim, sarfAmount: trip.sarfAmount });
         if (!r.ok) throw new RollbackError(r.error);

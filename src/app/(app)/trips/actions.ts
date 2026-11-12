@@ -10,7 +10,7 @@ import { addPilgrimToTrips, overlapWarnings } from "@/server/bookings";
 import { busRoleConflict, moveBookingsToBus } from "@/server/buses";
 import { freeOfficeBeds } from "@/officeRooms/service";
 import { applyAccommodation, accommodationFromForm, type Accommodation } from "@/server/accommodation";
-import { saveTripHotels, type TripHotelInput } from "@/server/tripHotels";
+import { recalcTripPrices, saveTripHotels, type TripHotelInput } from "@/server/tripHotels";
 import { getSetting } from "@/server/settings";
 import { parseDate } from "@/domain/dates";
 import { parseTripIdentity } from "@/domain/tripFields";
@@ -396,5 +396,16 @@ export async function saveHayaInfo(tripId: string, _p: TripActionState, f: FormD
       await auditChanges(tx, u, "Trip", tripId, before, after, ["transportCompany", "departGovernorate", "routeText", "sequenceNo"] as never);
     });
     touch(tripId); return { ok: true };
+  });
+}
+
+/** Recalculates the prices of every pilgrim of the trip from the hotel table (hand-typed prices are kept). */
+export async function recalcPrices(tripId: string, _p: TripActionState, _f: FormData): Promise<TripActionState> {
+  return guarded("prices.write", async (u) => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
+    const r = await recalcTripPrices(u, tripId);
+    touch(tripId);
+    const left = [r.skippedManual && `${r.skippedManual} بسعر يدوي (لم يُمسّ)`, r.noHotel && `${r.noHotel} بلا فندق مكة`, r.noRoomType && `${r.noRoomType} بلا نوع غرفة`, r.noTablePrice && `${r.noTablePrice} لا سعر لهم في الجدول`].filter(Boolean);
+    return { ok: true, warning: `تم: ${r.updated} سعر تغيّر، ${r.unchanged} بلا تغيير.${left.length ? " تبقّى: " + left.join("، ") + "." : ""}` };
   });
 }

@@ -3,7 +3,7 @@ import { db } from "./db";
 import { applyAccommodation } from "./accommodation";
 import { addPilgrimToTrips } from "./bookings";
 import { setBookingPrice } from "./payments";
-import { saveTripHotels } from "./tripHotels";
+import { auditTripPrices, recalcTripPrices, saveTripHotels } from "./tripHotels";
 import { agentStatementData } from "@/outputs/viewmodels";
 
 const user = { id: "u1", username: "a", name: "مدير", role: "ADMIN" as const };
@@ -116,6 +116,42 @@ describe("manual prices survive", () => {
     await applyAccommodation(t.id, b.id, { makkahHotelId: h1.id, roomType: "DOUBLE", sarf: "PILGRIM" });
     await setBookingPrice(user, b.id, { roomType: "DOUBLE", amount: null, currency: "USD" });
     expect((await db.booking.findUniqueOrThrow({ where: { id: b.id } })).priceAmount).toBe(540);
+  });
+});
+
+describe("prices come only from an explicit hotel", () => {
+  it("a partial save keeps the hotel and the price", async () => {
+    const { h2, t } = await setup();
+    const b = await book(t.id);
+    await applyAccommodation(t.id, b.id, { makkahHotelId: h2.id, roomType: "DOUBLE" });
+    await applyAccommodation(t.id, b.id, { tripRole: "" });
+    await applyAccommodation(t.id, b.id, { officeRoom: "7" });
+    const after = await db.booking.findUniqueOrThrow({ where: { id: b.id }, include: { tripHotel: true } });
+    expect(after.tripHotel?.hotelId).toBe(h2.id);
+    expect(after.priceAmount).toBe(700);
+  });
+  it("never prices from the trip's old default hotel: with several hotels and none chosen it asks", async () => {
+    const { h1, t } = await setup();
+    await db.trip.update({ where: { id: t.id }, data: { makkahHotelId: h1.id } }); // the old trip-level hotel
+    const b = await book(t.id);
+    const r = await applyAccommodation(t.id, b.id, { roomType: "DOUBLE" });
+    expect(r.ok).toBe(false);
+    expect((await db.booking.findUniqueOrThrow({ where: { id: b.id } })).priceAmount).toBeNull();
+  });
+  it("«أعد حساب الأسعار»: gives the only hotel to a booking without one, prices it, keeps hand-typed prices, reports the rest", async () => {
+    const h = await db.hotel.create({ data: { officialName: "Only", city: "MAKKAH" } });
+    const t = await db.trip.create({ data: { name: "ر", transportType: "LAND", capacity: 9 } });
+    await saveTripHotels(user, t.id, [{ hotelId: h.id, noHousingPrice: null, prices: { DOUBLE: 850 } }], false);
+    const a = await book(t.id), m = await book(t.id), c = await book(t.id);
+    await db.booking.update({ where: { id: a.id }, data: { roomType: "DOUBLE" } }); // added before the table existed: has a room type, no hotel, no price
+    await db.booking.update({ where: { id: m.id }, data: { roomType: "DOUBLE", priceAmount: 777, priceManual: true } });
+    expect(await auditTripPrices(t.id)).toMatchObject({ noPrice: 2, manual: 1 });
+    const r = await recalcTripPrices(user, t.id);
+    expect(r).toMatchObject({ updated: 1, skippedManual: 1, noRoomType: 1 });
+    expect((await db.booking.findUniqueOrThrow({ where: { id: a.id } })).priceAmount).toBe(850);
+    expect((await db.booking.findUniqueOrThrow({ where: { id: m.id } })).priceAmount).toBe(777);
+    expect((await db.booking.findUniqueOrThrow({ where: { id: c.id } })).priceAmount).toBeNull();
+    expect(await auditTripPrices(t.id)).toMatchObject({ noPrice: 1, differs: 0 });
   });
 });
 

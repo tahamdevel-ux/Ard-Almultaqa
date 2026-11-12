@@ -13,18 +13,20 @@ import { TRIP_ROLE_LABELS } from "@/domain/tripRoles";
 import { busLabel, dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { DeleteBusButton } from "@/components/BusTools";
 import { AddPilgrimDialog } from "@/components/AddPilgrimDialog";
+import { computePrice } from "@/domain/pricing";
 import { seatsLabel, vacancyLabel } from "@/domain/labels";
 import { ConfirmForm } from "@/components/ConfirmForm";
 import { TripTabs } from "@/components/TripTabs";
 import { HotelPricesForm, TripExtrasForm, type HotelRow } from "@/components/TripPricingForms";
-import { loadTripHotels } from "@/server/tripHotels";
+import { auditTripPrices, loadTripHotels } from "@/server/tripHotels";
+import { RecalcPrices } from "@/components/RecalcPrices";
 import { AccommodationEditor, type HotelOpt } from "@/components/AccommodationFields";
 import { SmallForm } from "@/components/SmallForm";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
 import { balance, formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAirAssignment, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo } from "../actions";
+import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAirAssignment, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo, recalcPrices } from "../actions";
 import { DateInput } from "@/components/DateInput";
 
 export default async function TripPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ q?: string; notes?: string }> }) {
@@ -55,6 +57,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
   const tripHotels = await loadTripHotels(trip.id);
   const hotelRows: HotelRow[] = await Promise.all(tripHotels.map(async (h) => ({ hotelId: h.hotelId, name: hotelName(h.hotel), used: await db.booking.count({ where: { tripHotelId: h.id, deletedAt: null } }), prices: Object.fromEntries(h.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: h.noHousingPrice })));
   const priceTables = Object.fromEntries(hotelRows.map((r) => [r.hotelId, { prices: r.prices, noHousing: r.noHousingPrice }]));
+  const priceAudit = money ? await auditTripPrices(trip.id) : { total: 0, noPrice: 0, differs: 0, manual: 0 };
   const allAgents = money && pw ? await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }) : [];
   const agentOverrides = new Map((await db.tripAgentCommission.findMany({ where: { tripId: trip.id } })).map((c) => [c.agentId, c.amount]));
   const groupOf = (r: (typeof rows)[number]) => r.booking.groups[0]?.groupId;
@@ -90,6 +93,8 @@ export default async function TripPage({ params, searchParams }: { params: Promi
       </div>
       {counter.over && counter.capacity > 0 && <p className="alert-bad">⚠ عدد المسجلين تجاوز السعة القصوى للرحلة بـ {counter.registered - counter.capacity}</p>}
       {counter.capacity <= 0 && <p className="alert-warn">لم تُحدَّد سعة لهذه الرحلة — حدّدها من «تعديل الرحلة» ليظهر عدد الشواغر.</p>}
+
+      {money && <RecalcPrices action={recalcPrices.bind(null, trip.id)} audit={priceAudit} canEdit={pw} />}
 
       <form id="groupform" action={createCompanionGroup.bind(null, trip.id)} />
       <section className="card overflow-x-auto p-0">
@@ -156,7 +161,14 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                   {money && (() => {
                     const bal = balance(b.priceAmount, b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) })));
                     return (<>
-                      <td className="td">{b.priceAmount == null ? <span className="chip chip-warn">بلا سعر</span> : formatMoney(b.priceAmount, b.priceCurrency)}</td>
+                      <td className="td">{b.priceAmount == null ? <span className="chip chip-warn">بلا سعر</span> : formatMoney(b.priceAmount, b.priceCurrency)}{(() => {
+                        if (b.priceAmount == null) return null;
+                        if (b.priceManual) return <span className="chip chip-gray ms-1" title="سعر مكتوب يدوياً">يدوي</span>;
+                        const th = tripHotels.find((h) => h.id === b.tripHotelId);
+                        if (!th) return null;
+                        const rr = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: (b.roomType as never) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: trip.sarfAmount });
+                        return rr.ok && rr.amount !== b.priceAmount ? <span className="chip chip-warn ms-1" title={`جدول الفندق يعطي ${formatMoney(rr.amount, "USD")}`}>≠ الجدول</span> : null;
+                      })()}</td>
                       <td className="td"><Link className={"underline " + ((bal ?? 0) > 0 ? "text-red-700 font-bold" : "")} href={`/bookings/${b.id}`}>{bal == null ? "الحساب" : formatMoney(bal, b.priceCurrency)}</Link></td>
                     </>);
                   })()}

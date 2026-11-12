@@ -75,3 +75,48 @@ export async function checkNoHousing(tx: Tx, tripId: string, bookingId: string, 
   const head = await tx.bookingGroupMember.findFirst({ where: { groupId: mine.groupId, isHead: true }, include: { booking: true } });
   return noHousingError({ hasHead: !!head && head.bookingId !== bookingId, headBookingHotelId: head?.booking.tripHotelId, hotelId: tripHotelId });
 }
+
+export interface PriceAudit { total: number; noPrice: number; differs: number; manual: number }
+
+/** What is wrong with the prices of a trip: bookings without a price, bookings whose price differs from the hotel table, hand-typed prices. */
+export async function auditTripPrices(tripId: string): Promise<PriceAudit> {
+  const trip = await db.trip.findUniqueOrThrow({ where: { id: tripId } });
+  const hotels = await db.tripHotel.findMany({ where: { tripId }, include: { prices: true } });
+  const bookings = await db.booking.findMany({ where: { tripId, status: "ACTIVE", deletedAt: null } });
+  const a: PriceAudit = { total: bookings.length, noPrice: 0, differs: 0, manual: 0 };
+  for (const b of bookings) {
+    if (b.priceManual) a.manual++;
+    if (b.priceAmount == null) { a.noPrice++; continue; }
+    const th = hotels.find((h) => h.id === b.tripHotelId);
+    if (!th || b.priceManual) continue;
+    const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: (b.roomType as RoomKind) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: trip.sarfAmount });
+    if (r.ok && r.amount !== b.priceAmount) a.differs++;
+  }
+  return a;
+}
+
+/**
+ * Recalculates every non-manual booking of the trip from its priced hotel + room type (+ تصريف المعتمر). A booking with no hotel gets the
+ * trip's only priced hotel when there is exactly one. Hand-typed prices are never touched. Returns what it did and what it could not do.
+ */
+export async function recalcTripPrices(user: SessionUser, tripId: string) {
+  return db.$transaction(async (tx) => {
+    const hotels = await tx.tripHotel.findMany({ where: { tripId } });
+    const bookings = await tx.booking.findMany({ where: { tripId, status: "ACTIVE", deletedAt: null } });
+    const out = { updated: 0, unchanged: 0, skippedManual: 0, noHotel: 0, noRoomType: 0, noTablePrice: 0 };
+    for (const b of bookings) {
+      if (b.priceManual) { out.skippedManual++; continue; }
+      let thId = b.tripHotelId;
+      if (!thId && hotels.length === 1) { thId = hotels[0].id; await tx.booking.update({ where: { id: b.id }, data: { tripHotelId: thId } }); }
+      if (!thId) { out.noHotel++; continue; }
+      if (!b.noHousing && !b.roomType) { out.noRoomType++; continue; }
+      const before = b.priceAmount;
+      const changed = await repriceBooking(tx, user, b.id);
+      const after = (await tx.booking.findUniqueOrThrow({ where: { id: b.id } })).priceAmount;
+      if (changed) out.updated++;
+      else if (after == null || before == null) out.noTablePrice++;
+      else out.unchanged++;
+    }
+    return out;
+  });
+}
