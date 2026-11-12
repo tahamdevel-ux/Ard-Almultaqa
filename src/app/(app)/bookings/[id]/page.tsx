@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/server/db";
@@ -48,6 +49,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="space-y-4">
+      <Breadcrumbs items={[{ label: "الرحلات", href: "/trips" }, { label: tripLabel(b.trip), href: `/trips/${b.tripId}` }, { label: "حساب الحجز" }]} />
       <div>
         <h1 className="page-title">حساب الحجز — {fullNameAr(b.pilgrim)}</h1>
         <p className="text-sm text-brand-mid">
@@ -115,13 +117,13 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
       {wp && b.payments.length > 0 && (
         <section className="card space-y-2">
           <h2 className="font-bold">استرداد مبلغ</h2>
-          <MoneyForm action={recordPayment.bind(null, b.id, "REFUND")} submit="تسجيل الاسترداد" danger>{payFields("REFUND")}</MoneyForm>
+          <MoneyForm action={recordPayment.bind(null, b.id, "REFUND")} submit="تسجيل الاسترداد" danger confirm="تسجيل استرداد مبلغ لهذا الحجز؟ سيُنقص المدفوع ويُسجَّل في السجل.">{payFields("REFUND")}</MoneyForm>
         </section>
       )}
       {wp && active && (
         <section className="card space-y-2">
           <h2 className="font-bold">إلغاء الحجز</h2>
-          <MoneyForm action={cancel.bind(null, b.id)} submit="إلغاء الحجز" danger>
+          <MoneyForm action={cancel.bind(null, b.id)} submit="إلغاء الحجز" danger confirm="إلغاء هذا الحجز؟ يُحرَّر المقعد والغرفة ولا يمكن التراجع من الشاشة.">
             <div><label className="label">سبب الإلغاء *</label><input name="reason" className="input w-48" required /></div>
             <div><label className="label">مبلغ يُردّ (اختياري)</label><input name="refundAmount" type="number" min={0} className="input w-28" dir="ltr" /></div>
             <div><label className="label">العملة</label><select name="currency" defaultValue={cur} className="input w-24"><option value="USD">دولار</option><option value="IQD">دينار</option></select></div>

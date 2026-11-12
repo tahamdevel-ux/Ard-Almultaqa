@@ -59,6 +59,7 @@ test("accountant: pay in dinars at a rate, receipt, refund guard, cancel, move, 
   await refund.locator("[name=amount]").fill("99999999");
   await refund.locator("[name=currency]").selectOption("USD");
   await refund.locator("[name=reason]").fill("تجربة");
+  page.once("dialog", (d) => d.accept());
   await refund.locator("button:has-text('تسجيل الاسترداد')").click();
   await expect(refund.getByRole("alert")).toContainText("أكبر من المدفوع");
 
@@ -79,6 +80,7 @@ test("accountant: pay in dinars at a rate, receipt, refund guard, cancel, move, 
   await cancel.locator("[name=reason]").fill("ظرف صحي");
   await cancel.locator("[name=refundAmount]").fill("40");
   await cancel.locator("[name=currency]").selectOption("USD");
+  page.once("dialog", (d) => d.accept());
   await cancel.locator("button:has-text('إلغاء الحجز')").click();
   await expect(page.getByText("ملغى (ظرف صحي)")).toBeVisible();
   await page.reload();

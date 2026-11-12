@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/server/db";
@@ -37,6 +38,7 @@ export default async function BusPage({ params }: { params: Promise<{ id: string
   const moveRows = bookings.map((b) => ({ bookingId: b.id, name: fullNameAr(b.pilgrim), seatNo: b.seat?.seatNo ?? null, busLabel: b.seat?.busId ? busLabel(busById.get(b.seat.busId) ?? { number: "?" }) : null }));
   return (
     <div className="space-y-4">
+      <Breadcrumbs items={[{ label: "الرحلات", href: "/trips" }, { label: "الرحلة", href: `/trips/${id}` }, { label: busLabel(bus) }]} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="page-title">{busLabel(bus)} — خريطة المقاعد</h1>
         <div className="flex gap-2">

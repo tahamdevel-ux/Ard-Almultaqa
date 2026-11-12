@@ -6,7 +6,7 @@ import { Icon, type IconName } from "./icons";
 export function NavLinks({ items }: { items: { href: string; label: string; icon: IconName }[] }) {
   const path = usePathname();
   return (
-    <nav className="flex gap-1 overflow-x-auto whitespace-nowrap text-sm" aria-label="القائمة الرئيسية">
+    <nav className="hidden gap-1 overflow-x-auto whitespace-nowrap text-sm md:flex" aria-label="القائمة الرئيسية">
       {items.map((n) => {
         const active = path === n.href || path.startsWith(n.href + "/");
         return (

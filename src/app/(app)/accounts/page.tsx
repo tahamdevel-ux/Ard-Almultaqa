@@ -3,6 +3,7 @@ import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
 import { accountsOverview, paymentsLog } from "@/server/accounts";
 import { parsePeriod, PERIOD_LABELS, type Period } from "@/domain/accounts";
+import { remainingState } from "@/domain/labels";
 import { formatMoney } from "@/domain/money";
 import { formatDate } from "@/domain/dates";
 import { tripLabel } from "@/lib/tripLabel";
@@ -13,6 +14,8 @@ type Tab = "trips" | "pilgrims" | "agents" | "payments";
 const TABS: [Tab, string][] = [["trips", "الرحلات"], ["pilgrims", "المعتمرين"], ["agents", "الوكلاء"], ["payments", "سجل الدفعات"]];
 const usd = (n: number) => formatMoney(n, "USD");
 const num = "px-3 py-2 text-right tabular-nums"; // money columns: right-aligned
+const remainCls = (n: number) => { const k = remainingState(n).kind; return k === "owed" ? " font-bold text-red-700" : k === "extra" ? " font-bold text-green-800" : ""; };
+const remainTxt = (n: number) => { const r = remainingState(n); return r.kind === "extra" ? `زيادة مدفوعة ${usd(r.abs)}` : usd(r.abs); };
 
 export default async function AccountsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const user = await requirePage("payments.view");
@@ -72,7 +75,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                   <td className="td font-bold"><Link className="text-brand underline" href={link({ tab: "pilgrims", trip: r.trip.id })}>{tripLabel(r.trip)}</Link></td>
                   <td className="td">{r.pilgrims}</td>
                   <td className={num}>{usd(r.due)}</td><td className={num + " text-green-800"}>{usd(r.received)}</td>
-                  <td className={num + (r.remaining > 0 ? " font-bold text-red-700" : "")}>{usd(r.remaining)}</td>
+                  <td className={num + remainCls(r.remaining)}>{remainTxt(r.remaining)}</td>
                   <td className="td"><Bar value={r.percent} max={100} tone={r.percent >= 100 ? "brand" : "gold"} /><span className="text-xs text-brand-mid">{r.percent}%</span></td>
                 </tr>
               ))}
@@ -100,7 +103,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                     <td className="td font-bold"><Link className="text-brand underline" href={`/bookings/${r.bookingId}`}>{r.name}</Link>{r.status === "CANCELLED" && <span className="chip chip-bad ms-2">ملغى</span>}</td>
                     <td className="td">{tripLabel(r.trip)}</td><td className="td">{r.agent?.name ?? "—"}</td>
                     <td className={num}>{usd(r.due)}</td><td className={num + " text-green-800"}>{usd(r.received)}</td>
-                    <td className={num + (r.remaining > 0 ? " font-bold text-red-700" : "")}>{usd(r.remaining)}</td>
+                    <td className={num + remainCls(r.remaining)}>{remainTxt(r.remaining)}</td>
                   </tr>
                 ))}
                 {data.pilgrimRows.length === 0 && <tr><td className="td text-center text-brand-mid" colSpan={6}>لا توجد نتائج</td></tr>}
@@ -120,7 +123,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                   <td className="td font-bold"><Link className="text-brand underline" href={link({ tab: "pilgrims", agent: r.agent.id })}>{r.agent.name}</Link></td>
                   <td className="td">{r.pilgrims}</td>
                   <td className={num}>{usd(r.due)}</td><td className={num + " text-green-800"}>{usd(r.viaAgent)}</td><td className={num + " text-green-800"}>{usd(r.direct)}</td>
-                  <td className={num + (r.remaining > 0 ? " font-bold text-red-700" : "")}>{usd(r.remaining)}</td><td className={num}>{usd(r.commission)}</td>
+                  <td className={num + remainCls(r.remaining)}>{remainTxt(r.remaining)}</td><td className={num}>{usd(r.commission)}</td>
                 </tr>
               ))}
               {data.agentRows.length === 0 && <tr><td className="td text-center text-brand-mid" colSpan={7}>لا يوجد وكلاء</td></tr>}

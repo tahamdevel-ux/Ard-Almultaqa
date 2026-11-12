@@ -13,6 +13,8 @@ import { TRIP_ROLE_LABELS } from "@/domain/tripRoles";
 import { busLabel, dateRangeLabel, tripLabel } from "@/lib/tripLabel";
 import { DeleteBusButton } from "@/components/BusTools";
 import { AddPilgrimDialog } from "@/components/AddPilgrimDialog";
+import { seatsLabel, vacancyLabel } from "@/domain/labels";
+import { ConfirmForm } from "@/components/ConfirmForm";
 import { TripTabs } from "@/components/TripTabs";
 import { HotelPricesForm, TripExtrasForm, type HotelRow } from "@/components/TripPricingForms";
 import { loadTripHotels } from "@/server/tripHotels";
@@ -81,11 +83,12 @@ export default async function TripPage({ params, searchParams }: { params: Promi
       {archived && <p className="alert-warn">هذه رحلة مؤرشفة: للعرض والطباعة فقط. لا يمكن التعديل عليها.</p>}
       <div className="flex flex-wrap gap-2"><TripArchiveButton tripId={trip.id} name={trip.name} archived={archived} canArchive={can(user.role, "trips.archive")} canUnarchive={can(user.role, "trips.unarchive")} /></div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {[["المسجّلون", `${counter.registered} من ${counter.capacity}`, counter.over ? "chip-bad" : "chip-ok"], ["الجاهزون", String(counter.ready), "chip-ok"], ["الشواغر", String(counter.free), "chip-gray"]].map(([l, v, c]) => (
+        {[["المسجّلون", seatsLabel(counter.registered, counter.capacity).text, "chip-" + ({ ok: "ok", bad: "bad", warn: "warn" } as const)[seatsLabel(counter.registered, counter.capacity).tone]], ["الجاهزون", String(counter.ready), "chip-ok"], ["الشواغر", vacancyLabel(counter.registered, counter.capacity), "chip-gray"]].map(([l, v, c]) => (
           <div key={l} className="card text-center"><div className="text-xs text-brand-mid">{l}</div><div className={"chip mt-1 text-base " + c}>{v}</div></div>
         ))}
       </div>
-      {counter.over && <p className="alert-bad">⚠ عدد المسجلين تجاوز السعة القصوى للرحلة</p>}
+      {counter.over && counter.capacity > 0 && <p className="alert-bad">⚠ عدد المسجلين تجاوز السعة القصوى للرحلة بـ {counter.registered - counter.capacity}</p>}
+      {counter.capacity <= 0 && <p className="alert-warn">لم تُحدَّد سعة لهذه الرحلة — حدّدها من «تعديل الرحلة» ليظهر عدد الشواغر.</p>}
 
       {w && (
         <section className="card space-y-2">
@@ -103,11 +106,15 @@ export default async function TripPage({ params, searchParams }: { params: Promi
         <h2 className="font-bold">الفنادق والإقامة</h2>
         <p className="text-sm">مكة: <b>{tripHotels.map((h) => hotelName(h.hotel)).join("، ") || hotelName(mk)}</b> ({trip.nightsMakkah} ليالي) · المدينة (ثابت): <b>{hotelName(md)}</b> ({trip.nightsMadinah} ليالي) · البداية من: {trip.firstCity === "MAKKAH" ? "مكة" : "المدينة"}</p>
         {w && (
-          <form action={setTripHotels.bind(null, trip.id)} className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
-            <select name="madinahHotelId" defaultValue={trip.madinahHotelId ?? ""} className="input" aria-label="فندق المدينة"><option value="">فندق المدينة</option>{hotels.filter((h) => h.city === "MADINAH").map((h) => <option key={h.id} value={h.id}>{hotelName(h)}</option>)}</select>
-            <select name="firstCity" defaultValue={trip.firstCity} className="input" aria-label="المدينة الأولى"><option value="MADINAH">نبدأ بالمدينة</option><option value="MAKKAH">نبدأ بمكة</option></select>
-            <input name="nightsMadinah" type="number" defaultValue={trip.nightsMadinah} className="input" dir="ltr" aria-label="ليالي المدينة" />
-            <input name="nightsMakkah" type="number" defaultValue={trip.nightsMakkah} className="input" dir="ltr" aria-label="ليالي مكة" />
+          <form action={setTripHotels.bind(null, trip.id)} className="flex flex-wrap items-end gap-3">
+            <div><label className="label" htmlFor="madinahHotelId">فندق المدينة (ثابت)</label>
+              <select id="madinahHotelId" name="madinahHotelId" defaultValue={trip.madinahHotelId ?? ""} className="input w-56"><option value="">— اختر —</option>{hotels.filter((h) => h.city === "MADINAH").map((h) => <option key={h.id} value={h.id}>{hotelName(h)}</option>)}</select></div>
+            <div><label className="label" htmlFor="firstCity">المدينة الأولى</label>
+              <select id="firstCity" name="firstCity" defaultValue={trip.firstCity} className="input w-40"><option value="MADINAH">نبدأ بالمدينة</option><option value="MAKKAH">نبدأ بمكة</option></select></div>
+            <div><label className="label" htmlFor="nightsMadinah">ليالي المدينة</label>
+              <input id="nightsMadinah" name="nightsMadinah" type="number" min={0} defaultValue={trip.nightsMadinah} className="input w-24" dir="ltr" /></div>
+            <div><label className="label" htmlFor="nightsMakkah">ليالي مكة</label>
+              <input id="nightsMakkah" name="nightsMakkah" type="number" min={0} defaultValue={trip.nightsMakkah} className="input w-24" dir="ltr" /></div>
             <button className="btn">حفظ</button>
           </form>
         )}
@@ -244,8 +251,8 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                   })()}
                   <td className="td space-y-0.5 text-xs text-amber-800">{r.warnings.map((x) => <div key={x}>⚠ {x}</div>)}</td>
                   <td className="td">
-                    {gid && bw && <form action={dissolveGroup.bind(null, trip.id, gid)}><button className="text-xs underline">فك المجموعة</button></form>}
-                    {bw && <form action={removeBooking.bind(null, trip.id, b.id)}><button className="text-xs text-red-700 underline">إزالة</button></form>}
+                    {gid && bw && <ConfirmForm action={dissolveGroup.bind(null, trip.id, gid)} message="فك هذه المجموعة؟ يبقى المعتمرون في الرحلة لكنهم لن يكونوا أسرة/عصبة."><button className="text-xs underline">فك المجموعة</button></ConfirmForm>}
+                    {bw && <ConfirmForm action={removeBooking.bind(null, trip.id, b.id)} message={`إزالة ${fullNameAr(b.pilgrim)} من هذه الرحلة؟ يُلغى حجزه وتُحرَّر غرفته ومقعده.`}><button className="text-xs font-bold text-red-700 underline">إزالة</button></ConfirmForm>}
                   </td>
                 </tr>
               );

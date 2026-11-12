@@ -43,7 +43,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
                 {tw && <td className="td"><TripRowActions tripId={t.id} name={t.name} pilgrims={t._count.bookings} payments={payCount(t.id)} archived={showArchive} canWrite={canWrite && !showArchive} canArchive={canArchive} canUnarchive={canUnarchive} /></td>}
               </tr>
             ))}
-            {trips.length === 0 && <tr><td className="td text-center text-brand-mid" colSpan={8}>لا توجد رحلات</td></tr>}
+            {trips.length === 0 && <tr><td className="td py-8 text-center text-brand-mid" colSpan={8}>{showArchive ? "لا توجد رحلات مؤرشفة" : <>لا توجد رحلات بعد. {can(user.role, "trips.write") && <Link href="/trips/new" className="font-bold text-brand underline">أنشئ أول رحلة</Link>}</>}</td></tr>}
           </tbody>
         </table>
       </div>

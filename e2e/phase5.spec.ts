@@ -36,6 +36,7 @@ test("buses: bus 1 opens with the trip, auto-fill, named bus, move, delete refus
 
   // bus 1 cannot be deleted while someone sits on it
   await page.reload();
+  page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "حذف الباص" }).first().click();
   await expect(page.getByText("انقل المعتمرين أولاً")).toBeVisible();
 
@@ -52,6 +53,7 @@ test("buses: bus 1 opens with the trip, auto-fill, named bus, move, delete refus
 
   // now bus 1 is empty and can be deleted
   await page.goto(tripUrl);
+  page.once("dialog", (d) => d.accept());
   await page.getByRole("button", { name: "حذف الباص" }).first().click();
   await expect(page.locator("a[href*='/bus/']").filter({ hasText: "باص 1" })).toHaveCount(0, { timeout: 10000 });
 });

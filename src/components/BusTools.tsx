@@ -8,7 +8,7 @@ export function DeleteBusButton({ tripId, busId }: { tripId: string; busId: stri
   return (
     <span>
       <button type="button" className="text-xs text-red-700 underline" disabled={pending}
-        onClick={() => start(async () => { const r = await deleteBus(tripId, busId); setErr(r.error ?? null); })}>حذف الباص</button>
+        onClick={() => { if (!window.confirm("حذف هذا الباص؟")) return; start(async () => { const r = await deleteBus(tripId, busId); setErr(r.error ?? null); }); }}>حذف الباص</button>
       {err && <span role="alert" className="ms-2 text-xs font-bold text-red-700">{err}</span>}
     </span>
   );

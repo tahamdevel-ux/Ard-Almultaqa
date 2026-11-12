@@ -73,14 +73,14 @@ export function OfficeBoard({ tripId, cards, pool, canEdit, isAdmin }: { tripId:
                 <div className="flex items-center justify-between gap-2 px-2 py-1.5" style={{ background: cat.bg, color: cat.fg }}>
                   <span className="text-lg font-bold" dir="ltr">{c.label}</span>
                   <span className="text-xs font-bold">{c.typeLabel} · {cat.label}</span>
-                  {canEdit && <button type="button" aria-label={c.locked ? "فتح القفل" : "قفل الغرفة"} title={c.locked ? "مقفلة" : "قفل"} className="text-base" onClick={() => run(() => toggleLock(tripId, c.id))}>{c.locked ? "🔒" : "🔓"}</button>}
+                  {canEdit && <button type="button" aria-label={c.locked ? "فتح القفل" : "قفل الغرفة"} title={c.locked ? "مقفلة" : "قفل"} className="text-base max-md:min-h-11 max-md:min-w-11" onClick={() => run(() => toggleLock(tripId, c.id))}>{c.locked ? "🔒" : "🔓"}</button>}
                 </div>
                 {c.hotel && <div className="border-b border-line px-2 py-1 text-xs font-bold">{c.hotel}</div>}
                 {canEdit && (
                   <form className="flex gap-1 border-b border-line px-2 py-1" action={(f) => run(() => saveHotelNos(tripId, c.id, String(f.get("mk") ?? ""), String(f.get("md") ?? "")))}>
                     <input name="mk" aria-label={`غرفة مكة للغرفة ${c.label}`} placeholder="غرفة مكة" defaultValue={c.makkahNo ?? ""} className="input w-full py-0.5 text-xs" dir="ltr" />
                     <input name="md" aria-label={`غرفة المدينة للغرفة ${c.label}`} placeholder="غرفة المدينة" defaultValue={c.madinahNo ?? ""} className="input w-full py-0.5 text-xs" dir="ltr" />
-                    <button className="btn-secondary px-2 py-0.5 text-xs">حفظ</button>
+                    <button className="btn-secondary px-2 py-0.5 text-xs max-md:min-h-11">حفظ</button>
                   </form>
                 )}
                 <div className="space-y-1 p-2">
@@ -90,7 +90,7 @@ export function OfficeBoard({ tripId, cards, pool, canEdit, isAdmin }: { tripId:
                       <span>{i + 1}.</span><span className="flex-1">{p.name}{p.head && <HeadTag />}{p.agent && <span className="mr-1 text-brand-mid">· {p.agent}</span>}{p.noHousing && <span className="chip chip-gray mr-1">بدون سكن</span>}</span>
                       {p.group && <span className="rounded bg-brand-light px-1">{p.group}</span>}
                       {p.manual && <span title="نُقل يدوياً" aria-label="يدوي">✋</span>}
-                      {canEdit && !c.locked && <button type="button" aria-label="إخراج من الغرفة" className="text-red-700" onClick={() => run(() => moveMember(tripId, p.bookingId, null))}>×</button>}
+                      {canEdit && !c.locked && <button type="button" aria-label="إخراج من الغرفة" className="text-red-700 max-md:min-h-11 max-md:min-w-11" onClick={() => run(() => moveMember(tripId, p.bookingId, null))}>×</button>}
                       {p.warning && <span className="font-bold text-red-700" role="note">⚠</span>}
                     </div>
                   ))}
@@ -101,7 +101,7 @@ export function OfficeBoard({ tripId, cards, pool, canEdit, isAdmin }: { tripId:
               </div>
             );
           })}
-          {cards.length === 0 && <p className="text-sm text-brand-mid">لا توجد غرف بعد — تُنشأ تلقائياً عند إضافة المعتمرين.</p>}
+          {cards.length === 0 && <div className="card space-y-2 text-center sm:col-span-2 xl:col-span-3"><p className="text-sm text-brand-mid">لا توجد غرف بعد — تُنشأ تلقائياً عند إضافة المعتمرين إلى الرحلة.</p>{canEdit && <button type="button" className="btn" disabled={pending} onClick={() => run(() => rerun(tripId))}>وزّع المعتمرين الآن</button>}</div>}
         </div>
       </div>
     </div>

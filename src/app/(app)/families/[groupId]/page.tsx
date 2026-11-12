@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/server/db";
@@ -33,6 +34,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ groupId
 
   return (
     <div className="space-y-4">
+      <Breadcrumbs items={[{ label: "الرحلات", href: "/trips" }, { label: tripLabel(trip), href: `/trips/${trip.id}` }, { label: "حساب الأسرة" }]} />
       <div>
         <h1 className="page-title">حساب الأسرة{head ? ` — ${head.pilgrimName}` : ""}</h1>
         <p className="text-sm text-brand-mid"><Link className="underline" href={`/trips/${trip.id}`}>{tripLabel(trip)}</Link> · {fam.members.length} أفراد · رب الأسرة: {head?.pilgrimName ?? "غير محدد"}</p>

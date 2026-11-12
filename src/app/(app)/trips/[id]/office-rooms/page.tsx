@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/server/db";
@@ -9,6 +10,7 @@ import { tripLabel } from "@/lib/tripLabel";
 import { memberWarning, printOrder, roomLabel, roomSummary, type OfficeRoomState } from "@/domain/officeRooms";
 import { ROOM_TYPE_LABELS, type RoomTypeKey } from "@/domain/rooming";
 import { loadOfficeState } from "@/officeRooms/service";
+import { DownloadLink } from "@/components/DownloadLink";
 import { OfficeBoard, type BoardCard, type BoardPerson } from "@/components/OfficeBoard";
 
 export default async function OfficeRoomsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,11 +43,12 @@ export default async function OfficeRoomsPage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-4">
+      <Breadcrumbs items={[{ label: "الرحلات", href: "/trips" }, { label: tripLabel(trip), href: `/trips/${id}` }, { label: "غرف المكتب" }]} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="page-title">غرف المكتب — {tripLabel(trip)}</h1>
         <div className="flex flex-wrap gap-2">
           <Link href={`/trips/${id}`} className="btn-secondary">رجوع للرحلة</Link>
-          <a className="btn" href={`/api/trips/${id}/office-rooms/print`}>طباعة التسكين الداخلي</a>
+          <DownloadLink className="btn" href={`/api/trips/${id}/office-rooms/print`}>طباعة التسكين الداخلي</DownloadLink>
         </div>
       </div>
       <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-800">داخلي للمكتب · لا يُسلَّم لأي جهة — أرقام الغرف هنا لا تظهر في أي مستند آخر.</p>

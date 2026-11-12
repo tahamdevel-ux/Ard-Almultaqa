@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { db } from "@/server/db";
@@ -14,6 +15,7 @@ export default async function EditTripPage({ params }: { params: Promise<{ id: s
   const supervisors = await db.user.findMany({ where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } });
   return (
     <div className="space-y-4">
+      <Breadcrumbs items={[{ label: "الرحلات", href: "/trips" }, { label: trip.tripNo ?? trip.name, href: `/trips/${id}` }, { label: "تعديل" }]} />
       <div className="flex items-center justify-between">
         <h1 className="page-title">تعديل الرحلة</h1>
         <Link href="/trips" className="btn-secondary">رجوع للرحلات</Link>

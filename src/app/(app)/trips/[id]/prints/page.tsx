@@ -1,12 +1,14 @@
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/server/db";
 import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
 import { canSeeTrip } from "@/server/trips";
 import { tripLabel } from "@/lib/tripLabel";
+import { DownloadLink } from "@/components/DownloadLink";
 import { TripTabs } from "@/components/TripTabs";
 
-const Btn = ({ href, children }: { href: string; children: React.ReactNode }) => <a className="btn-secondary" href={href}>{children}</a>;
+const Btn = ({ href, children }: { href: string; children: React.ReactNode }) => <DownloadLink href={href}>{children}</DownloadLink>;
 const Group = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <section className="card space-y-2"><h2 className="section-title">{title}</h2><div className="flex flex-wrap gap-2">{children}</div></section>
 );
@@ -25,6 +27,7 @@ export default async function PrintsPage({ params }: { params: Promise<{ id: str
   const busName = (b: { number: string; name: string | null }) => `باص ${b.number}${b.name ? ` (${b.name})` : ""}`;
   return (
     <div className="space-y-4">
+      <Breadcrumbs items={[{ label: "الرحلات", href: "/trips" }, { label: tripLabel(trip), href: `/trips/${id}` }, { label: "المطبوعات" }]} />
       <h1 className="page-title">المطبوعات — {tripLabel(trip)}</h1>
       <TripTabs tripId={id} active="prints" land={land} rooming={rooming} prints />
       {land && (
@@ -47,7 +50,7 @@ export default async function PrintsPage({ params }: { params: Promise<{ id: str
         </Group>
       )}
       <Group title="التسكين">
-        {rooming && <><a className="btn" href={`/api/trips/${id}/office-rooms/print`}>طباعة التسكين الداخلي</a><a className="btn-secondary" href={`/api/trips/${id}/office-rooms/print?format=xlsx`}>تنزيل التسكين إكسل</a></>}
+        {rooming && <><DownloadLink className="btn" href={`/api/trips/${id}/office-rooms/print`}>طباعة التسكين الداخلي</DownloadLink><Btn href={`/api/trips/${id}/office-rooms/print?format=xlsx`}>تنزيل التسكين إكسل</Btn></>}
         {tripHotels.map((h) => (
           <span key={h.id} className="flex flex-wrap gap-1"><span className="self-center text-sm font-bold">مكة — {hn(h.hotel)}:</span>
             <Btn href={out("rooming-en", `city=MAKKAH&hotel=${h.id}&format=pdf`)}>English PDF</Btn><Btn href={out("rooming-en", `city=MAKKAH&hotel=${h.id}&format=xlsx`)}>English Excel</Btn>
