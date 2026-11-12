@@ -103,7 +103,7 @@ test("accommodation with hotel and room, family head and family account", async 
     await row.getByText("تعديل التسكين").click();
     await row.locator("select[name=roomType]").selectOption("QUAD");
     await row.getByRole("button", { name: "حفظ التسكين" }).click();
-    await expect(row.getByText("تم", { exact: true })).toBeVisible();
+    await expect(row.getByText("تم الحفظ")).toBeVisible();
   }
   await page.reload();
   await rowHead.locator("input[name=bookingIds]").check();
