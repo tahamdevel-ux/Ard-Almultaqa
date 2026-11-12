@@ -2,7 +2,7 @@
 import { useActionState, useState } from "react";
 import { AccommodationFields, type HotelOpt } from "@/components/AccommodationFields";
 
-export type TripChoice = { id: string; label: string; dates: string; booked?: boolean; makkahHotelId?: string; madinahHotelId?: string; priced?: { id: string; name: string }[]; air?: boolean; heads?: { bookingId: string; name: string }[] };
+export type TripChoice = { id: string; label: string; dates: string; booked?: boolean; makkahHotelId?: string; madinahHotelId?: string; priced?: { id: string; name: string }[]; air?: boolean; tables?: Record<string, { prices: Record<string, number>; noHousing: number | null }>; sarfAmount?: number | null; heads?: { bookingId: string; name: string }[] };
 
 /** Multi-select of trips as checkboxes (name="tripIds"). */
 export function TripPicker({ trips, error, hotels, initial, onHeadChange }: { trips: TripChoice[]; error?: string; hotels?: HotelOpt[]; initial?: Record<string, string | string[]>; onHeadChange?: (any: boolean) => void }) {
@@ -38,7 +38,7 @@ export function TripPicker({ trips, error, hotels, initial, onHeadChange }: { tr
                       <option value="">— لا —</option>{(t.heads ?? []).map((h) => <option key={h.bookingId} value={h.bookingId}>{h.name}</option>)}
                     </select></div>
                 </div>
-                <AccommodationFields hotels={hotels} priced={t.priced} air={t.air} idPrefix={"p" + t.id} nameSuffix={"__" + t.id}
+                <AccommodationFields hotels={hotels} priced={t.priced} air={t.air} tables={t.tables} sarfAmount={t.sarfAmount} idPrefix={"p" + t.id} nameSuffix={"__" + t.id}
                   values={{ makkahHotelId: (initial?.["makkahHotelId__" + t.id] as string) ?? t.makkahHotelId ?? "", madinahHotelId: "", roomType: (initial?.["roomType__" + t.id] as string) ?? "", makkahRoomNo: "", madinahRoomNo: "", housing: (initial?.["housing__" + t.id] as string) ?? "", food: (initial?.["food__" + t.id] as string) ?? "1", sarf: (initial?.["sarf__" + t.id] as string) ?? "COMPANY", officeRoom: (initial?.["officeRoom__" + t.id] as string) ?? "" }} />
               </div>
             )}

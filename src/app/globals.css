@@ -36,3 +36,17 @@ input[dir="ltr"], .ltr { direction: ltr; text-align: left; unicode-bidi: plainte
 
 @keyframes savedRow { 0%, 70% { background-color: #fdf3c8; } 100% { background-color: transparent; } }
 .saved-row { animation: savedRow 3s ease-out; }
+
+/* Tables with class "rt" become cards on phones: one card per row, each cell labelled by its column title (set by CardTables). */
+@media (max-width: 767px) {
+  table.rt, table.rt tbody, table.rt tr, table.rt td, table.rt th { display: block; }
+  table.rt thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  table.rt tbody tr:not(:has(> th)) { margin: 0.5rem; padding: 0.35rem 0.25rem; border: 1px solid #e3e6dc; border-radius: 0.75rem; background: #fff; }
+  table.rt tbody tr > th { padding: 0.6rem 0.75rem; }
+  table.rt td { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; border-top: 0; padding: 0.3rem 0.6rem; text-align: left; }
+  table.rt td[data-label]::before { content: attr(data-label); flex: none; font-size: 0.7rem; font-weight: 700; color: #6b7157; }
+  table.rt td > * { min-width: 0; }
+  table.rt td:not([data-label]) { justify-content: center; }
+  table.rt td:empty { display: none; }
+  table.rt td.ltr { flex-direction: row-reverse; }
+}

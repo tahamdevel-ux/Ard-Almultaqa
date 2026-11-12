@@ -6,7 +6,7 @@ import { AccommodationFields, type AccValues, type HotelOpt } from "@/components
 
 type Hit = { id: string; name: string; sub: string; inThis: boolean; trips: { id: string; label: string; dates: string; past: boolean }[] };
 
-export function AddPilgrimDialog({ tripId, hotels, defaults, priced, air }: { priced?: { id: string; name: string }[]; air?: boolean; tripId: string; hotels: HotelOpt[]; defaults: { makkahHotelId: string; madinahHotelId: string } }) {
+export function AddPilgrimDialog({ tripId, hotels, defaults, priced, air, tables, sarfAmount }: { priced?: { id: string; name: string }[]; air?: boolean; tables?: Record<string, { prices: Record<string, number>; noHousing: number | null }>; sarfAmount?: number | null; tripId: string; hotels: HotelOpt[]; defaults: { makkahHotelId: string; madinahHotelId: string } }) {
   const dlg = useRef<HTMLDialogElement>(null);
   const router = useRouter();
   const [q, setQ] = useState("");
@@ -66,7 +66,7 @@ export function AddPilgrimDialog({ tripId, hotels, defaults, priced, air }: { pr
                 {openId === h.id && !h.inThis && (
                   <div className="mt-2 space-y-2 rounded bg-canvas p-2">
                     <p className="text-xs font-bold text-brand-mid">التسكين (اختياري): فندق كل مدينة ونوع الغرفة ورقمها</p>
-                    <AccommodationFields hotels={hotels} priced={priced} air={air} values={acc} onChange={setAcc} idPrefix={"d" + h.id} />
+                    <AccommodationFields hotels={hotels} priced={priced} air={air} tables={tables} sarfAmount={sarfAmount} values={acc} onChange={setAcc} idPrefix={"d" + h.id} />
                     <button type="button" className="btn" disabled={pending} onClick={() => add(h)}>تأكيد الإضافة</button>
                   </div>
                 )}

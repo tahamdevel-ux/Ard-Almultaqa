@@ -9,6 +9,7 @@ import type { HotelOpt } from "@/components/AccommodationFields";
 import { PassportInput, PhoneInput } from "@/components/PhoneInput";
 import { passportMaxLength, type PassportType } from "@/domain/identity";
 import { DateInput } from "@/components/DateInput";
+import { suggestEnglishNames } from "@/domain/translit";
 
 type V = Record<string, string | boolean | null | undefined>;
 
@@ -48,6 +49,17 @@ export function PilgrimForm({
     } else router.push(withParam(returnTo ?? "/pilgrims", "saved", state.id));
   }, [state, returnTo, router]);
   const fe = state.fieldErrors ?? {};
+  /** Fills the EMPTY English name fields from the Arabic triple name (a suggestion to check against the passport). */
+  function suggestEnglish() {
+    const ar = (document.getElementById("fullNameAr") as HTMLInputElement | null)?.value ?? "";
+    const sug = suggestEnglishNames(ar);
+    for (const [id, val] of [["enGivenName", sug.given], ["enFatherName", sug.father], ["enGrandfatherName", sug.grandfather]] as const) {
+      const el = document.getElementById(id) as HTMLInputElement | null;
+      if (!el || el.value.trim() || !val) continue;
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(el, val);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }
   const [ptype, setPtype] = useState<PassportType>(((values.passportType as string) === "FOREIGN" ? "FOREIGN" : "IRAQI"));
   const echo = state.values; // typed values survive a failed save
   const kept = initialKeep ?? {};
@@ -78,8 +90,20 @@ export function PilgrimForm({
       if (btn) e.currentTarget.requestSubmit(btn);
     }}>
       {state.error && <p role="alert" className="alert-bad">{state.error}</p>}
+      <nav aria-label="أقسام النموذج" className="sticky top-14 z-10 -mx-1 flex gap-2 overflow-x-auto rounded-lg border border-line bg-white/95 px-2 py-1.5 text-sm shadow-sm backdrop-blur md:top-[3.75rem]">
+        {[...(trips ? [["sec-trips", "الرحلة"]] : []), ["sec-personal", "البيانات الشخصية"], ["sec-passport", "الجواز"], ["sec-agent", "الوكيل والمحرم"], ...(canHealth ? [["sec-health", "الصحة"]] : [])].map(([id, l]) => (
+          <a key={id} href={`#${id}`} className="whitespace-nowrap rounded-full px-3 py-1 font-bold text-brand-dark hover:bg-brand-light">{l}</a>
+        ))}
+      </nav>
+      {trips && (
+        <section id="sec-trips" className="card scroll-mt-32">
+          <h2 className="mb-3 font-bold">الرحلات * <span className="text-xs font-normal text-brand-mid">(اختر رحلة واحدة على الأقل)</span></h2>
+          <TripPicker trips={trips} error={fe.tripIds} hotels={hotels} initial={echo ?? initialKeep} onHeadChange={setAnyHead} />
+        </section>
+      )}
 
-      <section className="card">
+
+      <section id="sec-personal" className="card scroll-mt-32">
         <h2 className="mb-3 font-bold">البيانات الشخصية (بالعربي)</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2">
@@ -87,8 +111,6 @@ export function PilgrimForm({
               <input id="fullNameAr" name="fullNameAr" defaultValue={echo ? v("fullNameAr") : [v("firstName"), v("fatherName"), v("grandfatherName")].filter(Boolean).join(" ")} className={"input " + (fe.fullNameAr || fe.firstName ? "border-red-500" : "")} />
             </Field>
           </div>
-          {t("familyName", "اللقب بالعربي (اختياري)")}
-          {t("greatGrandfatherName", "اسم أبو الجد")}
           <Field label="الجنس *" name="gender" error={fe.gender}>
             <select key={"gender" + v("gender")} id="gender" name="gender" defaultValue={v("gender")} className="input">
               <option value="">اختر</option><option value="MALE">ذكر</option><option value="FEMALE">أنثى</option>
@@ -96,14 +118,22 @@ export function PilgrimForm({
           </Field>
           {t("birthDate", "تاريخ الميلاد", { required: true, date: true, hint: "DD/MM/YYYY" })}
           {t("motherName", "اسم الأم", { required: true })}
-          {t("address", "العنوان")}
           {t("phone", "رقم الهاتف", { kind: "phone", hint: "عراقي: 07XXXXXXXXX (11 رقم) · سعودي: 05XXXXXXXX (10 أرقام)" })}
+        </div>
+        <p className="mb-2 mt-4 border-t border-line pt-3 text-xs font-bold text-brand-mid">حقول اختيارية</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {t("familyName", "اللقب بالعربي")}
+          {t("greatGrandfatherName", "اسم أبو الجد")}
+          {t("address", "العنوان")}
           {t("emergencyPhone", "هاتف الطوارئ", { kind: "phone", hint: "عراقي 07… أو سعودي 05…" })}
         </div>
       </section>
 
-      <section className="card">
-        <h2 className="mb-3 font-bold">الجواز (كما هو مطبوع بالإنكليزية)</h2>
+      <section id="sec-passport" className="card scroll-mt-32">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-bold">الجواز (كما هو مطبوع بالإنكليزية)</h2>
+          <button type="button" className="btn-secondary text-xs" onClick={suggestEnglish} title="يملأ الخانات الفارغة فقط — راجعها مع الجواز">اقترح الاسم الإنكليزي من الاسم العربي</button>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="نوع الجواز" name="passportType" error={fe.passportType}>
             <select key={"passportType" + v("passportType")} id="passportType" name="passportType" defaultValue={v("passportType") || "IRAQI"} className="input" onChange={(e) => setPtype(e.target.value === "FOREIGN" ? "FOREIGN" : "IRAQI")}>
@@ -112,18 +142,21 @@ export function PilgrimForm({
           </Field>
           {t("passportNo", "رقم الجواز", { required: true, kind: "passport", hint: "عراقي: حرف + 8 أرقام (9 خانات) · أجنبي: 6 إلى 12" })}
           {t("enGivenName", "Given name", { required: true, dir: "ltr", upper: true })}
+          {t("enSurname", "Surname", { required: true, dir: "ltr", upper: true })}
+          {t("passportExpiry", "تاريخ الانتهاء", { required: true, date: true, hint: "DD/MM/YYYY" })}
+        </div>
+        <p className="mb-2 mt-4 border-t border-line pt-3 text-xs font-bold text-brand-mid">حقول اختيارية</p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {t("enFatherName", "Father name", { dir: "ltr", upper: true })}
           {t("enGrandfatherName", "Grandfather name", { dir: "ltr", upper: true })}
-          {t("enSurname", "Surname", { required: true, dir: "ltr", upper: true })}
           {t("nationality", "الجنسية", { dir: "ltr" })}
           {t("placeOfBirth", "محل الولادة")}
           {t("passportIssue", "تاريخ الإصدار", { date: true, hint: "DD/MM/YYYY" })}
-          {t("passportExpiry", "تاريخ الانتهاء", { required: true, date: true, hint: "DD/MM/YYYY" })}
           {t("passportAuthority", "جهة الإصدار")}
         </div>
       </section>
 
-      <section className="card">
+      <section id="sec-agent" className="card scroll-mt-32">
         <h2 className="mb-3 font-bold">الوكيل والمحرم</h2>
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="الوكيل" name="agentId">
@@ -137,7 +170,7 @@ export function PilgrimForm({
       </section>
 
       {canHealth && (
-        <section className="card">
+        <section id="sec-health" className="card scroll-mt-32">
           <h2 className="mb-3 font-bold">الحالة الصحية</h2>
           <div className="flex flex-wrap gap-4 text-sm">
             {([["chronicIllness", "مرض مزمن"], ["wheelchair", "كرسي متحرك"], ["elderly", "كبير سن"]] as const).map(([k, l]) => (
@@ -147,13 +180,6 @@ export function PilgrimForm({
           <div className="mt-3"><Field label="ملاحظات" name="healthNotes">
             <textarea id="healthNotes" name="healthNotes" defaultValue={v("healthNotes")} className="input" rows={2} />
           </Field></div>
-        </section>
-      )}
-
-      {trips && (
-        <section className="card">
-          <h2 className="mb-3 font-bold">الرحلات * <span className="text-xs font-normal text-brand-mid">(اختر رحلة واحدة على الأقل)</span></h2>
-          <TripPicker trips={trips} error={fe.tripIds} hotels={hotels} initial={echo ?? initialKeep} onHeadChange={setAnyHead} />
         </section>
       )}
 

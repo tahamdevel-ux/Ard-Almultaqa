@@ -114,7 +114,7 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
         {(lp.f || lp.trip || lp.agent || q || room || lp.sort !== "new") && <Link href="/pilgrims" className="text-brand-mid underline">مسح الكل</Link>}
       </div>
       <div className="card overflow-x-auto p-0 md:overflow-visible">
-        <table className="w-full">
+        <table className="rt w-full">
           <thead><tr>
             <SortTh col="name" lp={lp}>الاسم</SortTh><th className="th md:sticky md:top-[3.75rem]">English</th><SortTh col="passport" lp={lp}>الجواز</SortTh>
             <th className="th md:sticky md:top-[3.75rem]">الجنس</th><th className="th md:sticky md:top-[3.75rem]">الهاتف</th><th className="th md:sticky md:top-[3.75rem]">الوكيل</th><SortTh col="expiry" lp={lp}>انتهاء الجواز</SortTh>

@@ -4,6 +4,7 @@ import { currentUser, logout } from "@/server/auth";
 import { can, ROLE_LABELS, type Permission } from "@/lib/permissions";
 import { NavLinks } from "@/components/NavLinks";
 import { MobileNav } from "@/components/MobileNav";
+import { CardTables } from "@/components/CardTables";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { Logo } from "@/components/Logo";
 import { Icon, type IconName } from "@/components/icons";
@@ -49,6 +50,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="h-0.5 bg-gradient-to-l from-gold-bright via-gold to-transparent" />
       </header>
       <main className="mx-auto max-w-7xl p-4 pb-24 md:pb-12">{children}</main>
+      <CardTables />
       <MobileNav items={NAV.filter((n) => can(user.role, n.perm))} />
     </div>
   );

@@ -71,3 +71,27 @@ test("trip page: pilgrims come first, set-up forms sit in a collapsible section"
   const a = await list.boundingBox(), b = await settings.boundingBox();
   expect(a!.y).toBeLessThan(b!.y);
 });
+
+test("phone: lists become cards with labelled values", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await login(page);
+  await page.goto("/accounts");
+  await page.waitForLoadState("networkidle");
+  const cell = page.locator("table.rt td[data-label='المطلوب']").first();
+  await expect(cell).toBeVisible();
+  await expect(page.locator("table.rt thead").first()).not.toBeInViewport();
+});
+
+test("new pilgrim: sections menu, trip first, English name suggestion fills only empty fields", async ({ page }) => {
+  await login(page);
+  await page.goto("/pilgrims/new");
+  await expect(page.getByRole("navigation", { name: "أقسام النموذج" })).toBeVisible();
+  const trips = page.locator("#sec-trips"), personal = page.locator("#sec-personal");
+  expect((await trips.boundingBox())!.y).toBeLessThan((await personal.boundingBox())!.y);
+  await page.fill("[name=fullNameAr]", "علي حسين محمد");
+  await page.fill("[name=enFatherName]", "KEEPME");
+  await page.getByRole("button", { name: "اقترح الاسم الإنكليزي من الاسم العربي" }).click();
+  await expect(page.locator("[name=enGivenName]")).toHaveValue("ALI");
+  await expect(page.locator("[name=enFatherName]")).toHaveValue("KEEPME");
+  await expect(page.locator("[name=enGrandfatherName]")).toHaveValue("MOHAMMED");
+});

@@ -30,7 +30,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
         </div>
       </div>
       <div className="card overflow-x-auto p-0">
-        <table className="w-full">
+        <table className="rt w-full">
           <thead><tr><th className="th">الرقم</th><th className="th">الاسم</th><th className="th">النوع</th><th className="th">الذهاب</th><th className="th">العودة</th><th className="th">المسجّلون / السعة</th><th className="th">الحالة</th>{tw && <th className="th">إجراءات</th>}</tr></thead>
           <tbody>
             {trips.map((t) => (

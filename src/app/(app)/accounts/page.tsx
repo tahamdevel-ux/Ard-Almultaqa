@@ -67,7 +67,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
 
       {tab === "trips" && (
         <section className="card overflow-x-auto p-0">
-          <table className="w-full">
+          <table className="rt w-full">
             <thead><tr><th className="th">الرحلة</th><th className="th">المعتمرون</th><th className="th text-right">المطلوب</th><th className="th text-right">المستلم</th><th className="th text-right">الباقي</th><th className="th w-40">نسبة التسديد</th></tr></thead>
             <tbody>
               {data.tripRows.map((r) => (
@@ -95,7 +95,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
               href={link({ trip: f.trip, agent: f.agent, due: f.onlyDue ? undefined : "1" })}>عليهم باقي فقط</Link>
           </div>
           <div className="card overflow-x-auto p-0">
-            <table className="w-full">
+            <table className="rt w-full">
               <thead><tr><th className="th">الاسم</th><th className="th">الرحلة</th><th className="th">الوكيل</th><th className="th text-right">المطلوب</th><th className="th text-right">المستلم</th><th className="th text-right">الباقي</th></tr></thead>
               <tbody>
                 {data.pilgrimRows.map((r) => (
@@ -115,7 +115,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
 
       {tab === "agents" && (
         <section className="card overflow-x-auto p-0">
-          <table className="w-full">
+          <table className="rt w-full">
             <thead><tr><th className="th">الوكيل</th><th className="th">المعتمرون</th><th className="th text-right">المطلوب</th><th className="th text-right">مستلم عن طريقه</th><th className="th text-right">مستلم مباشر من معتمريه</th><th className="th text-right">الباقي</th><th className="th text-right">العمولة</th></tr></thead>
             <tbody>
               {data.agentRows.map((r) => (
@@ -140,7 +140,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
             <button className="btn-secondary">بحث</button>
           </form>
           <div className="card overflow-x-auto p-0">
-            <table className="w-full">
+            <table className="rt w-full">
               <thead><tr>{["التاريخ", "رقم الوصل", "المعتمر", "الرحلة"].map((h) => <th key={h} className="th">{h}</th>)}<th className="th text-right">المبلغ (USD)</th><th className="th">بالدينار</th><th className="th">المصدر</th><th className="th">سجّلها</th></tr></thead>
               <tbody>
                 {log.map((p) => {

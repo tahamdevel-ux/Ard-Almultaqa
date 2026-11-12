@@ -1,15 +1,27 @@
 "use client";
 import { useActionState } from "react";
+import { computePrice } from "@/domain/pricing";
 import type { TripActionState } from "@/app/(app)/trips/actions";
 
 export type HotelOpt = { id: string; name: string; city: "MAKKAH" | "MADINAH" };
 export type AccValues = { makkahHotelId: string; madinahHotelId: string; roomType: string; makkahRoomNo: string; madinahRoomNo: string; officeRoom?: string; tripRole?: string; housing?: string; food?: string; sarf?: string };
 export type PricedHotel = { id: string; name: string };
+/** Price table of one priced hotel (USD), for the live price line. */
+export type PriceTables = Record<string, { prices: Record<string, number>; noHousing: number | null }>;
 const TYPES = [["", "—"], ["SINGLE", "سنكل"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"]];
 
 /** Hotel per city, room type and room numbers for one pilgrim. Names match accommodationFromForm(). */
-export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc", nameSuffix = "", priced, air }: { hotels: HotelOpt[]; priced?: PricedHotel[]; air?: boolean; values: AccValues; onChange?: (v: AccValues) => void; idPrefix?: string; nameSuffix?: string }) {
+export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc", nameSuffix = "", priced, air, tables, sarfAmount }: { hotels: HotelOpt[]; priced?: PricedHotel[]; air?: boolean; tables?: PriceTables; sarfAmount?: number | null; values: AccValues; onChange?: (v: AccValues) => void; idPrefix?: string; nameSuffix?: string }) {
   const set = (k: keyof AccValues) => (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => onChange?.({ ...values, [k]: e.target.value });
+  const preview = (() => {
+    if (!tables || !Object.keys(tables).length) return null;
+    const tb = tables[values.makkahHotelId] ?? (priced && priced.length === 1 ? tables[priced[0].id] : undefined);
+    if (!tb) return { text: "اختر فندق مكة لعرض السعر", ok: false };
+    const r = computePrice({ table: { prices: tb.prices, noHousingPrice: tb.noHousing }, roomType: (values.roomType || null) as never, noHousing: values.housing === "NO", sarfByPilgrim: values.sarf === "PILGRIM", sarfAmount: sarfAmount ?? null });
+    if (!r.ok) return { text: r.error, ok: false };
+    const base = r.amount - r.sarf;
+    return { text: `السعر حسب الجدول: ${values.housing === "NO" ? "بدون سكن" : TYPES.find(([k]) => k === values.roomType)?.[1]} $${base}${r.sarf ? ` + تصريف $${r.sarf}` : ""} = $${r.amount}`, ok: true };
+  })();
   const mk = priced && priced.length ? priced : hotels.filter((h) => h.city === "MAKKAH");
   const pick = (k: keyof AccValues, def: string) => (onChange ? { value: values[k] ?? def, onChange: set(k) } : { defaultValue: values[k] ?? def });
   return (
@@ -40,18 +52,19 @@ export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc"
         <select id={`${idPrefix}-roomType`} name={"roomType" + nameSuffix} className="input" {...(onChange ? { value: values.roomType, onChange: set("roomType") } : { defaultValue: values.roomType })}>
           {TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select></div>
+      {preview && <p role="status" className={"sm:col-span-2 rounded-lg border px-3 py-2 text-sm font-bold " + (preview.ok ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-amber-200 bg-amber-50 text-amber-900")}>{preview.text}</p>}
     </div>
   );
 }
 
 /** Inline editor for an existing booking (trip page row). */
-export function AccommodationEditor({ action, hotels, values, summary, priced, air }: { priced?: PricedHotel[]; air?: boolean; action: (p: TripActionState, f: FormData) => Promise<TripActionState>; hotels: HotelOpt[]; values: AccValues; summary: string }) {
+export function AccommodationEditor({ action, hotels, values, summary, priced, air, tables, sarfAmount }: { priced?: PricedHotel[]; air?: boolean; tables?: PriceTables; sarfAmount?: number | null; action: (p: TripActionState, f: FormData) => Promise<TripActionState>; hotels: HotelOpt[]; values: AccValues; summary: string }) {
   const [st, fa, pending] = useActionState(action, {} as TripActionState);
   return (
     <details className="text-sm">
       <summary className="cursor-pointer">{summary || <span className="text-brand-mid">غير مسكّن</span>} <span className="text-xs underline">تعديل</span></summary>
       <form action={fa} className="mt-2 w-72 space-y-2 rounded border border-line p-2">
-        <AccommodationFields hotels={hotels} priced={priced} air={air} values={values} idPrefix={"e" + values.roomType + values.makkahRoomNo + values.madinahRoomNo} />
+        <AccommodationFields hotels={hotels} priced={priced} air={air} tables={tables} sarfAmount={sarfAmount} values={values} idPrefix={"e" + values.roomType + values.makkahRoomNo + values.madinahRoomNo} />
         <button className="btn py-1" disabled={pending}>حفظ التسكين</button>
         {st.error && <p role="alert" className="text-xs font-bold text-red-700">{st.error}</p>}
         {st.ok && <p role="status" className="text-xs font-bold text-emerald-800">تم</p>}

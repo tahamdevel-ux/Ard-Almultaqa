@@ -54,6 +54,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
   const seeNotes = can(user.role, "pilgrims.health");
   const tripHotels = await loadTripHotels(trip.id);
   const hotelRows: HotelRow[] = await Promise.all(tripHotels.map(async (h) => ({ hotelId: h.hotelId, name: hotelName(h.hotel), used: await db.booking.count({ where: { tripHotelId: h.id, deletedAt: null } }), prices: Object.fromEntries(h.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: h.noHousingPrice })));
+  const priceTables = Object.fromEntries(hotelRows.map((r) => [r.hotelId, { prices: r.prices, noHousing: r.noHousingPrice }]));
   const allAgents = money && pw ? await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }) : [];
   const agentOverrides = new Map((await db.tripAgentCommission.findMany({ where: { tripId: trip.id } })).map((c) => [c.agentId, c.amount]));
   const groupOf = (r: (typeof rows)[number]) => r.booking.groups[0]?.groupId;
@@ -98,7 +99,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
           <TripSearch placeholder="بحث: اسم، أم، جواز، هاتف، وكيل، فندق، غرفة المكتب" />
           {seeNotes && <a className={"rounded-lg border px-3 py-1.5 text-sm font-bold " + (sp.notes === "1" ? "bg-brand text-white" : "bg-white border-line text-brand-dark")} href={`?${new URLSearchParams({ ...(sp.q ? { q: sp.q } : {}), ...(sp.notes === "1" ? {} : { notes: "1" }) })}`}>لديهم ملاحظات</a>}
           </div>
-          {bw && <AddPilgrimDialog tripId={trip.id} hotels={hotelOpts} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} defaults={{ makkahHotelId: trip.makkahHotelId ?? "", madinahHotelId: trip.madinahHotelId ?? "" }} />}
+          {bw && <AddPilgrimDialog tripId={trip.id} hotels={hotelOpts} tables={money ? priceTables : undefined} sarfAmount={trip.sarfAmount} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} defaults={{ makkahHotelId: trip.makkahHotelId ?? "", madinahHotelId: trip.madinahHotelId ?? "" }} />}
           {bw && (
             <div className="flex items-center gap-2 text-sm">
               <select form="groupform" name="kind" className="input w-auto"><option value="COMPANIONS">عصبة</option><option value="FAMILY">عائلة (اختر رب الأسرة بالدائرة)</option></select>
@@ -135,7 +136,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                       const nm = (h?: { localName: string | null; officialName: string } | null) => (h ? h.localName ?? h.officialName : "");
                       const summary = [mkR && `مكة: ${nm(mkR.hotel)} / ${mkR.roomNo}`, mdR && `المدينة: ${nm(mdR.hotel)} / ${mdR.roomNo}`, b.noHousing ? "بدون سكن" : b.roomType && ROOM_TYPE_LABELS[b.roomType as keyof typeof ROOM_TYPE_LABELS], b.tripHotelId && `فندق مكة: ${hotelName(tripHotels.find((h) => h.id === b.tripHotelId)?.hotel)}`, !b.withFood && "بدون طعام", b.officeMember && `غرفة ${b.officeMember.officeRoom.code ?? ""}${b.officeMember.officeRoom.seq}`].filter(Boolean).join(" · ");
                       return accWrite ? (
-                        <AccommodationEditor action={setAccommodation.bind(null, trip.id, b.id)} hotels={hotelOpts} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} summary={summary}
+                        <AccommodationEditor action={setAccommodation.bind(null, trip.id, b.id)} hotels={hotelOpts} tables={money ? priceTables : undefined} sarfAmount={trip.sarfAmount} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} summary={summary}
                           values={{ makkahHotelId: b.tripHotelId ? tripHotels.find((h) => h.id === b.tripHotelId)?.hotelId ?? "" : b.makkahHotelId ?? "", madinahHotelId: "", roomType: b.roomType ?? "", makkahRoomNo: "", madinahRoomNo: "", housing: b.noHousing ? "NO" : "", food: b.withFood ? "1" : "0", sarf: b.sarfByPilgrim ? "PILGRIM" : "COMPANY", tripRole: b.tripRole ?? "", officeRoom: b.officeMember ? `${b.officeMember.officeRoom.code ?? ""}${b.officeMember.officeRoom.seq}` : "" }} />
                       ) : <span className="text-sm">{summary}</span>;
                     })()}
