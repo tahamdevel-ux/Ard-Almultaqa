@@ -16,5 +16,6 @@ export default defineConfig({
   workers: 1,
   timeout: 90_000,
   use: { baseURL: "http://localhost:3000", launchOptions: { executablePath: chromiumPath(), args: ["--no-sandbox"] }, locale: "ar" },
+  expect: { timeout: 10_000 }, // the dev server compiles pages on first visit, so 5s is too tight in a long run
   webServer: { command: "npm run dev", url: "http://localhost:3000/login", reuseExistingServer: true, timeout: 120_000 },
 });
