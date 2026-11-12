@@ -190,7 +190,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                         <div className="space-y-1">
                           <span className="chip chip-gray">{grp.kind === "COMPANIONS" ? "عصبة" : "عائلة"} ({grp.members.length})</span>
                           {grp.kind === "FAMILY" && grp.head !== b.id && grp.headName && <div className="text-xs text-brand-mid">تابع لـ {grp.headName}</div>}
-                          {grp.kind === "FAMILY" && grp.head === b.id && money && <div><Link className="text-xs font-bold text-brand underline" href={`/families/${gid}`}>حساب الأسرة</Link></div>}
+                          {grp.kind === "FAMILY" && grp.head === b.id && <div className="flex flex-wrap items-center gap-1.5"><span className="chip chip-ok">رب الأسرة</span>{money && <Link className="text-xs font-bold text-brand underline" href={`/families/${gid}`}>حساب الأسرة</Link>}</div>}
                           {grp.kind === "FAMILY" && grp.head !== b.id && bw && <form action={setFamilyHead.bind(null, trip.id, gid!, b.id)}><button className="btn-ghost btn-sm">اجعله رب الأسرة</button></form>}
                         </div>
                       ) : <span className="text-brand-mid">—</span>}

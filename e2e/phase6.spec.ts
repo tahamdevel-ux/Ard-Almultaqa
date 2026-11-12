@@ -103,15 +103,17 @@ test("accommodation with hotel and room, family head and family account", async 
     await row.getByText("تعديل التسكين").click();
     await row.locator("select[name=roomType]").selectOption("QUAD");
     await row.getByRole("button", { name: "حفظ التسكين" }).click();
-    await expect(row.getByText("تم الحفظ")).toBeVisible();
+    await expect(row.locator("select[name=roomType]")).toBeHidden(); // the popover closes after a successful save
+    await expect(row.locator(".chip", { hasText: "رباعية" })).toBeVisible();
   }
   await page.reload();
   await rowHead.locator("input[name=bookingIds]").check();
   await rowMember.locator("input[name=bookingIds]").check();
   await page.selectOption("select[name=kind]", "FAMILY");
-  await page.click("button:has-text('اجعل المحددين مجموعة واحدة')");
+  await page.click("button:has-text('اجمع')");
   await expect(page.locator(".chip", { hasText: "رب الأسرة" }).first()).toBeVisible();
   await page.getByRole("link", { name: "حساب الأسرة" }).click();
+  await page.waitForURL(/\/families\/[0-9a-f-]{36}$/);
   await expect(page.getByText("$2,000").first()).toBeVisible();
   await page.fill("[name=amount]", "1500");
   await page.click("button:has-text('تسجيل دفعة الأسرة')");
