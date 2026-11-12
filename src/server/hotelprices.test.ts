@@ -48,6 +48,11 @@ describe("hotel price table with cents", () => {
     await db.booking.update({ where: { id: b.id }, data: { tripHotelId: th.id, roomType: "DOUBLE", sarfByPilgrim: true } });
     expect((await setBookingPrice(user, b.id, { roomType: "DOUBLE", amount: null })).ok).toBe(true);
     expect(await db.booking.findUniqueOrThrow({ where: { id: b.id } })).toMatchObject({ priceAmount: 512.49 });
+    // a second pilgrim in the same room type, تصريف paid by the company: price 499.99. Same room price => no "inconsistent prices" group (512.49 - 12.5 must equal 499.99 exactly)
+    const b2 = await book(t.id);
+    await db.booking.update({ where: { id: b2.id }, data: { tripHotelId: th.id, roomType: "DOUBLE", sarfByPilgrim: false } });
+    expect((await setBookingPrice(user, b2.id, { roomType: "DOUBLE", amount: null })).ok).toBe(true);
+    expect(await auditTripPrices(t.id)).toMatchObject({ groups: [], differs: 0, noPrice: 0 });
   });
 });
 

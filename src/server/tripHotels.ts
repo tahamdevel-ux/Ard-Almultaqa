@@ -4,7 +4,7 @@ import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
 import { creditedValue } from "@/domain/money";
 import { computePrice, noHousingError, type RoomKind } from "@/domain/pricing";
-import { isMoney, paidTotal } from "@/domain/money";
+import { isMoney, paidTotal, round2 } from "@/domain/money";
 
 type Tx = DbTx;
 export const ROOM_KINDS: RoomKind[] = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"];
@@ -114,7 +114,7 @@ export async function auditTripPrices(tripId: string): Promise<PriceAudit> {
     if (th) {
       const key = `${normName(th.hotel)}|${b.noHousing ? "NOHOUSING" : b.roomType ?? "-"}`;
       const g = groups.get(key) ?? { hotel: th.hotel.localName ?? th.hotel.officialName, roomType: b.noHousing ? "NOHOUSING" : b.roomType ?? "-", entries: [] };
-      const base = b.priceAmount - b.sarfAmount; // تصريف is not part of the room price
+      const base = round2(b.priceAmount - b.sarfAmount); // تصريف is not part of the room price (rounded: 512.49 - 12.5 must equal 499.99)
       const e = g.entries.find((x) => x.base === base && x.manual === b.priceManual);
       if (e) e.count++; else g.entries.push({ base, count: 1, manual: b.priceManual });
       groups.set(key, g);

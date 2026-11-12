@@ -19,7 +19,7 @@ async function atomic(fn: (tx: Tx) => Promise<Result>): Promise<Result> {
 const lockBooking = (tx: Tx, bookingId: string) => tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${bookingId} FOR UPDATE`;
 const creditsOf = (payments: { kind: PaymentKind; credited: unknown }[]) => payments.map((x) => ({ kind: x.kind, credited: Number(x.credited) }));
 
-const BOOKING_PRICE_FIELDS = ["roomType", "priceAmount", "priceCurrency", "priceManual"] as const;
+const BOOKING_PRICE_FIELDS = ["roomType", "priceAmount", "priceCurrency", "priceManual", "sarfAmount"] as const;
 
 /** Sets room type + price on a booking. Bookings are always priced in USD. Omitted amount => use the hotel table price. */
 export async function setBookingPrice(
@@ -31,6 +31,7 @@ export async function setBookingPrice(
     await lockBooking(tx, bookingId);
     const before = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { payments: true } });
     let amount = input.amount;
+    let sarf: number | null = null; // the تصريف inside a table-computed price (kept on the booking like repriceBooking does)
     let manual = true;
     if (amount == null) {
       // empty = back to the table: the booking's Makkah hotel (room type price or بدون سكن, + تصريف المعتمر)
@@ -40,12 +41,12 @@ export async function setBookingPrice(
       const rt = (input.roomType ?? before.roomType ?? null) as RoomKind | null;
       if (th) {
         const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: rt, noHousing: before.noHousing, sarfByPilgrim: before.sarfByPilgrim, sarfAmount: trip.sarfAmount });
-        if (r.ok) amount = r.amount; else return fail(r.error);
+        if (r.ok) { amount = r.amount; sarf = r.sarf; } else return fail(r.error);
       } else return fail("اختر فندق مكة المسعّر للمعتمر أو اكتب السعر يدوياً");
     }
     const paid = paidTotal(creditsOf(before.payments));
     if (amount != null && before.status === "ACTIVE" && amount < paid - 0.005) return fail(`السعر أقل من المدفوع (${paid}) — سجّل استرداداً أولاً`);
-    const after = await tx.booking.update({ where: { id: bookingId }, data: { roomType: input.roomType, priceAmount: amount, priceCurrency: "USD", priceManual: manual && amount != null } });
+    const after = await tx.booking.update({ where: { id: bookingId }, data: { roomType: input.roomType, priceAmount: amount, priceCurrency: "USD", priceManual: manual && amount != null, ...(sarf != null ? { sarfAmount: sarf } : {}) } });
     await auditChanges(tx, user, "Booking", bookingId, before, after, BOOKING_PRICE_FIELDS);
     return { ok: true } as Result;
   });
