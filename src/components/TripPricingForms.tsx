@@ -63,3 +63,20 @@ export function TripExtrasForm({ action, air, values, agents }: { action: Act; a
     </form>
   );
 }
+
+/** Merge a hotel that was entered twice: the pilgrims move to the kept row, the other row is deleted. */
+export function MergeHotelRows({ action, rows }: { action: Act; rows: { hotelId: string; rowId: string; name: string; used: number }[] }) {
+  const [st, fa, pending] = useActionState(action, {} as TripActionState);
+  if (rows.length < 2) return null;
+  return (
+    <form action={fa} className="flex flex-wrap items-end gap-2 rounded-lg border border-line bg-canvas p-3 text-sm" onSubmit={(e) => { if (!window.confirm("دمج الصفّين؟ يُنقل المعتمرون إلى الصف المُبقى ويُحذف الآخر ويُعاد حساب أسعارهم منه.")) e.preventDefault(); }}>
+      <div><label className="label" htmlFor="merge-from">دمج صف مكرر</label>
+        <select id="merge-from" name="from" className="input w-56" defaultValue=""><option value="">— الصف الذي يُحذف —</option>{rows.map((r) => <option key={r.rowId} value={r.rowId}>{r.name} ({r.used} معتمر)</option>)}</select></div>
+      <div><label className="label" htmlFor="merge-into">داخل</label>
+        <select id="merge-into" name="into" className="input w-56" defaultValue=""><option value="">— الصف الذي يبقى —</option>{rows.map((r) => <option key={r.rowId} value={r.rowId}>{r.name} ({r.used} معتمر)</option>)}</select></div>
+      <button className="btn-secondary" disabled={pending}>دمج</button>
+      {st.error && <span role="alert" className="text-xs font-bold text-red-700">{st.error}</span>}
+      {st.warning && <span role="status" className="text-xs font-bold text-emerald-800">{st.warning}</span>}
+    </form>
+  );
+}

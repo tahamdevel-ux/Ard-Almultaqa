@@ -23,7 +23,7 @@ import { RowMenu } from "@/components/RowMenu";
 import { Icon } from "@/components/icons";
 import { Bar, EmptyState } from "@/components/charts";
 import { TripTabs } from "@/components/TripTabs";
-import { HotelPricesForm, TripExtrasForm, type HotelRow } from "@/components/TripPricingForms";
+import { HotelPricesForm, MergeHotelRows, TripExtrasForm, type HotelRow } from "@/components/TripPricingForms";
 import { auditTripPrices, loadTripHotels } from "@/server/tripHotels";
 import { RecalcPrices } from "@/components/RecalcPrices";
 import { AccommodationEditor, type HotelOpt } from "@/components/AccommodationFields";
@@ -32,7 +32,7 @@ import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
 import { balance, formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo, recalcPrices, saveTransport } from "../actions";
+import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo, recalcPrices, saveTransport, mergeHotelRows } from "../actions";
 import { DateInput } from "@/components/DateInput";
 
 export default async function TripPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ q?: string; notes?: string }> }) {
@@ -63,7 +63,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
   const tripHotels = await loadTripHotels(trip.id);
   const hotelRows: HotelRow[] = await Promise.all(tripHotels.map(async (h) => ({ hotelId: h.hotelId, name: hotelName(h.hotel), used: await db.booking.count({ where: { tripHotelId: h.id, deletedAt: null } }), prices: Object.fromEntries(h.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: h.noHousingPrice })));
   const priceTables = Object.fromEntries(hotelRows.map((r) => [r.hotelId, { prices: r.prices, noHousing: r.noHousingPrice }]));
-  const priceAudit = money ? await auditTripPrices(trip.id) : { total: 0, noPrice: 0, differs: 0, manual: 0 };
+  const priceAudit = money ? await auditTripPrices(trip.id) : { total: 0, noPrice: 0, differs: 0, manual: 0, groups: [], duplicateHotels: [], badPayments: 0, paymentsOnInactive: 0 };
   const allAgents = money && pw ? await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }) : [];
   const agentOverrides = new Map((await db.tripAgentCommission.findMany({ where: { tripId: trip.id } })).map((c) => [c.agentId, c.amount]));
   const groupOf = (r: (typeof rows)[number]) => r.booking.groups[0]?.groupId;
@@ -322,6 +322,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
       {money && (
         <section className="card space-y-2">
           <h2 className="font-bold">فنادق مكة والأسعار (بالدولار)</h2>
+          {pw && <MergeHotelRows action={mergeHotelRows.bind(null, trip.id)} rows={hotelRows.map((r, i) => ({ hotelId: r.hotelId, rowId: tripHotels[i].id, name: r.name, used: r.used }))} />}
           {pw ? <HotelPricesForm action={saveHotelPrices.bind(null, trip.id)} rows={hotelRows} candidates={hotels.filter((h) => h.city === "MAKKAH").map((h) => ({ id: h.id, name: hotelName(h) }))} />
             : <ul className="text-sm">{hotelRows.map((r) => <li key={r.hotelId}><b>{r.name}</b>: {Object.entries(r.prices).map(([k, v]) => `${ROOM_TYPE_LABELS[k as keyof typeof ROOM_TYPE_LABELS]} ${v}`).join(" · ")}{r.noHousingPrice != null ? ` · بدون سكن ${r.noHousingPrice}` : ""}</li>)}{hotelRows.length === 0 && <li>غير محددة</li>}</ul>}
         </section>
