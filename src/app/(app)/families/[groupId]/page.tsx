@@ -69,7 +69,7 @@ export default async function FamilyPage({ params }: { params: Promise<{ groupId
         <section className="card space-y-2">
           <h2 className="font-bold">استلام دفعة للأسرة</h2>
           <MoneyForm action={payFamily.bind(null, groupId)} submit="تسجيل دفعة الأسرة">
-            <div><label className="label">المبلغ</label><input name="amount" type="number" min={1} className="input w-32" dir="ltr" required /></div>
+            <div><label className="label">المبلغ</label><input name="amount" type="number" min="0.01" step="0.01" className="input w-32" dir="ltr" required /></div>
             <div><label className="label">العملة</label><select name="currency" defaultValue={cur} className="input w-24"><option value="USD">دولار</option><option value="IQD">دينار</option></select></div>
             <div><label className="label">سعر الصرف (إن كان بالدينار)</label><input name="rate" type="number" defaultValue={rate} className="input w-28" dir="ltr" /></div>
             <div><label className="label">الطريقة</label><select name="method" className="input w-24">{Object.entries(METHOD).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>

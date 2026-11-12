@@ -57,6 +57,18 @@ describe("family account", () => {
     expect(await db.payment.count()).toBe(0);
   });
 
+  it("splits cents exactly and a dinar payment clears a balance with cents", async () => {
+    const { g, ids } = await family([100.5, 50.25]);
+    expect((await addFamilyPayment(user, g.id, { amount: 150.75, currency: "USD", method: "CASH", paidAt: D("2026-10-01") })).ok).toBe(true);
+    expect((await familyAccount(g.id))!.totals).toEqual([{ currency: "USD", price: 150.75, paid: 150.75, balance: 0 }]);
+    const pays = await db.payment.findMany({ where: { bookingId: { in: ids } }, orderBy: { receiptNo: "asc" } });
+    expect(pays.map((p) => p.amount)).toEqual([100.5, 50.25]);
+    // a balance of $33.33 is cleared by exactly 46,662 dinars at 1400 (this used to leave a fraction behind)
+    const f2 = await family([33.33]);
+    expect((await addFamilyPayment(user, f2.g.id, { amount: 46662, currency: "IQD", rate: 1400, method: "CASH", paidAt: D("2026-10-01") })).ok).toBe(true);
+    expect((await familyAccount(f2.g.id))!.totals[0].balance).toBe(0);
+  });
+
   it("dinar payments at a rate are converted and split", async () => {
     const { g } = await family([100, 100]);
     const r = await addFamilyPayment(user, g.id, { amount: 210000, currency: "IQD", rate: 1400, method: "CASH", paidAt: D("2026-10-01") }); // = $150

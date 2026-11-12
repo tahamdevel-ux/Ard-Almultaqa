@@ -35,6 +35,21 @@ async function book(tripId: string, agentId?: string) {
   return db.booking.findFirstOrThrow({ where: { pilgrimId: p.id, tripId } });
 }
 
+describe("hotel price table with cents", () => {
+  it("keeps cents in room prices, بدون سكن and تصريف, and refuses more than 2 decimals", async () => {
+    const h = await db.hotel.create({ data: { officialName: "Makkah Cents", city: "MAKKAH" } });
+    const t = await db.trip.create({ data: { name: "رحلة", transportType: "AIR", capacity: 10, sarfAmount: 12.5 } });
+    expect((await saveTripHotels(user, t.id, [{ hotelId: h.id, noHousingPrice: 300.75, prices: { DOUBLE: 499.99 } }], false)).ok).toBe(true);
+    expect((await saveTripHotels(user, t.id, [{ hotelId: h.id, noHousingPrice: null, prices: { DOUBLE: 499.999 } }], false)).ok).toBe(false);
+    const th = await db.tripHotel.findFirstOrThrow({ where: { tripId: t.id }, include: { prices: true } });
+    expect(th.noHousingPrice).toBe(300.75); expect(th.prices[0].amount).toBe(499.99);
+    const b = await book(t.id);
+    await db.booking.update({ where: { id: b.id }, data: { tripHotelId: th.id, roomType: "DOUBLE", sarfByPilgrim: true } });
+    expect((await setBookingPrice(user, b.id, { roomType: "DOUBLE", amount: null })).ok).toBe(true);
+    expect(await db.booking.findUniqueOrThrow({ where: { id: b.id } })).toMatchObject({ priceAmount: 512.49 });
+  });
+});
+
 describe("per-hotel prices", () => {
   it("price follows the Makkah hotel and the room type; the other hotel costs more", async () => {
     const { h1, h2, t } = await setup();

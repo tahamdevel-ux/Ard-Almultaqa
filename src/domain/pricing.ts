@@ -1,4 +1,5 @@
-/** Pure pricing rules for the Makkah-hotel price table (USD, whole numbers). */
+/** Pure pricing rules for the Makkah-hotel price table (USD, cents allowed). */
+import { round2 } from "./money";
 export type RoomKind = "SINGLE" | "DOUBLE" | "TRIPLE" | "QUAD" | "QUINT";
 
 export interface HotelPriceTable { prices: Partial<Record<RoomKind, number>>; noHousingPrice: number | null }
@@ -28,8 +29,8 @@ export function computePrice(i: PriceInput): PriceResult {
     base = i.table.prices[i.roomType];
     if (base == null) return { ok: false, error: "لا يوجد سعر لهذا النوع في هذا الفندق" };
   }
-  const sarf = i.sarfByPilgrim ? Math.max(0, Math.round(i.sarfAmount ?? 0)) : 0;
-  return { ok: true, amount: base + sarf, sarf };
+  const sarf = i.sarfByPilgrim ? Math.max(0, round2(i.sarfAmount ?? 0)) : 0;
+  return { ok: true, amount: round2(base + sarf), sarf };
 }
 
 /** Fixed agent commission per pilgrim: the agent's amount on the trip, else the trip's amount, else 0 (غير محدد). */

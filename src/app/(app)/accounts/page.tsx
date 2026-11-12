@@ -51,6 +51,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
         ))}
         <Link href={link({ hideArchived: f.hideArchived ? undefined : "1" })} className={"rounded-lg px-3 py-1.5 font-bold border " + (f.hideArchived ? "bg-brand text-white border-brand" : "bg-white border-line text-brand-dark")}>إخفاء الرحلات المؤرشفة</Link>
       </nav>
+      {period !== "all" && <p className="text-xs text-brand-mid">الفترة تُحتسب حسب <b>تاريخ إنشاء الرحلة</b> في البطاقات وأقسام الرحلات والمعتمرين والوكلاء، وحسب <b>تاريخ الدفعة</b> في سجل الدفعات.</p>}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="المطلوب" value={usd(data.totals.due)} icon={<Icon name="wallet" size={22} />} />

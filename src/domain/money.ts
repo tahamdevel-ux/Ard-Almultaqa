@@ -4,7 +4,14 @@ export interface PaymentLike { kind: "PAYMENT" | "REFUND"; credited: number }
 
 export const CURRENCY_LABELS: Record<CurrencyKey, string> = { IQD: "دينار", USD: "دولار" };
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
+export const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** A valid amount of money: a finite number with at most 2 decimals (cents), within what DECIMAL(14,2) holds. */
+export function isMoney(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n) && Math.abs(n) < 1e11 && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
+}
+/** Rounds DOWN to whole cents (float-safe). */
+export const floorCents = (n: number) => Math.floor(n * 100 + 1e-6) / 100;
 
 export function formatMoney(amount: number, currency: CurrencyKey): string {
   const abs = Math.abs(amount);
@@ -35,7 +42,7 @@ export interface PaymentInput { kind: "PAYMENT" | "REFUND"; amount: number; curr
 
 /** Returns { error } in Arabic, or { credited } when valid. */
 export function checkPayment(p: PaymentInput, bookingCurrency: CurrencyKey, existing: PaymentLike[]): { error: string } | { credited: number } {
-  if (!Number.isInteger(p.amount) || p.amount <= 0) return { error: "المبلغ يجب أن يكون رقماً صحيحاً أكبر من صفر" };
+  if (!isMoney(p.amount) || p.amount <= 0) return { error: "المبلغ يجب أن يكون رقماً أكبر من صفر (حتى خانتين عشريتين)" };
   // the rate is stored as a whole number (dinars per dollar); a fraction would be rejected by the database
   if (p.currency !== bookingCurrency && p.rate != null && (!Number.isInteger(p.rate) || p.rate <= 0)) return { error: "سعر الصرف يجب أن يكون رقماً صحيحاً أكبر من صفر" };
   const credited = creditedValue(p.amount, p.currency, bookingCurrency, p.rate);

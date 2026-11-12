@@ -30,7 +30,7 @@ import { AccommodationEditor, type HotelOpt } from "@/components/AccommodationFi
 import { SmallForm } from "@/components/SmallForm";
 import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
-import { balance, formatMoney } from "@/domain/money";
+import { balance, formatMoney, round2 } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
 import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo, recalcPrices, saveTransport } from "../actions";
 import { DateInput } from "@/components/DateInput";
@@ -82,7 +82,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
 
   const STATUS_CHIP = { OPEN: "chip-ok", FULL: "chip-warn", TRAVELLING: "chip-gray", RETURNED: "chip-gray", CANCELLED: "chip-bad" } as const;
   const seats = seatsLabel(counter.registered, counter.capacity);
-  const owed = money ? Math.round(rows.reduce((n, r) => n + Math.max(0, balance(r.booking.priceAmount, r.booking.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) ?? 0), 0)) : 0;
+  const owed = money ? round2(rows.reduce((n, r) => n + Math.max(0, balance(r.booking.priceAmount, r.booking.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) ?? 0), 0)) : 0;
 
   return (
     <div className="space-y-4">

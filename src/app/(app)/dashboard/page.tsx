@@ -3,7 +3,7 @@ import { db } from "@/server/db";
 import { TRIP_ORDER } from "@/server/trips";
 import { requirePage } from "@/server/auth";
 import { can } from "@/lib/permissions";
-import { balance, formatMoney } from "@/domain/money";
+import { balance, formatMoney, round2 } from "@/domain/money";
 import { readiness } from "@/domain/readiness";
 import { fullNameAr } from "@/server/pilgrims";
 import { tripLabel } from "@/lib/tripLabel";
@@ -45,7 +45,7 @@ export default async function Dashboard() {
         <StatCard label="رحلات قادمة" value={String(trips.length)} icon={<Icon name="bus" size={22} />} tone="gold" />
         <StatCard label="جاهزون للسفر" value={`${ready} من ${rows.length}`} icon={<Icon name="check" size={22} />} tone="green" />
         {money
-          ? <StatCard label="أرصدة مستحقة" value={formatMoney(Math.round(totalDebt), "USD")} icon={<Icon name="wallet" size={22} />} tone="red"><div className="text-xs text-brand-mid">{debts.length} حجز</div></StatCard>
+          ? <StatCard label="أرصدة مستحقة" value={formatMoney(round2(totalDebt), "USD")} icon={<Icon name="wallet" size={22} />} tone="red"><div className="text-xs text-brand-mid">{debts.length} حجز</div></StatCard>
           : <StatCard label="شواغر الرحلات" value={String(trips.reduce((n, t) => n + Math.max(0, t.capacity - t.bookings.length), 0))} icon={<Icon name="alert" size={22} />} tone="red" />}
       </div>
 

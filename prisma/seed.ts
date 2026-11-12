@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
 import { assignOfficeRooms } from "../src/officeRooms/service";
-
-const db = new PrismaClient();
+import { db } from "../src/server/db";
 const d = (s: string) => new Date(s + "T00:00:00Z");
 const hash = (p: string) => argon2.hash(p, { type: argon2.argon2id });
 

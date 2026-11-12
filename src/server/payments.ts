@@ -1,12 +1,12 @@
 import type { Currency, PaymentKind, PaymentMethod, PaymentSource, Prisma } from "@prisma/client";
-import { db } from "./db";
+import { db, type DbTx } from "./db";
 import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
 import { assignOfficeRooms, freeOfficeBeds } from "@/officeRooms/service";
-import { balance, checkPayment, paidTotal } from "@/domain/money";
+import { balance, checkPayment, floorCents, isMoney, paidTotal, round2 } from "@/domain/money";
 import { computePrice, type RoomKind } from "@/domain/pricing";
 
-type Tx = Prisma.TransactionClient;
+type Tx = DbTx;
 export type Result = { ok: true; id?: string; receiptNo?: number } | { ok: false; error: string };
 const fail = (error: string): Result => ({ ok: false, error });
 
@@ -26,7 +26,7 @@ export async function setBookingPrice(
   user: SessionUser, bookingId: string,
   input: { roomType: string | null; amount: number | null },
 ): Promise<Result> {
-  if (input.amount != null && (!Number.isInteger(input.amount) || input.amount < 0)) return fail("السعر غير صحيح");
+  if (input.amount != null && (!isMoney(input.amount) || input.amount < 0)) return fail("السعر غير صحيح (حتى خانتين عشريتين)");
   return db.$transaction(async (tx) => {
     await lockBooking(tx, bookingId);
     const before = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { payments: true } });
@@ -66,7 +66,7 @@ export async function addPaymentTx(tx: Tx, user: SessionUser, bookingId: string,
   const existing = creditsOf(b.payments);
   const chk = checkPayment({ ...input }, b.priceCurrency, existing);
   if ("error" in chk) return fail(chk.error);
-  if (input.kind === "PAYMENT" && b.priceAmount != null && chk.credited > b.priceAmount - paidTotal(existing) + 0.01)
+  if (input.kind === "PAYMENT" && b.priceAmount != null && chk.credited > b.priceAmount - paidTotal(existing) + 0.005) // amounts are in cents: no slack beyond float noise
     return fail("المبلغ أكبر من المتبقي على الحجز");
   const p = await tx.payment.create({ data: {
     bookingId, kind: input.kind, amount: input.amount, currency: input.currency, exchangeRate: input.currency === b.priceCurrency ? null : input.rate ?? null,
@@ -157,7 +157,6 @@ export async function familyAccount(groupId: string) {
   }
   return { group: g, tripId: active[0]?.booking.tripId ?? null, members, totals: [...totals].map(([currency, t]) => ({ currency, price: round2(t.price), paid: round2(t.paid), balance: round2(t.balance) })) };
 }
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * One payment received for the whole family: split over the members' bookings, head first, each up to what it still owes.
@@ -173,19 +172,19 @@ export async function addFamilyPayment(
   if (!priced.length) return fail("لا يوجد متبقٍ على أي فرد من الأسرة");
   if (new Set(priced.map((m) => m.currency)).size > 1) return fail("عملات حجوزات الأسرة مختلفة — سجّل الدفعة على كل فرد");
   const cur = priced[0].currency;
-  if (!Number.isInteger(input.amount) || input.amount <= 0) return fail("المبلغ يجب أن يكون رقماً صحيحاً أكبر من صفر");
+  if (!isMoney(input.amount) || input.amount <= 0) return fail("المبلغ يجب أن يكون رقماً أكبر من صفر (حتى خانتين عشريتين)");
   if (input.currency !== cur && (!input.rate || input.rate <= 0)) return fail("أدخل سعر الصرف (دينار لكل دولار) وقت التسديد");
   const rate = input.rate ?? 0;
-  // the most each member can take, in the payment's own currency (whole units)
-  const capacity = (rem: number) => (input.currency === cur ? Math.floor(rem + 0.005) : cur === "USD" ? Math.floor(rem * rate) : Math.floor(rem / rate));
+  // the most each member can take, in the payment's own currency (down to the cent)
+  const capacity = (rem: number) => floorCents(input.currency === cur ? rem : cur === "USD" ? rem * rate : rem / rate);
   const plan: { bookingId: string; amount: number }[] = [];
   let left = input.amount;
   for (const m of priced) {
     if (left <= 0) break;
-    const take = Math.min(left, capacity(m.balance!));
-    if (take > 0) { plan.push({ bookingId: m.bookingId, amount: take }); left -= take; }
+    const take = round2(Math.min(left, capacity(m.balance!)));
+    if (take > 0) { plan.push({ bookingId: m.bookingId, amount: take }); left = round2(left - take); }
   }
-  if (left > 0) return fail("المبلغ أكبر من المتبقي على الأسرة");
+  if (left > 0.004) return fail("المبلغ أكبر من المتبقي على الأسرة");
   const head = fam.members.find((m) => m.isHead);
   const note = [`دفعة أسرة${head ? ` ${head.pilgrimName}` : ""}`, input.note].filter(Boolean).join(" — ");
   // all members' payments commit together or not at all

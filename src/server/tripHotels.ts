@@ -1,11 +1,11 @@
 import type { Prisma } from "@prisma/client";
-import { db } from "./db";
+import { db, type DbTx } from "./db";
 import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
 import { computePrice, noHousingError, type RoomKind } from "@/domain/pricing";
-import { paidTotal } from "@/domain/money";
+import { isMoney, paidTotal } from "@/domain/money";
 
-type Tx = Prisma.TransactionClient;
+type Tx = DbTx;
 export const ROOM_KINDS: RoomKind[] = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"];
 
 /** Map "tripId:agentId" -> fixed commission override for those trips. */
@@ -25,8 +25,8 @@ export async function saveTripHotels(user: SessionUser, tripId: string, input: T
   const ids = input.map((i) => i.hotelId);
   if (new Set(ids).size !== ids.length) return { ok: false, error: "فندق مكرر" };
   for (const i of input) {
-    if (i.noHousingPrice != null && (!Number.isInteger(i.noHousingPrice) || i.noHousingPrice < 0)) return { ok: false, error: "سعر غير صحيح" };
-    for (const v of Object.values(i.prices)) if (!Number.isInteger(v) || (v as number) < 0) return { ok: false, error: "سعر غير صحيح" };
+    if (i.noHousingPrice != null && (!isMoney(i.noHousingPrice) || i.noHousingPrice < 0)) return { ok: false, error: "سعر غير صحيح" };
+    for (const v of Object.values(i.prices)) if (!isMoney(v) || (v as number) < 0) return { ok: false, error: "سعر غير صحيح" };
   }
   return db.$transaction(async (tx) => {
     const before = await loadTripHotels(tripId, tx);

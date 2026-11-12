@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
-import { db } from "./db";
+import { db, type DbTx } from "./db";
 
-type Tx = Prisma.TransactionClient;
+type Tx = DbTx;
 export interface FamilyChoice { isHead: boolean; headOf: string }
 
 /** Form fields per trip: isHead__<tripId> (checkbox "رب الأسرة") and headOf__<tripId> (the head's booking id). */

@@ -1,9 +1,9 @@
 import type { Prisma } from "@prisma/client";
-import { db } from "./db";
+import { db, type DbTx } from "./db";
 import { autoSeat } from "@/domain/seating";
 import { roleConflict, type TripRole } from "@/domain/tripRoles";
 
-type Tx = Prisma.TransactionClient;
+type Tx = DbTx;
 const DEFAULT_SEATS = 48;
 
 /** Run `fn` inside a transaction holding a per-trip lock, so two people adding pilgrims never double-book a seat. */

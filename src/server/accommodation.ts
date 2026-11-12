@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { db } from "./db";
+import { db, type DbTx } from "./db";
 import { withTripLock } from "./buses";
 import { assignOfficeRooms, placeInRoomByLabel } from "@/officeRooms/service";
 import { busRoleConflict } from "./buses";
@@ -8,7 +8,7 @@ import { computePrice, type RoomKind } from "@/domain/pricing";
 import { checkNoHousing } from "./tripHotels";
 import { canPlace, ROOM_BEDS, type Occupant } from "@/domain/rooming";
 
-type Tx = Prisma.TransactionClient;
+type Tx = DbTx;
 type City = "MAKKAH" | "MADINAH";
 export type Accommodation = {
   makkahHotelId?: string | null; madinahHotelId?: string | null; roomType?: string | null;

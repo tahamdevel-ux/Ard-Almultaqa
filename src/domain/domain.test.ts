@@ -150,7 +150,8 @@ describe("readiness", () => {
   });
 });
 
-import { formatMoney, paidTotal, balance, checkPayment, creditedValue, agentStatement } from "./money";
+import { formatMoney, paidTotal, balance, checkPayment, creditedValue, agentStatement, isMoney, floorCents } from "./money";
+import { computePrice } from "./pricing";
 
 describe("money", () => {
   it("formats", () => {
@@ -293,4 +294,25 @@ describe("trip roles (contractor / driver / assistant)", () => {
     expect(roleConflict(holders, { bookingId: "x", role: "CONTRACTOR", busId: null })).toBeNull(); // air: no bus
   });
   it("manifest order", () => { expect([null, "ASSISTANT", "CONTRACTOR", "DRIVER"].map((r) => roleOrder(r as never))).toEqual([3, 2, 0, 1]); });
+});
+
+describe("cents", () => {
+  it("isMoney accepts up to 2 decimals only", () => {
+    for (const v of [0, 1, 12.5, 100.25, 0.01, 99999999999.99 - 1]) expect(isMoney(v)).toBe(true);
+    for (const v of [12.345, 0.001, NaN, Infinity, "5", null, 1e12]) expect(isMoney(v)).toBe(false);
+  });
+  it("floorCents rounds down to the cent, float-safe", () => {
+    expect(floorCents(33.33)).toBe(33.33); expect(floorCents(0.29)).toBe(0.29); expect(floorCents(10.019)).toBe(10.01);
+  });
+  it("payments take cents; sums do not drift", () => {
+    expect(checkPayment({ kind: "PAYMENT", amount: 12.5, currency: "USD" }, "USD", [])).toEqual({ credited: 12.5 });
+    expect(checkPayment({ kind: "PAYMENT", amount: 12.345, currency: "USD" }, "USD", [])).toHaveProperty("error");
+    expect(checkPayment({ kind: "PAYMENT", amount: 0, currency: "USD" }, "USD", [])).toHaveProperty("error");
+    const ps = [0.1, 0.2, 0.3].map((credited) => ({ kind: "PAYMENT" as const, credited }));
+    expect(paidTotal(ps)).toBe(0.6); expect(balance(100.6, ps)).toBe(100);
+  });
+  it("the price adds the تصريف with cents", () => {
+    const r = computePrice({ table: { prices: { DOUBLE: 100.25 }, noHousingPrice: null }, roomType: "DOUBLE", noHousing: false, sarfByPilgrim: true, sarfAmount: 12.5 });
+    expect(r).toEqual({ ok: true, amount: 112.75, sarf: 12.5 });
+  });
 });

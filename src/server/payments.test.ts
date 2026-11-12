@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { db } from "./db";
 import { addPayment, addPaymentTx, cancelBooking, moveToTrip, setBookingPrice } from "./payments";
+import { balance } from "@/domain/money";
 
 const user = { id: "acc1", username: "acc", name: "المحاسب", role: "ACCOUNTANT" as const };
 const D = (s: string) => new Date(s + "T00:00:00Z");
@@ -128,6 +129,20 @@ describe("payments", () => {
     await expect(db.booking.update({ where: { id: bookingId }, data: { priceCurrency: "IQD" } })).rejects.toThrow();
     // paying in dinars still works: converted to dollars at the typed rate
     expect((await addPayment(user, bookingId, { kind: "PAYMENT", amount: 140000, currency: "IQD", rate: 1400, method: "CASH", paidAt: D("2026-10-01") })).ok).toBe(true);
+  });
+  it("prices and payments keep their cents (stored as DECIMAL(14,2))", async () => {
+    expect((await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000.5 })).ok).toBe(true);
+    expect((await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000.555 })).ok).toBe(false); // more than 2 decimals
+    for (const amount of [400.25, 300.1, 300.15]) expect((await addPayment(user, bookingId, { kind: "PAYMENT", amount, currency: "USD", method: "CASH", paidAt: D("2026-10-01") })).ok).toBe(true);
+    const b = await db.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { payments: true } });
+    expect(b.priceAmount).toBe(1000.5);
+    expect(b.payments.map((p) => p.amount).sort((x, y) => x - y)).toEqual([300.1, 300.15, 400.25]);
+    expect(balance(b.priceAmount, b.payments.map((p) => ({ kind: p.kind, credited: p.credited })))).toBe(0);
+    expect((await addPayment(user, bookingId, { kind: "PAYMENT", amount: 0.01, currency: "USD", method: "CASH", paidAt: D("2026-10-02") })).ok).toBe(false); // already settled
+    expect((await addPayment(user, bookingId, { kind: "REFUND", amount: 0.005, currency: "USD", reason: "x", method: "CASH", paidAt: D("2026-10-02") })).ok).toBe(false);
+    const ref = await addPayment(user, bookingId, { kind: "REFUND", amount: 50.5, currency: "USD", reason: "x", method: "CASH", paidAt: D("2026-10-02") });
+    expect(ref.ok).toBe(true);
+    expect(balance(1000.5, (await db.payment.findMany({ where: { bookingId } })).map((p) => ({ kind: p.kind, credited: p.credited })))).toBe(50.5);
   });
   it("move keeps price, payments and history", async () => {
     await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });

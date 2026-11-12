@@ -38,7 +38,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
 
   const payFields = (kind: "PAYMENT" | "REFUND") => (
     <>
-      <div><label className="label">المبلغ</label><input name="amount" type="number" min={1} className="input w-32" dir="ltr" required /></div>
+      <div><label className="label">المبلغ</label><input name="amount" type="number" min="0.01" step="0.01" className="input w-32" dir="ltr" required /></div>
       <div><label className="label">العملة</label><select name="currency" defaultValue={cur} className="input w-24"><option value="USD">دولار</option><option value="IQD">دينار</option></select></div>
       <div><label className="label">سعر الصرف (إن كان بالدينار)</label><input name="rate" type="number" defaultValue={rate} className="input w-28" dir="ltr" /></div>
       <div><label className="label">الطريقة</label><select name="method" className="input w-24">{Object.entries(METHOD).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
@@ -80,7 +80,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
           <h2 className="font-bold">نوع الغرفة والسعر</h2>
           <MoneyForm action={savePrice.bind(null, b.id)} submit="حفظ">
             <div><label className="label">نوع الغرفة</label><select name="roomType" defaultValue={b.roomType ?? ""} className="input w-32"><option value="">—</option>{Object.entries(ROOM_TYPE_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></div>
-            <div><label className="label">السعر (فارغ = سعر الرحلة الافتراضي)</label><input name="amount" type="number" min={0} defaultValue={b.priceAmount ?? ""} className="input w-36" dir="ltr" /></div>
+            <div><label className="label">السعر (فارغ = سعر الرحلة الافتراضي)</label><input name="amount" type="number" min={0} step="0.01" defaultValue={b.priceAmount ?? ""} className="input w-36" dir="ltr" /></div>
           </MoneyForm>
           <p className="text-xs text-brand-mid">السعر موحّد حسب نوع الغرفة (يُحدَّد من صفحة الرحلة) ويمكن تعديله لحجز معيّن. الأسعار دائماً بالدولار؛ يمكن استلام الدفعة بالدينار بسعر صرف.</p>
         </section>
@@ -124,7 +124,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
           <h2 className="font-bold">إلغاء الحجز</h2>
           <MoneyForm action={cancel.bind(null, b.id)} submit="إلغاء الحجز" danger confirm="إلغاء هذا الحجز؟ يُحرَّر المقعد والغرفة ولا يمكن التراجع من الشاشة.">
             <div><label className="label">سبب الإلغاء *</label><input name="reason" className="input w-48" required /></div>
-            <div><label className="label">مبلغ يُردّ (اختياري)</label><input name="refundAmount" type="number" min={0} className="input w-28" dir="ltr" /></div>
+            <div><label className="label">مبلغ يُردّ (اختياري)</label><input name="refundAmount" type="number" min={0} step="0.01" className="input w-28" dir="ltr" /></div>
             <div><label className="label">العملة</label><select name="currency" defaultValue={cur} className="input w-24"><option value="USD">دولار</option><option value="IQD">دينار</option></select></div>
             <div><label className="label">سعر الصرف</label><input name="rate" type="number" defaultValue={rate} className="input w-24" dir="ltr" /></div>
             <input type="hidden" name="method" value="CASH" /><input type="hidden" name="paidAt" value={today} />
