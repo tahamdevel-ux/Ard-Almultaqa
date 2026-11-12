@@ -3,6 +3,7 @@ import { db } from "./db";
 import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
 import { computePrice, noHousingError, type RoomKind } from "@/domain/pricing";
+import { paidTotal } from "@/domain/money";
 
 type Tx = Prisma.TransactionClient;
 export const ROOM_KINDS: RoomKind[] = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"];
@@ -58,11 +59,13 @@ export async function saveTripHotels(user: SessionUser, tripId: string, input: T
 
 /** Recomputes a booking's price from its hotel, room type, بدون سكن and تصريف. Returns true when the price changed. */
 export async function repriceBooking(tx: Tx, user: SessionUser, bookingId: string): Promise<boolean> {
-  const b = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { trip: true, tripHotel: { include: { prices: true } } } });
+  const b = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { trip: true, payments: true, tripHotel: { include: { prices: true } } } });
   if (!b.tripHotel || b.priceManual) return false;
   const table = { prices: Object.fromEntries(b.tripHotel.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: b.tripHotel.noHousingPrice };
   const r = computePrice({ table, roomType: (b.roomType as RoomKind) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: b.trip.sarfAmount });
   if (!r.ok || r.amount === b.priceAmount) return false;
+  // never push the price below what was already received (it would show as overpaid); staff fix those by hand with a refund
+  if (r.amount < paidTotal(b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) - 0.005) return false;
   const after = await tx.booking.update({ where: { id: bookingId }, data: { priceAmount: r.amount, sarfAmount: r.sarf, priceCurrency: "USD" } });
   await auditChanges(tx, user, "Booking", bookingId, b, after, ["priceAmount", "sarfAmount"] as never);
   return true;

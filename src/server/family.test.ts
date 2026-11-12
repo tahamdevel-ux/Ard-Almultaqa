@@ -49,6 +49,14 @@ describe("family account", () => {
     expect(await db.payment.count()).toBe(0);
   });
 
+  it("is all-or-nothing: if one member's payment fails nothing is recorded", async () => {
+    const { g } = await family([100, 100]);
+    // a fractional rate fails on the first member's payment; no receipt may be left behind
+    const r = await addFamilyPayment(user, g.id, { amount: 140000, currency: "IQD", rate: 1400.5, method: "CASH", paidAt: D("2026-10-01") });
+    expect(r.ok).toBe(false);
+    expect(await db.payment.count()).toBe(0);
+  });
+
   it("dinar payments at a rate are converted and split", async () => {
     const { g } = await family([100, 100]);
     const r = await addFamilyPayment(user, g.id, { amount: 210000, currency: "IQD", rate: 1400, method: "CASH", paidAt: D("2026-10-01") }); // = $150

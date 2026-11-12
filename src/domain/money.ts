@@ -36,6 +36,8 @@ export interface PaymentInput { kind: "PAYMENT" | "REFUND"; amount: number; curr
 /** Returns { error } in Arabic, or { credited } when valid. */
 export function checkPayment(p: PaymentInput, bookingCurrency: CurrencyKey, existing: PaymentLike[]): { error: string } | { credited: number } {
   if (!Number.isInteger(p.amount) || p.amount <= 0) return { error: "المبلغ يجب أن يكون رقماً صحيحاً أكبر من صفر" };
+  // the rate is stored as a whole number (dinars per dollar); a fraction would be rejected by the database
+  if (p.currency !== bookingCurrency && p.rate != null && (!Number.isInteger(p.rate) || p.rate <= 0)) return { error: "سعر الصرف يجب أن يكون رقماً صحيحاً أكبر من صفر" };
   const credited = creditedValue(p.amount, p.currency, bookingCurrency, p.rate);
   if (credited == null) return { error: "أدخل سعر الصرف (دينار لكل دولار) وقت التسديد" };
   if (p.kind === "REFUND") {

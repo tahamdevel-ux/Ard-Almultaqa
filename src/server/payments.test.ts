@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { db } from "./db";
-import { addPayment, cancelBooking, moveToTrip, setBookingPrice } from "./payments";
+import { addPayment, addPaymentTx, cancelBooking, moveToTrip, setBookingPrice } from "./payments";
 
 const user = { id: "acc1", username: "acc", name: "المحاسب", role: "ACCOUNTANT" as const };
 const D = (s: string) => new Date(s + "T00:00:00Z");
@@ -52,6 +52,50 @@ describe("payments", () => {
     await addPayment(user, bookingId, { kind: "PAYMENT", amount: 100, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
     expect((await cancelBooking(user, bookingId, "x", { amount: 200, method: "CASH", paidAt: D("2026-10-05") })).ok).toBe(false);
     expect((await db.booking.findUniqueOrThrow({ where: { id: bookingId } })).status).toBe("ACTIVE");
+  });
+  it("rejects a fractional exchange rate with a message instead of crashing", async () => {
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    const r = await addPayment(user, bookingId, { kind: "PAYMENT", amount: 145000, currency: "IQD", rate: 1450.5, method: "CASH", paidAt: D("2026-10-01") });
+    expect(r.ok).toBe(false);
+    expect(await db.payment.count()).toBe(0);
+  });
+  it("a payment waits for a concurrent change on the same booking and re-reads the balance", async () => {
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let locked!: () => void;
+    const lockedP = new Promise<void>((r) => (locked = r));
+    // transaction A: pays 800 and keeps the transaction open
+    const a = db.$transaction(async (tx) => {
+      const r = await addPaymentTx(tx, user, bookingId, { kind: "PAYMENT", amount: 800, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
+      locked(); await held; return r;
+    });
+    await lockedP;
+    // transaction B starts now: it must block on the booking row until A commits, then see A's 800 and refuse
+    let bDone = false;
+    const bP = addPayment(user, bookingId, { kind: "PAYMENT", amount: 800, currency: "USD", method: "CASH", paidAt: D("2026-10-01") }).then((r) => { bDone = true; return r; });
+    await new Promise((r) => setTimeout(r, 400));
+    expect(bDone).toBe(false);
+    release();
+    expect((await a).ok).toBe(true);
+    expect((await bP).ok).toBe(false);
+    expect(await db.payment.count()).toBe(1);
+  });
+  it("a failed refund leaves the booking active (cancel is atomic)", async () => {
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    await addPayment(user, bookingId, { kind: "PAYMENT", amount: 100, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
+    await db.seatAssignment.create({ data: { bookingId, ticketNo: "T1" } });
+    expect((await cancelBooking(user, bookingId, "x", { amount: 200, method: "CASH", paidAt: D("2026-10-05") })).ok).toBe(false);
+    expect((await db.booking.findUniqueOrThrow({ where: { id: bookingId } })).status).toBe("ACTIVE");
+    expect(await db.seatAssignment.count({ where: { bookingId } })).toBe(1);
+    expect(await db.payment.count({ where: { kind: "REFUND" } })).toBe(0);
+  });
+  it("refuses a price below what was already paid, allows it after a refund", async () => {
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });
+    await addPayment(user, bookingId, { kind: "PAYMENT", amount: 600, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
+    expect((await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 500, currency: "USD" })).ok).toBe(false);
+    expect((await db.booking.findUniqueOrThrow({ where: { id: bookingId } })).priceAmount).toBe(1000);
+    expect((await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 600, currency: "USD" })).ok).toBe(true);
   });
   it("move keeps price, payments and history", async () => {
     await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000, currency: "USD" });

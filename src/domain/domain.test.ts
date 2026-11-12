@@ -174,6 +174,7 @@ describe("money", () => {
     expect(checkPayment({ kind: "PAYMENT", amount: 0, currency: "USD" }, "USD", ps)).toHaveProperty("error");
     expect(checkPayment({ kind: "PAYMENT", amount: 700000, currency: "IQD" }, "USD", ps)).toHaveProperty("error"); // no rate
     expect(checkPayment({ kind: "PAYMENT", amount: 700000, currency: "IQD", rate: 1400 }, "USD", ps)).toEqual({ credited: 500 });
+    expect(checkPayment({ kind: "PAYMENT", amount: 700000, currency: "IQD", rate: 1400.5 }, "USD", ps)).toHaveProperty("error"); // the rate is a whole number
     expect(checkPayment({ kind: "REFUND", amount: 500, currency: "USD" }, "USD", ps)).toHaveProperty("error"); // no reason
     expect(checkPayment({ kind: "REFUND", amount: 2000, currency: "USD", reason: "x" }, "USD", ps)).toHaveProperty("error");
     expect(checkPayment({ kind: "REFUND", amount: 500, currency: "USD", reason: "x" }, "USD", ps)).toEqual({ credited: 500 });
