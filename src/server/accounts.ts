@@ -9,12 +9,16 @@ import { commissionOverrides } from "./tripHotels";
 
 export interface AccountsFilter { period: Period; trip?: string; agent?: string; onlyDue?: boolean; hideArchived?: boolean }
 
-/** Every booking (active or cancelled) of trips created in the period, with what was paid on it. */
+/**
+ * Every booking (active or cancelled) of trips created in the period, with what was paid on it.
+ * A DELETED trip still counts when it holds money (the company keeps what was paid unless it was refunded), so Accounts agrees with the
+ * agent statements and the payments log; deleted-trip bookings with nothing paid are left out (they are just noise).
+ */
 async function loadBookings(f: AccountsFilter) {
   const from = periodStart(f.period);
   const where: Prisma.BookingWhereInput = {
     deletedAt: null, status: { in: ["ACTIVE", "CANCELLED"] },
-    trip: { deletedAt: null, ...(f.hideArchived ? { archivedAt: null } : {}), ...(from ? { createdAt: { gte: from } } : {}) }, // archived trips count unless hidden
+    trip: { ...(f.hideArchived ? { archivedAt: null } : {}), ...(from ? { createdAt: { gte: from } } : {}) }, // archived trips count unless hidden
   };
   const rows = await db.booking.findMany({
     where, include: { pilgrim: true, trip: true, agent: true, payments: true },
@@ -23,7 +27,7 @@ async function loadBookings(f: AccountsFilter) {
   return rows.map((b) => ({
     b, status: b.status as "ACTIVE" | "CANCELLED",
     price: b.priceAmount, paid: paidTotal(b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))),
-  }));
+  })).filter((r) => !r.b.trip.deletedAt || Math.abs(r.paid) > 0.004);
 }
 
 export async function accountsOverview(f: AccountsFilter) {
@@ -34,13 +38,13 @@ export async function accountsOverview(f: AccountsFilter) {
   // trips tab: one row per trip, newest created first
   const byTrip = new Map<string, typeof rows>();
   for (const r of rows) byTrip.set(r.b.tripId, [...(byTrip.get(r.b.tripId) ?? []), r]);
-  const tripRows = [...byTrip.values()].map((list) => ({ trip: list[0].b.trip, pilgrims: list.filter((x) => x.status === "ACTIVE").length, ...accountTotals(list) }));
+  const tripRows = [...byTrip.values()].map((list) => ({ trip: list[0].b.trip, deleted: !!list[0].b.trip.deletedAt, pilgrims: list.filter((x) => x.status === "ACTIVE").length, ...accountTotals(list) }));
   tripRows.sort((a, b) => b.trip.createdAt.getTime() - a.trip.createdAt.getTime() || (a.trip.id < b.trip.id ? 1 : -1));
 
   // pilgrims tab: one row per booking, optionally filtered by trip / agent / only those who still owe
   let pilgrimRows = rows.map((r) => {
     const t = accountTotals([r]);
-    return { bookingId: r.b.id, name: fullNameAr(r.b.pilgrim), trip: r.b.trip, agent: r.b.agent, status: r.status, ...t };
+    return { bookingId: r.b.id, name: fullNameAr(r.b.pilgrim), trip: r.b.trip, deleted: !!r.b.trip.deletedAt, agent: r.b.agent, status: r.status, ...t };
   });
   if (f.trip) pilgrimRows = pilgrimRows.filter((r) => r.trip.id === f.trip);
   if (f.agent) pilgrimRows = pilgrimRows.filter((r) => r.agent?.id === f.agent);
@@ -48,7 +52,7 @@ export async function accountsOverview(f: AccountsFilter) {
 
   // agents tab: one row per agent
   const agentPayments = await db.payment.findMany({
-    where: { booking: { deletedAt: null, trip: { deletedAt: null, ...(f.hideArchived ? { archivedAt: null } : {}), ...(periodStart(f.period) ? { createdAt: { gte: periodStart(f.period)! } } : {}) } } },
+    where: { booking: { deletedAt: null, trip: { ...(f.hideArchived ? { archivedAt: null } : {}), ...(periodStart(f.period) ? { createdAt: { gte: periodStart(f.period)! } } : {}) } } },
     select: { kind: true, credited: true, source: true, sourceAgentId: true, booking: { select: { agentId: true } } },
   });
   const agentRows = agents.map((a) => {

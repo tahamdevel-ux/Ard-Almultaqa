@@ -167,6 +167,25 @@ describe("payments", () => {
     expect(nb.payments.map((p) => p.amount)).toEqual([300]); // the payment travelled with the pilgrim
     expect(await db.payment.count({ where: { bookingId } })).toBe(0);
   });
+  it("an archived trip stays open for payments and refunds, but price, cancel and moves are frozen", async () => {
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
+    await addPayment(user, bookingId, { kind: "PAYMENT", amount: 500, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
+    await db.trip.update({ where: { id: tripA }, data: { archivedAt: new Date() } });
+    expect((await addPayment(user, bookingId, { kind: "PAYMENT", amount: 100, currency: "USD", method: "CASH", paidAt: D("2026-10-02") })).ok).toBe(true); // late payment
+    expect((await addPayment(user, bookingId, { kind: "REFUND", amount: 50, currency: "USD", reason: "x", method: "CASH", paidAt: D("2026-10-03") })).ok).toBe(true);
+    for (const r of [await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 900 }), await cancelBooking(user, bookingId, "x"), await moveToTrip(user, bookingId, tripB)]) {
+      expect(r.ok).toBe(false); expect((r as { error: string }).error).toContain("مؤرشفة");
+    }
+    const b = await db.booking.findUniqueOrThrow({ where: { id: bookingId } });
+    expect(b).toMatchObject({ status: "ACTIVE", priceAmount: 1000, tripId: tripA });
+  });
+  it("nobody can be moved INTO an archived trip", async () => {
+    await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
+    await db.trip.update({ where: { id: tripB }, data: { archivedAt: new Date() } });
+    const r = await moveToTrip(user, bookingId, tripB);
+    expect(r.ok).toBe(false); expect((r as { error: string }).error).toContain("مؤرشفة");
+    expect((await db.booking.findUniqueOrThrow({ where: { id: bookingId } })).status).toBe("ACTIVE");
+  });
   it("move keeps price, payments and history", async () => {
     await setBookingPrice(user, bookingId, { roomType: "QUAD", amount: 1000 });
     await addPayment(user, bookingId, { kind: "PAYMENT", amount: 250, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });

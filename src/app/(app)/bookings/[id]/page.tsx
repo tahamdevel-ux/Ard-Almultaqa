@@ -32,6 +32,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
   const wp = can(user.role, "payments.write"), wrec = can(user.role, "payments.record"), wpr = can(user.role, "prices.write");
   const today = formatDate(new Date(Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate())));
   const otherTrips = can(user.role, "bookings.write") ? await db.trip.findMany({ where: { deletedAt: null, archivedAt: null, id: { not: b.tripId }, status: { in: ["OPEN", "FULL"] } }, orderBy: TRIP_ORDER }) : [];
+  const archived = !!b.trip.archivedAt; // view/print only: payments and refunds stay open, price / cancel / move are frozen
   const active = b.status === "ACTIVE";
   const agents = await db.agent.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
   const family = b.groups.find((g) => g.group.kind === "FAMILY");
@@ -75,7 +76,8 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
         );
       })()}
 
-      {wpr && active && (
+      {archived && <p role="note" className="alert-warn">رحلة مؤرشفة: السعر والإلغاء والنقل مقفلة. يمكن تسجيل الدفعات والاسترداد فقط.</p>}
+      {wpr && active && !archived && (
         <section className="card space-y-2">
           <h2 className="font-bold">نوع الغرفة والسعر</h2>
           <MoneyForm action={savePrice.bind(null, b.id)} submit="حفظ">
@@ -119,7 +121,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
           <MoneyForm action={recordPayment.bind(null, b.id, "REFUND")} submit="تسجيل الاسترداد" danger confirm="تسجيل استرداد مبلغ لهذا الحجز؟ سيُنقص المدفوع ويُسجَّل في السجل.">{payFields("REFUND")}</MoneyForm>
         </section>
       )}
-      {wp && active && (
+      {wp && active && !archived && (
         <section className="card space-y-2">
           <h2 className="font-bold">إلغاء الحجز</h2>
           <MoneyForm action={cancel.bind(null, b.id)} submit="إلغاء الحجز" danger confirm="إلغاء هذا الحجز؟ يُحرَّر المقعد والغرفة ولا يمكن التراجع من الشاشة.">
@@ -132,7 +134,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
           <p className="text-xs text-brand-mid">يُحرَّر المقعد والغرفة. المبلغ غير المسترد يبقى للشركة ويظهر في كشف الوكيل.</p>
         </section>
       )}
-      {active && otherTrips.length > 0 && (
+      {active && !archived && otherTrips.length > 0 && (
         <section className="card space-y-2">
           <h2 className="font-bold">نقل المعتمر إلى رحلة أخرى</h2>
           <MoneyForm action={move.bind(null, b.id)} submit="نقل">

@@ -74,7 +74,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
             <tbody>
               {data.tripRows.map((r) => (
                 <tr key={r.trip.id} data-href={link({ tab: "pilgrims", trip: r.trip.id })} className="hover:bg-canvas">
-                  <td className="td font-bold"><Link className="text-brand underline" href={link({ tab: "pilgrims", trip: r.trip.id })}>{tripLabel(r.trip)}</Link></td>
+                  <td className="td font-bold"><Link className="text-brand underline" href={link({ tab: "pilgrims", trip: r.trip.id })}>{tripLabel(r.trip)}</Link>{r.deleted && <span className="chip chip-bad ms-1" title="رحلة محذوفة: تظهر لأن عليها مبالغ مستلمة">محذوفة</span>}</td>
                   <td className="td">{r.pilgrims}</td>
                   <td className={num}>{usd(r.due)}</td><td className={num + " text-green-800"}>{usd(r.received)}</td>
                   <td className={num + remainCls(r.remaining)}>{remainTxt(r.remaining)}</td>
@@ -103,7 +103,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                 {data.pilgrimRows.map((r) => (
                   <tr key={r.bookingId} data-href={`/bookings/${r.bookingId}`} className="hover:bg-canvas">
                     <td className="td font-bold"><Link className="text-brand underline" href={`/bookings/${r.bookingId}`}>{r.name}</Link>{r.status === "CANCELLED" && <span className="chip chip-bad ms-2">ملغى</span>}</td>
-                    <td className="td">{tripLabel(r.trip)}</td><td className="td">{r.agent?.name ?? "—"}</td>
+                    <td className="td">{tripLabel(r.trip)}{r.deleted && <span className="chip chip-bad ms-1">محذوفة</span>}</td><td className="td">{r.agent?.name ?? "—"}</td>
                     <td className={num}>{usd(r.due)}</td><td className={num + " text-green-800"}>{usd(r.received)}</td>
                     <td className={num + remainCls(r.remaining)}>{remainTxt(r.remaining)}</td>
                   </tr>

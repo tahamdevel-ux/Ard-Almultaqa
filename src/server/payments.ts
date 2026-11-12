@@ -10,6 +10,10 @@ type Tx = DbTx;
 export type Result = { ok: true; id?: string; receiptNo?: number } | { ok: false; error: string };
 const fail = (error: string): Result => ({ ok: false, error });
 
+/** Archived trips are view/print only: payments and refunds can still be recorded (debts get settled late), but the booking's price, cancellation and moves are frozen. */
+export const ARCHIVED_MSG = "هذه رحلة مؤرشفة: للعرض والطباعة فقط (يمكن تسجيل الدفعات والاسترداد)";
+const isArchivedTrip = async (tx: Tx, tripId: string) => !!(await tx.trip.findUnique({ where: { id: tripId }, select: { archivedAt: true } }))?.archivedAt;
+
 /** Thrown inside a transaction to roll everything back and hand the failure to the caller. */
 class Abort extends Error { constructor(readonly result: Result) { super("abort"); } }
 async function atomic(fn: (tx: Tx) => Promise<Result>): Promise<Result> {
@@ -30,6 +34,7 @@ export async function setBookingPrice(
   return db.$transaction(async (tx) => {
     await lockBooking(tx, bookingId);
     const before = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { payments: true } });
+    if (await isArchivedTrip(tx, before.tripId)) return fail(ARCHIVED_MSG);
     let amount = input.amount;
     let sarf: number | null = null; // the تصريف inside a table-computed price (kept on the booking like repriceBooking does)
     let manual = true;
@@ -96,6 +101,7 @@ export async function cancelBooking(
     await lockBooking(tx, bookingId);
     const b = await tx.booking.findUnique({ where: { id: bookingId } });
     if (!b || b.status !== "ACTIVE") return fail("الحجز غير فعّال");
+    if (await isArchivedTrip(tx, b.tripId)) return fail(ARCHIVED_MSG);
     if (refund && refund.amount > 0) {
       const r = await addPaymentTx(tx, user, bookingId, { kind: "REFUND", amount: refund.amount, currency: refund.currency ?? b.priceCurrency, rate: refund.rate, method: refund.method, paidAt: refund.paidAt, reason });
       if (!r.ok) throw new Abort(r);
@@ -115,8 +121,10 @@ export async function moveToTrip(user: SessionUser, bookingId: string, targetTri
     const old = await tx.booking.findUnique({ where: { id: bookingId } });
     if (!old || old.status !== "ACTIVE") return fail("الحجز غير فعّال");
     if (old.tripId === targetTripId) return fail("الرحلة نفسها");
+    if (await isArchivedTrip(tx, old.tripId)) return fail(ARCHIVED_MSG);
     const target = await tx.trip.findFirst({ where: { id: targetTripId, deletedAt: null } });
     if (!target) return fail("الرحلة الهدف غير موجودة");
+    if (target.archivedAt) return fail("الرحلة الهدف مؤرشفة: لا تقبل معتمرين جدداً");
     const existing = await tx.booking.findUnique({ where: { pilgrimId_tripId: { pilgrimId: old.pilgrimId, tripId: targetTripId } } });
     if (existing?.status === "ACTIVE") return fail("المعتمر محجوز مسبقاً في الرحلة الهدف");
     const data = { agentId: old.agentId, roomType: old.roomType, priceAmount: old.priceAmount, priceCurrency: old.priceCurrency, movedFromId: old.id };

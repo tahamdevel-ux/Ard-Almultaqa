@@ -69,6 +69,27 @@ describe("accounts overview", () => {
     expect((await paymentsLog("all", undefined, 99)).page).toBe(2); // out of range -> last page
   });
 
+  it("money kept on a DELETED trip still counts (Accounts agrees with the payments log); empty deleted trips stay out", async () => {
+    const live = await db.trip.create({ data: { name: "حية", transportType: "AIR", capacity: 5 } });
+    const gone = await db.trip.create({ data: { name: "محذوفة بمال", transportType: "AIR", capacity: 5 } });
+    const goneEmpty = await db.trip.create({ data: { name: "محذوفة فارغة", transportType: "AIR", capacity: 5 } });
+    const a = await db.booking.create({ data: { pilgrimId: (await pilgrim()).id, tripId: live.id, priceAmount: 1000 } });
+    const b = await db.booking.create({ data: { pilgrimId: (await pilgrim()).id, tripId: gone.id, priceAmount: 800 } });
+    await db.booking.create({ data: { pilgrimId: (await pilgrim()).id, tripId: goneEmpty.id, priceAmount: 800 } });
+    await addPayment(user, a.id, { kind: "PAYMENT", amount: 400, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
+    await addPayment(user, b.id, { kind: "PAYMENT", amount: 300, currency: "USD", method: "CASH", paidAt: D("2026-10-01") });
+    // both trips are deleted the way deleteTrip does it: active bookings cancelled, payments untouched
+    for (const t of [gone, goneEmpty]) {
+      await db.booking.updateMany({ where: { tripId: t.id }, data: { status: "CANCELLED", cancelReason: "حذف الرحلة" } });
+      await db.trip.update({ where: { id: t.id }, data: { deletedAt: new Date() } });
+    }
+    const o = await accountsOverview({ period: "all" });
+    expect(o.totals).toMatchObject({ due: 1000, received: 700, remaining: 300 }); // the 300 kept on the deleted trip is received, no due
+    expect(o.tripRows.map((r) => [r.trip.name, r.deleted]).sort()).toEqual([["حية", false], ["محذوفة بمال", true]]);
+    expect(o.pilgrimRows.filter((r) => r.deleted)).toHaveLength(1);
+    expect((await paymentsLog("all")).totals.net).toBe(700); // the log and Accounts now say the same
+  });
+
   it("an agent payment needs an existing agent", async () => {
     const t = await db.trip.create({ data: { name: "ر", transportType: "AIR", capacity: 1 } });
     const b = await db.booking.create({ data: { pilgrimId: (await pilgrim()).id, tripId: t.id, priceAmount: 100 } });
