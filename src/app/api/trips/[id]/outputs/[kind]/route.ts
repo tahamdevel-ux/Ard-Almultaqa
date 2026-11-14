@@ -45,6 +45,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     });
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status });
+    if ((e as { code?: string })?.code === "P2025") return NextResponse.json({ error: "not found" }, { status: 404 }); // e.g. a bus that is not on this trip
     throw e;
   }
 }

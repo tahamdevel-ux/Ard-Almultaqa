@@ -22,7 +22,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const period = parsePeriod(sp.period);
   const tab: Tab = (TABS.find(([k]) => k === sp.tab)?.[0]) ?? "trips";
-  const q = (sp.q ?? "").trim();
+  const q = (sp.q ?? "").replace(/\0/g, "").trim();
   const f = { period, trip: sp.trip || undefined, agent: sp.agent || undefined, onlyDue: sp.due === "1", hideArchived: sp.hideArchived === "1" };
   const data = await accountsOverview(f);
   const log = tab === "payments" ? await paymentsLog(period, q) : [];

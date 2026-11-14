@@ -12,7 +12,7 @@ export function parseListParams(raw: Record<string, string | undefined>): ListPa
   const f = (FILTERS as readonly string[]).includes(raw.f ?? "") ? (raw.f as PilgrimFilter) : "";
   const sort = (SORTS as readonly string[]).includes(raw.sort ?? "") ? (raw.sort as PilgrimSort) : "new";
   return {
-    q: (raw.q ?? "").slice(0, 100), room: (raw.room ?? "").slice(0, 10), f, sort,
+    q: (raw.q ?? "").replace(/\0/g, "").slice(0, 100), room: (raw.room ?? "").replace(/\0/g, "").slice(0, 10), f, sort,
     dir: raw.dir === "asc" || raw.dir === "desc" ? raw.dir : sort === "new" ? "desc" : "asc",
     trip: ID.test(raw.trip ?? "") ? raw.trip! : "", agent: ID.test(raw.agent ?? "") ? raw.agent! : "",
   };

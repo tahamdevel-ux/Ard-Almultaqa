@@ -18,7 +18,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const showArchive = sp.archive === "1";
   const type = sp.type === "LAND" || sp.type === "AIR" ? sp.type : "";
-  const q = (sp.q ?? "").trim().slice(0, 60);
+  const q = (sp.q ?? "").replace(/\0/g, "").trim().slice(0, 60);
   const trips = await db.trip.findMany({
     where: {
       deletedAt: null, archivedAt: showArchive ? { not: null } : null, ...(user.role === "SUPERVISOR" ? { supervisorId: user.id } : {}),

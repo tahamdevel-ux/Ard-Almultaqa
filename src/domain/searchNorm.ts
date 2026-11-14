@@ -14,7 +14,7 @@ export function normalizeSearch(raw: string): string {
 }
 
 export function searchTokens(raw: string): string[] {
-  return normalizeSearch(raw).split(" ").filter(Boolean).slice(0, 5);
+  return normalizeSearch(raw.replace(/\0/g, "")).split(" ").filter(Boolean).slice(0, 5);
 }
 
 /** SQL mirror of normalizeSearch for a text expression (Postgres). Keep in sync with the function above. */
