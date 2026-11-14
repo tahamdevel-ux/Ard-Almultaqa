@@ -193,3 +193,17 @@ test("trip page: tick pilgrims, set hotel-less room type for all of them at once
   await expect(page.locator("tbody tr").filter({ hasText: "A10000274" }).locator(".chip", { hasText: "ثلاثية" })).toBeVisible();
   await expect(page.locator("tbody tr").filter({ hasText: "A10000274" })).toContainText("بدون طعام");
 });
+
+test("new pilgrim: the price line follows the chosen hotel and room type", async ({ page }) => {
+  await login(page);
+  await page.goto("/pilgrims/new");
+  await page.waitForLoadState("networkidle");
+  const trip = page.locator("label", { hasText: "L-2611" }).first();
+  await trip.locator("input[name=tripIds]").check();
+  const id = await trip.locator("input[name=tripIds]").inputValue();
+  await expect(page.getByRole("status").filter({ hasText: /اختر/ }).first()).toBeVisible(); // nothing chosen yet: it asks for the missing choice
+  const hotel = page.locator(`select[name="makkahHotelId__${id}"]`);
+  if ((await hotel.locator("option").count()) > 1) await hotel.selectOption({ index: 1 });
+  await page.locator(`select[name="roomType__${id}"]`).selectOption("QUAD");
+  await expect(page.getByRole("status").filter({ hasText: "السعر حسب الجدول" })).toContainText("$");
+});

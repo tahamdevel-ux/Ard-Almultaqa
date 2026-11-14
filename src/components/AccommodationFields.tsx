@@ -1,5 +1,5 @@
 "use client";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { usePopover } from "@/components/usePopover";
 import { computePrice } from "@/domain/pricing";
 import type { TripActionState } from "@/app/(app)/trips/actions";
@@ -61,13 +61,14 @@ export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc"
 export function AccommodationEditor({ action, hotels, values, summary, priced, air, tables, sarfAmount }: { priced?: PricedHotel[]; air?: boolean; tables?: PriceTables; sarfAmount?: number | null; action: (p: TripActionState, f: FormData) => Promise<TripActionState>; hotels: HotelOpt[]; values: AccValues; summary: React.ReactNode }) {
   const [st, fa, pending] = useActionState(action, {} as TripActionState);
   const pop = usePopover(st.ok ? st : null);
+  const [vals, setVals] = useState<AccValues>(values); // controlled: the price line follows what is chosen
   return (
     <div className="text-sm">
       <div>{summary || <span className="text-brand-mid">غير مسكّن</span>}</div>
       <details ref={pop} className="relative mt-1">
         <summary className="btn-ghost btn-sm inline-flex cursor-pointer list-none">تعديل التسكين</summary>
         <form action={fa} className="absolute end-0 z-30 mt-1 w-80 max-w-[85vw] space-y-3 rounded-xl border border-line bg-white p-3 shadow-xl">
-          <AccommodationFields hotels={hotels} priced={priced} air={air} tables={tables} sarfAmount={sarfAmount} values={values} idPrefix={"e" + values.roomType + values.makkahRoomNo + values.madinahRoomNo} />
+          <AccommodationFields hotels={hotels} priced={priced} air={air} tables={tables} sarfAmount={sarfAmount} values={vals} onChange={setVals} idPrefix={"e" + values.roomType + values.makkahRoomNo + values.madinahRoomNo} />
           <div className="flex items-center gap-2">
             <button className="btn btn-sm" disabled={pending}>حفظ التسكين</button>
             {st.error && <p role="alert" className="text-xs font-bold text-red-700">{st.error}</p>}

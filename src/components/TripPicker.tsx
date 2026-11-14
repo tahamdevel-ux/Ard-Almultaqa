@@ -1,6 +1,6 @@
 "use client";
 import { useActionState, useState } from "react";
-import { AccommodationFields, type HotelOpt } from "@/components/AccommodationFields";
+import { AccommodationFields, type AccValues, type HotelOpt } from "@/components/AccommodationFields";
 
 export type TripChoice = { id: string; label: string; dates: string; booked?: boolean; makkahHotelId?: string; madinahHotelId?: string; priced?: { id: string; name: string }[]; air?: boolean; tables?: Record<string, { prices: Record<string, number>; noHousing: number | null }>; sarfAmount?: number | null; heads?: { bookingId: string; name: string }[] };
 
@@ -8,6 +8,7 @@ export type TripChoice = { id: string; label: string; dates: string; booked?: bo
 export function TripPicker({ trips, error, hotels, initial, onHeadChange }: { trips: TripChoice[]; error?: string; hotels?: HotelOpt[]; initial?: Record<string, string | string[]>; onHeadChange?: (any: boolean) => void }) {
   const [headTrips, setHeadTrips] = useState<Set<string>>(new Set(Object.keys(initial ?? {}).filter((k) => k.startsWith("isHead__") && initial?.[k] === "on").map((k) => k.slice(8))));
   const [q, setQ] = useState("");
+  const [accs, setAccs] = useState<Record<string, AccValues>>({}); // controlled, so the price line under the hotel and room type updates as you choose
   const first = initial?.tripIds;
   const [checked, setChecked] = useState<Set<string>>(new Set(Array.isArray(first) ? first : first ? [first] : []));
   const shown = trips.filter((t) => !q || (t.label + " " + t.dates).includes(q));
@@ -39,7 +40,7 @@ export function TripPicker({ trips, error, hotels, initial, onHeadChange }: { tr
                     </select></div>
                 </div>
                 <AccommodationFields hotels={hotels} priced={t.priced} air={t.air} tables={t.tables} sarfAmount={t.sarfAmount} idPrefix={"p" + t.id} nameSuffix={"__" + t.id}
-                  values={{ makkahHotelId: (initial?.["makkahHotelId__" + t.id] as string) ?? t.makkahHotelId ?? "", madinahHotelId: "", roomType: (initial?.["roomType__" + t.id] as string) ?? "", makkahRoomNo: "", madinahRoomNo: "", housing: (initial?.["housing__" + t.id] as string) ?? "", food: (initial?.["food__" + t.id] as string) ?? "1", sarf: (initial?.["sarf__" + t.id] as string) ?? "COMPANY", officeRoom: (initial?.["officeRoom__" + t.id] as string) ?? "" }} />
+                  values={accs[t.id] ?? { makkahHotelId: (initial?.["makkahHotelId__" + t.id] as string) ?? t.makkahHotelId ?? "", madinahHotelId: "", roomType: (initial?.["roomType__" + t.id] as string) ?? "", makkahRoomNo: "", madinahRoomNo: "", housing: (initial?.["housing__" + t.id] as string) ?? "", food: (initial?.["food__" + t.id] as string) ?? "1", sarf: (initial?.["sarf__" + t.id] as string) ?? "COMPANY", officeRoom: (initial?.["officeRoom__" + t.id] as string) ?? "" }} onChange={(v) => setAccs((a) => ({ ...a, [t.id]: v }))} />
               </div>
             )}
           </div>
