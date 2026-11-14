@@ -19,7 +19,7 @@ async function guard<T>(fn: () => Promise<T>): Promise<T | ActionState> {
 }
 
 /** What a new form keeps after a save: trip(s), agent and the shared choices (hotel, room type, food, تصريف, role-free); never personal fields. */
-const KEEP = /^(tripIds|agentId|makkahHotelId__.+|madinahHotelId__.+|roomType__.+|hotelId__.+|housing__.+|food__.+|sarf__.+)$/;
+const KEEP = /^(tripIds|agentId|makkahHotelId__.+|madinahHotelId__.+|roomType__.+|hotelId__.+|housing__.+|food__.+|sarf__.+|isHead__.+|headOf__.+)$/; // isHead / headOf: the form turns them into «تابع لرب أسرة»
 function keepValues(values: Record<string, string | string[]>) {
   return Object.fromEntries(Object.entries(values).filter(([k]) => KEEP.test(k)));
 }

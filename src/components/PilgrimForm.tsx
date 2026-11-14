@@ -44,6 +44,7 @@ export function PilgrimForm({
         // after a plain save-and-new a head's family link is kept too (a family member being added stays linked)
         for (const k of Object.keys(state.values ?? {})) if (k.startsWith("headOf__")) keep[k] = (state.values ?? {})[k];
       }
+      for (const k of Object.keys(keep)) if (k.startsWith("isHead__")) delete keep[k]; // the next pilgrim is not a head just because this one was
       q.set("keep", JSON.stringify(keep));
       router.push(`/pilgrims/new?${q.toString()}`);
     } else router.push(withParam(returnTo ?? "/pilgrims", "saved", state.id));

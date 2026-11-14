@@ -204,3 +204,22 @@ test("archive a trip (hidden from lists and pickers, read-only) and search insid
   await page.getByRole("button", { name: "إجراءات الرحلة" }).click();
   await expect(page.getByRole("button", { name: "أرشفة الرحلة" })).toBeVisible();
 });
+
+test("«حفظ وإضافة فرد للعائلة» opens the next form already linked to the head just saved", async ({ page }) => {
+  await login(page, "admin");
+  const tripName = `رب أسرة مباشر ${RUN}`;
+  await page.goto("/trips/new");
+  await page.fill("[name=name]", tripName); await page.selectOption("[name=transportType]", "AIR");
+  await page.getByRole("button", { name: "إنشاء" }).click();
+  await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  const tripId = page.url().split("/").pop()!;
+  await page.goto(`/pilgrims/new?trip=${tripId}`);
+  const f = (k: string, v: string) => page.fill(`[name=${k}]`, v);
+  await f("fullNameAr", "رب اسرة مباشر سالم"); await page.selectOption("[name=gender]", "MALE"); await f("birthDate", "12/05/1975"); await f("motherName", "ام");
+  await f("passportNo", `H${RUN}1`); await f("enGivenName", "HEAD"); await f("enSurname", "DIRECT"); await f("passportExpiry", "10/10/2031");
+  await page.locator(`input[name="isHead__${tripId}"]`).check();
+  await page.getByRole("button", { name: "حفظ وإضافة فرد للعائلة" }).click();
+  await page.waitForURL(/saved=/);
+  await expect(page.locator(`select[name="headOf__${tripId}"]`)).not.toHaveValue(""); // the head is already chosen
+  await expect(page.locator(`input[name="isHead__${tripId}"]`)).not.toBeChecked(); // and the new person is not a head
+});
