@@ -36,18 +36,18 @@ test("office rooms: automatic assignment, board, badge, filter, internal print, 
   await page.keyboard.press("Escape");
 
   await page.goto(`/trips/${tripId}/office-rooms`);
-  await expect(page.getByText("داخلي للمكتب · لا يُسلَّم لأي جهة").first()).toBeVisible();
+  await expect(page.getByText("لا يُسلَّم لأي جهة").first()).toBeVisible();
   const card = page.locator("[data-room]").first();
   await expect(card).toContainText("رجال");
-  await expect(card).toContainText("— فارغ —"); // default capacity 4: three empty beds
+  await expect(card).toContainText("سرير فارغ"); // default capacity 4: three empty beds
   const label = (await card.getAttribute("data-room"))!;
 
   // new room, lock, re-run
-  await page.getByRole("button", { name: "غرفة جديدة" }).click();
+  await page.getByRole("button", { name: "غرفة فارغة" }).click();
   await expect(page.locator("[data-room]")).toHaveCount(2);
   await card.getByRole("button", { name: "قفل الغرفة" }).click();
   await expect(card.getByRole("button", { name: "فتح القفل" })).toBeVisible();
-  await page.getByRole("button", { name: "أعد التوزيع" }).click();
+  await page.getByRole("button", { name: "وزّع المعتمرين تلقائياً" }).click();
   await expect(page.locator("[data-room]").first()).toBeVisible();
 
   // the badge in the pilgrims list and the filter by office room
@@ -66,7 +66,7 @@ test("office rooms: automatic assignment, board, badge, filter, internal print, 
   await page.context().clearCookies();
   await login(page, "housing");
   await page.goto(`/trips/${tripId}/office-rooms`);
-  await expect(page.getByRole("button", { name: "غرفة جديدة" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "غرفة فارغة" })).toBeVisible();
   await expect(page.getByRole("button", { name: "إعادة ترقيم" })).toHaveCount(0); // admin only
   await page.context().clearCookies();
   await login(page, "acc");

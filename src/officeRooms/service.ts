@@ -142,6 +142,50 @@ export async function moveOfficeMember(tx: Tx, tripId: string, bookingId: string
   return { ok: true };
 }
 
+/**
+ * Moves several pilgrims at once. target = a room id, "new" (a new room for them, with the hotel and room type of the first one) or
+ * "none" (out of every room). Everything is checked first, so either all move or none does. Moves are MANUAL (the system won't undo them).
+ */
+export async function moveOfficeMembers(tx: Tx, tripId: string, bookingIds: string[], target: string): Promise<OfficeResult> {
+  const ids = [...new Set(bookingIds)];
+  if (!ids.length) return fail("اختر معتمراً واحداً على الأقل");
+  const bookings = await tx.booking.findMany({ where: { id: { in: ids }, tripId, status: "ACTIVE", deletedAt: null }, include: { officeMember: { include: { officeRoom: true } } } });
+  if (bookings.length !== ids.length) return fail("أحد الحجوزات غير موجود");
+  const locked = bookings.find((b) => b.officeMember?.officeRoom.locked);
+  if (locked) return fail("أحد المعتمرين في غرفة مقفلة — افتح القفل أولاً");
+  const housedCount = bookings.filter((b) => !b.noHousing).length;
+  let roomId: string | null = null;
+  if (target === "new") {
+    const state = await loadOfficeState(tx, tripId);
+    const first = bookings[0];
+    const roomType = (first.roomType as RoomTypeKey | null) ?? null;
+    const capacity = capacityFor(roomType, state.defaultCapacity);
+    if (housedCount > capacity) return fail(`الغرفة الجديدة تتسع لـ ${capacity} فقط (${housedCount} محدَّد)`);
+    const room = await tx.officeRoom.create({ data: { tripId, code: null, seq: nextSeq(state.rooms, null), capacity, roomType, category: "MEN", tripHotelId: first.tripHotelId } });
+    roomId = room.id;
+  } else if (target !== "none") {
+    const room = await tx.officeRoom.findFirst({ where: { id: target, tripId }, include: { members: { include: { booking: { select: { noHousing: true } } } } } });
+    if (!room) return fail("الغرفة غير موجودة");
+    if (room.locked) return fail("الغرفة مقفلة");
+    const already = new Set(room.members.map((m) => m.bookingId));
+    const incoming = bookings.filter((b) => !already.has(b.id) && !b.noHousing).length;
+    const housed = room.members.filter((m) => !m.booking.noHousing).length;
+    if (housed + incoming > room.capacity) return fail(`الغرفة تتسع لـ ${room.capacity} وفيها ${housed} — لا تكفي لـ ${incoming} إضافيين`);
+    roomId = room.id;
+  }
+  const from = new Set(bookings.map((b) => b.officeMember?.officeRoomId).filter((x): x is string => !!x));
+  await tx.officeRoomMember.deleteMany({ where: { bookingId: { in: ids } } });
+  if (roomId) await tx.officeRoomMember.createMany({ data: ids.map((bookingId) => ({ officeRoomId: roomId!, bookingId, assignedBy: "MANUAL" as const })) });
+  const state = await loadOfficeState(tx, tripId);
+  for (const id of [...from, ...(roomId ? [roomId] : [])]) await recompute(tx, id, state);
+  if (roomId && target === "new") {
+    // the new room's category follows its members (recompute leaves a hand-made room's number alone)
+    const people = state.bookings.filter((b) => ids.includes(b.id)).map(personOf);
+    await tx.officeRoom.update({ where: { id: roomId }, data: { category: categoryOf(people) } });
+  }
+  return { ok: true };
+}
+
 export async function createOfficeRoom(tx: Tx, tripId: string, roomType: RoomTypeKey | null = null): Promise<OfficeResult> {
   const state = await loadOfficeState(tx, tripId);
   await tx.officeRoom.create({ data: { tripId, code: null, seq: nextSeq(state.rooms, null), capacity: capacityFor(roomType, state.defaultCapacity), roomType, category: "MEN" } });

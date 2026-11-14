@@ -4,7 +4,7 @@ import { db } from "@/server/db";
 import { AuthError, requirePermission } from "@/server/auth";
 import { auditChanges } from "@/server/audit";
 import { canSeeTrip } from "@/server/trips";
-import { createOfficeRoom, deleteOfficeRoom, moveOfficeMember, renumberOfficeRooms, rerunAssignment, type OfficeResult } from "@/officeRooms/service";
+import { createOfficeRoom, deleteOfficeRoom, moveOfficeMember, moveOfficeMembers, renumberOfficeRooms, rerunAssignment, type OfficeResult } from "@/officeRooms/service";
 import { ROOM_BEDS, type RoomTypeKey } from "@/domain/rooming";
 
 export type OfficeActionState = { ok?: boolean; error?: string; info?: string };
@@ -79,5 +79,13 @@ export async function saveHotelNos(tripId: string, roomId: string, makkah: strin
       await auditChanges(tx, u, "OfficeRoom", roomId, before, after, ["makkahHotelRoomNo", "madinahHotelRoomNo"] as never);
     });
     touch(tripId); return { ok: true };
+  });
+}
+
+/** Moves several pilgrims at once: to a room, to a new room ("new") or out of rooms ("none"). All or nothing. */
+export async function moveMembers(tripId: string, bookingIds: string[], target: string): Promise<OfficeActionState> {
+  return guarded(tripId, "officeRooms.write", async () => {
+    const r = fromResult(await db.$transaction((tx) => moveOfficeMembers(tx, tripId, bookingIds, target)));
+    touch(tripId); return r;
   });
 }

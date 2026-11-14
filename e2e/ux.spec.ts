@@ -122,3 +122,44 @@ test("transport: every pilgrim has bus / car / flight, with the trip's default, 
     await expect(sel.locator("option")).toHaveText(["باص", "سيارة", "رحلة جوية"]);
   }
 });
+
+test("rooming: search finds the room, ticked pilgrims move to a new room, hotel numbers save on their own", async ({ page }) => {
+  await login(page);
+  const name = `تسكين سهل ${Date.now().toString().slice(-6)}`;
+  await page.goto("/trips/new");
+  await page.fill("[name=name]", name); await page.selectOption("[name=transportType]", "AIR");
+  await page.getByRole("button", { name: "إنشاء" }).click();
+  await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  const tripUrl = page.url();
+  for (const pass of ["A10000137", "A10000274"]) {
+    await page.getByRole("button", { name: "إضافة معتمر" }).click();
+    await page.getByLabel("بحث عن معتمر").fill(pass);
+    await page.getByRole("dialog").getByRole("button", { name: "إضافة", exact: true }).first().click();
+    await page.getByRole("dialog").getByRole("button", { name: "تأكيد الإضافة" }).click();
+    await expect(page.getByRole("dialog").getByText("مضاف").first()).toBeVisible();
+    await page.keyboard.press("Escape");
+  }
+  await page.goto(`${tripUrl}/office-rooms`);
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("[data-room]")).toHaveCount(1); // two men, one default room
+  // search: a passport that is not in this trip leaves no room, a passport in it keeps the room
+  await page.getByLabel("بحث في الغرف").fill("ZZZ999");
+  await expect(page.locator("[data-room]")).toHaveCount(0);
+  await page.getByLabel("بحث في الغرف").fill("A10000274");
+  await expect(page.locator("[data-room]")).toHaveCount(1);
+  await page.getByLabel("بحث في الغرف").fill("");
+  // tick the first one and give him a new room
+  await page.locator("input[aria-label^='تحديد']").first().check();
+  await expect(page.getByRole("region", { name: "نقل المحددين" })).toBeVisible();
+  await page.getByRole("button", { name: "غرفة جديدة لهم" }).click();
+  await expect(page.locator("[data-room]")).toHaveCount(2);
+  // the hotel's own number is saved when the field is left
+  const first = page.locator("[data-room]").first();
+  await first.getByLabel(/^غرفة مكة للغرفة/).fill("1507");
+  await first.getByLabel(/^غرفة مكة للغرفة/).blur();
+  await page.waitForTimeout(800);
+  await page.reload();
+  await expect(page.getByLabel(/^غرفة مكة للغرفة/).first()).toHaveValue(/.+/);
+  const vals = await page.getByLabel(/^غرفة مكة للغرفة/).evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
+  expect(vals).toContain("1507");
+});

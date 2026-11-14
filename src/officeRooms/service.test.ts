@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { db } from "@/server/db";
 import { addPilgrimToTrips } from "@/server/bookings";
 import { cancelBooking, moveToTrip } from "@/server/payments";
-import { assignOfficeRooms, gatherGroupInOfficeRooms, createOfficeRoom, deleteOfficeRoom, moveOfficeMember, renumberOfficeRooms, rerunAssignment } from "./service";
+import { assignOfficeRooms, gatherGroupInOfficeRooms, moveOfficeMembers, createOfficeRoom, deleteOfficeRoom, moveOfficeMember, renumberOfficeRooms, rerunAssignment } from "./service";
 import { roomLabel } from "@/domain/officeRooms";
 
 const D = (s: string) => new Date(s + "T00:00:00Z");
@@ -158,5 +158,31 @@ describe("office rooms: manual changes", () => {
     await db.bookingGroupMember.createMany({ data: [{ bookingId: bookings[2], groupId: g2.id, isHead: true }, { bookingId: bookings[3], groupId: g2.id }] });
     await db.$transaction((tx) => gatherGroupInOfficeRooms(tx, t.id, g2.id));
     expect(await roomOf(bookings[2])).toBe(before);
+  });
+
+  it("moving several pilgrims at once: to a room, to a new room, out; all or nothing", async () => {
+    const t = await trip();
+    const ids: string[] = [];
+    for (let i = 0; i < 6; i++) { const p = await pilgrim(); await addPilgrimToTrips(db, p.id, null, [t.id]); ids.push((await db.booking.findFirstOrThrow({ where: { pilgrimId: p.id, tripId: t.id } })).id); }
+    await db.booking.updateMany({ where: { id: { in: ids } }, data: { roomType: "DOUBLE" } });
+    await db.officeRoomMember.deleteMany({ where: { officeRoom: { tripId: t.id } } }); await db.officeRoom.deleteMany({ where: { tripId: t.id } });
+    await db.$transaction((tx) => assignOfficeRooms(tx, t.id)); // 3 rooms of 2
+    const roomOf = async (id: string) => (await db.officeRoomMember.findUniqueOrThrow({ where: { bookingId: id } })).officeRoomId;
+    const r0 = await roomOf(ids[0]), r1 = await roomOf(ids[2]);
+    expect(r0).not.toBe(r1);
+    // a room of 2 that is full cannot take 2 more: nothing moves
+    const bad = await db.$transaction((tx) => moveOfficeMembers(tx, t.id, [ids[2], ids[3]], r0));
+    expect(bad.ok).toBe(false);
+    expect(await roomOf(ids[2])).toBe(r1);
+    // a new room for two of them
+    const ok = await db.$transaction((tx) => moveOfficeMembers(tx, t.id, [ids[0], ids[2]], "new"));
+    expect(ok.ok).toBe(true);
+    expect(await roomOf(ids[0])).toBe(await roomOf(ids[2]));
+    // a locked source room refuses
+    await db.officeRoom.update({ where: { id: await roomOf(ids[4]) }, data: { locked: true } });
+    expect((await db.$transaction((tx) => moveOfficeMembers(tx, t.id, [ids[4]], "none"))).ok).toBe(false);
+    // out of every room
+    expect((await db.$transaction((tx) => moveOfficeMembers(tx, t.id, [ids[0]], "none"))).ok).toBe(true);
+    expect(await db.officeRoomMember.count({ where: { bookingId: ids[0] } })).toBe(0);
   });
 });
