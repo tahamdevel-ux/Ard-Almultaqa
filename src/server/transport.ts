@@ -10,10 +10,10 @@ export type TransportResult = { ok: true } | { ok: false; error: string };
  * Sets how one pilgrim travels. BUS puts him on a free bus seat (keeping his seat if he already has one); CAR needs one of the trip's
  * cars; FLIGHT optionally names one of the trip's flights. Leaving the bus frees the seat. All-or-nothing under the trip lock.
  */
-export async function setTransport(user: SessionUser, tripId: string, bookingId: string, input: { mode: string; carId?: string | null; flightId?: string | null }): Promise<TransportResult> {
+export async function setTransport(user: SessionUser, tripId: string, bookingId: string, input: { mode: string; carId?: string | null; flightId?: string | null }, client: Parameters<typeof withTripLock>[0] = db): Promise<TransportResult> {
   if (!isMode(input.mode)) return { ok: false, error: "اختر وسيلة النقل" };
   const mode: TransportMode = input.mode;
-  return withTripLock(db, tripId, async (tx) => {
+  return withTripLock(client, tripId, async (tx) => {
     const b = await tx.booking.findFirst({ where: { id: bookingId, tripId, status: "ACTIVE", deletedAt: null }, include: { seat: true, trip: true } });
     if (!b) return { ok: false, error: "الحجز غير موجود" } as TransportResult;
     if (mode === "CAR") {

@@ -12,6 +12,7 @@ import { freeOfficeBeds, gatherGroupInOfficeRooms } from "@/officeRooms/service"
 import { applyAccommodation, accommodationFromForm, type Accommodation } from "@/server/accommodation";
 import { setTransport } from "@/server/transport";
 import { mergeTripHotels, recalcTripPrices, saveTripHotels, type TripHotelInput } from "@/server/tripHotels";
+import { fullNameAr } from "@/server/pilgrims";
 import { getSetting } from "@/server/settings";
 import { parseDate } from "@/domain/dates";
 import { parseTripIdentity } from "@/domain/tripFields";
@@ -424,5 +425,52 @@ export async function mergeHotelRows(tripId: string, _p: TripActionState, f: For
     const r = await mergeTripHotels(u, tripId, s(f, "from"), s(f, "into"));
     if (!r.ok) return { error: r.error };
     touch(tripId); return { ok: true, warning: `تم الدمج: نُقل ${r.moved} معتمر وأُعيد حساب أسعارهم من الصف المُبقى.` };
+  });
+}
+
+class BulkError extends Error {}
+const parseIds = (f: FormData): string[] => { try { const v = JSON.parse(String(f.get("ids") ?? "[]")); return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, 500) : []; } catch { return []; } };
+
+/** Sets hotel / room type / food / بدون سكن for every ticked pilgrim at once. A field left on «بلا تغيير» is not touched. All or nothing. */
+export async function bulkAccommodation(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  return guarded("bookings.write", async () => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
+    const ids = parseIds(f);
+    if (!ids.length) return { error: "علّم معتمراً واحداً على الأقل" };
+    const keep = (k: string) => { const v = s(f, k); return v === "" || v === "__keep" ? undefined : v; };
+    const acc: Accommodation = { makkahHotelId: keep("makkahHotelId"), roomType: keep("roomType"), food: keep("food"), housing: keep("housing") === "NO" ? "NO" : keep("housing") === "WITH" ? "" : undefined, sarf: keep("sarf") };
+    if (Object.values(acc).every((v) => v === undefined)) return { error: "اختر شيئاً واحداً على الأقل لتعيينه" };
+    try {
+      await db.$transaction(async (tx) => {
+        for (const id of ids) {
+          const r = await applyAccommodation(tripId, id, acc, tx);
+          if (!r.ok) {
+            const b = await tx.booking.findUnique({ where: { id }, include: { pilgrim: true } });
+            throw new BulkError(`${b ? fullNameAr(b.pilgrim) : "معتمر"}: ${r.error}`);
+          }
+        }
+      }, { timeout: 60000 });
+    } catch (e) { if (e instanceof BulkError) return { error: `لم يُحفظ شيء — ${e.message}` }; throw e; }
+    touch(tripId); revalidatePath(`/trips/${tripId}/office-rooms`);
+    return { ok: true, warning: `تم تعيين الإقامة لـ ${ids.length} معتمر.` };
+  });
+}
+
+/** Sets the transport (bus / car / flight) of every ticked pilgrim at once. All or nothing. */
+export async function bulkTransport(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  return guarded("seats.write", async (u) => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
+    const ids = parseIds(f);
+    if (!ids.length) return { error: "علّم معتمراً واحداً على الأقل" };
+    try {
+      await db.$transaction(async (tx) => {
+        for (const id of ids) {
+          const r = await setTransport(u, tripId, id, { mode: s(f, "mode"), carId: s(f, "carId") || null, flightId: s(f, "flightId") || null }, tx);
+          if (!r.ok) throw new BulkError(r.error);
+        }
+      }, { timeout: 60000 });
+    } catch (e) { if (e instanceof BulkError) return { error: `لم يُحفظ شيء — ${e.message}` }; throw e; }
+    touch(tripId);
+    return { ok: true, warning: `تم تعيين وسيلة النقل لـ ${ids.length} معتمر.` };
   });
 }

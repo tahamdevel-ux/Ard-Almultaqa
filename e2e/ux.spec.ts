@@ -141,7 +141,7 @@ test("rooming: search finds the room, ticked pilgrims move to a new room, hotel 
   }
   await page.goto(`${tripUrl}/office-rooms`);
   await page.waitForLoadState("networkidle");
-  await expect(page.locator("[data-room]")).toHaveCount(1); // two men, one default room
+  await expect(page.locator("[data-room]")).toHaveCount(2); // two men of different agents: one room each
   // search: a passport that is not in this trip leaves no room, a passport in it keeps the room
   await page.getByLabel("بحث في الغرف").fill("ZZZ999");
   await expect(page.locator("[data-room]")).toHaveCount(0);
@@ -152,7 +152,7 @@ test("rooming: search finds the room, ticked pilgrims move to a new room, hotel 
   await page.locator("input[aria-label^='تحديد']").first().check();
   await expect(page.getByRole("region", { name: "نقل المحددين" })).toBeVisible();
   await page.getByRole("button", { name: "غرفة جديدة لهم" }).click();
-  await expect(page.locator("[data-room]")).toHaveCount(2);
+  await expect(page.locator("[data-room]")).toHaveCount(3);
   // the hotel's own number is saved when the field is left
   const first = page.locator("[data-room]").first();
   await first.getByLabel(/^غرفة مكة للغرفة/).fill("1507");
@@ -162,4 +162,34 @@ test("rooming: search finds the room, ticked pilgrims move to a new room, hotel 
   await expect(page.getByLabel(/^غرفة مكة للغرفة/).first()).toHaveValue(/.+/);
   const vals = await page.getByLabel(/^غرفة مكة للغرفة/).evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
   expect(vals).toContain("1507");
+});
+
+test("trip page: tick pilgrims, set hotel-less room type for all of them at once", async ({ page }) => {
+  await login(page);
+  const name = `جماعي ${Date.now().toString().slice(-6)}`;
+  await page.goto("/trips/new");
+  await page.fill("[name=name]", name); await page.selectOption("[name=transportType]", "AIR");
+  await page.getByRole("button", { name: "إنشاء" }).click();
+  await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  for (const pass of ["A10000137", "A10000274"]) {
+    await page.getByRole("button", { name: "إضافة معتمر" }).click();
+    await page.getByLabel("بحث عن معتمر").fill(pass);
+    await page.getByRole("dialog").getByRole("button", { name: "إضافة", exact: true }).first().click();
+    await page.getByRole("dialog").getByRole("button", { name: "تأكيد الإضافة" }).click();
+    await expect(page.getByRole("dialog").getByText("مضاف").first()).toBeVisible();
+    await page.keyboard.press("Escape");
+  }
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("region", { name: "إجراءات على المحددين" })).toHaveCount(0);
+  await page.getByLabel("تحديد كل المعتمرين الظاهرين").check();
+  const bar = page.getByRole("region", { name: "إجراءات على المحددين" });
+  await expect(bar).toContainText("2 محدد");
+  await bar.getByRole("button", { name: "تعيين الإقامة…" }).click();
+  await bar.getByLabel("نوع الغرفة").selectOption("TRIPLE");
+  await bar.getByLabel("الطعام").selectOption("0");
+  await bar.getByRole("button", { name: "تطبيق على المحددين" }).click();
+  await expect(page.locator("tbody tr").filter({ hasText: "A10000137" }).locator(".chip", { hasText: "ثلاثية" })).toBeVisible();
+  await expect(page.locator("tbody tr").filter({ hasText: "A10000274" }).locator(".chip", { hasText: "ثلاثية" })).toBeVisible();
+  await expect(page.locator("tbody tr").filter({ hasText: "A10000274" })).toContainText("بدون طعام");
 });

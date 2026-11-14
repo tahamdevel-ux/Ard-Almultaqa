@@ -109,8 +109,7 @@ test("accommodation with hotel and room, family head and family account", async 
   await page.reload();
   await rowHead.locator("input[name=bookingIds]").check();
   await rowMember.locator("input[name=bookingIds]").check();
-  await page.selectOption("select[name=kind]", "FAMILY");
-  await page.click("button:has-text('اجمع')");
+  await page.getByRole("button", { name: "جمعهم كعائلة" }).click();
   await expect(page.locator(".chip", { hasText: "رب الأسرة" }).first()).toBeVisible();
   await page.getByRole("link", { name: "حساب الأسرة" }).click();
   await page.waitForURL(/\/families\/[0-9a-f-]{36}$/);

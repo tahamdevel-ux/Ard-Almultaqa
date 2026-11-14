@@ -19,6 +19,10 @@ import { TransportCell } from "@/components/TransportCell";
 import { effectiveMode, transportText } from "@/domain/transport";
 import { ConfirmForm } from "@/components/ConfirmForm";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { SelectAllBox, TripBulkBar } from "@/components/TripBulkBar";
+import { TripChecklist } from "@/components/TripChecklist";
+import { HashOpen } from "@/components/HashOpen";
+import { tripChecklist } from "@/domain/checklist";
 import { RowMenu } from "@/components/RowMenu";
 import { Icon } from "@/components/icons";
 import { Bar, EmptyState } from "@/components/charts";
@@ -32,7 +36,7 @@ import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
 import { balance, formatMoney } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo, recalcPrices, saveTransport, mergeHotelRows } from "../actions";
+import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo, recalcPrices, saveTransport, mergeHotelRows, bulkAccommodation, bulkTransport } from "../actions";
 import { DateInput } from "@/components/DateInput";
 
 export default async function TripPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ q?: string; notes?: string }> }) {
@@ -86,6 +90,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
 
   return (
     <div className="space-y-4">
+      <HashOpen />
       <Breadcrumbs items={[{ label: "الرحلات", href: "/trips" }, { label: trip.tripNo ?? trip.name }]} />
 
       <header className="flex flex-wrap items-start justify-between gap-3">
@@ -130,26 +135,32 @@ export default async function TripPage({ params, searchParams }: { params: Promi
       {counter.over && counter.capacity > 0 && <p className="alert-bad">⚠ عدد المسجلين تجاوز السعة القصوى للرحلة بـ {counter.registered - counter.capacity}</p>}
       {counter.capacity <= 0 && <p className="alert-warn">لم تُحدَّد سعة لهذه الرحلة — حدّدها من «تعديل الرحلة» ليظهر عدد الشواغر.</p>}
 
+      {!archived && (w || bw) && (
+        <TripChecklist steps={tripChecklist({
+          hasDates: !!trip.departDate && !!trip.returnDate,
+          pricedHotels: hotelRows.filter((r) => Object.keys(r.prices).length > 0 || r.noHousingPrice != null).length,
+          madinahHotel: !!trip.madinahHotelId,
+          registered: rows.length,
+          withoutHotelOrType: rows.filter((r) => !r.booking.noHousing && (!r.booking.tripHotelId || !r.booking.roomType)).length,
+          withoutRoom: rows.filter((r) => !r.booking.officeMember).length,
+          transport: { land: trip.transportType === "LAND", unseated: rows.filter((r) => effectiveMode(r.booking.transport, trip.transportType) === "BUS" && !r.booking.seat?.busId).length, flights: trip.flights.length },
+          canSeePrices: money,
+        }, `/trips/${trip.id}`)} />
+      )}
+
       {money && <RecalcPrices action={recalcPrices.bind(null, trip.id)} audit={priceAudit} canEdit={pw} />}
 
       <form id="groupform" action={createCompanionGroup.bind(null, trip.id)} />
-      <section className="card p-0">
+      <section id="pilgrims" className="card scroll-mt-20 p-0">
         <div className="flex flex-wrap items-center gap-3 border-b border-line p-3">
           <h2 className="text-base font-bold">المعتمرون <span className="font-normal text-brand-mid">({shownRows.length}{shownRows.length !== rows.length ? ` من ${rows.length}` : ""})</span></h2>
           <div className="min-w-[14rem] flex-1"><TripSearch placeholder="بحث: اسم، أم، جواز، هاتف، وكيل، فندق، غرفة المكتب" /></div>
           {seeNotes && <Link className={"rounded-full border px-3.5 py-1.5 text-sm font-bold " + (sp.notes === "1" ? "border-brand bg-brand text-white" : "border-line bg-white text-brand-dark hover:bg-canvas")} href={`?${new URLSearchParams({ ...(sp.q ? { q: sp.q } : {}), ...(sp.notes === "1" ? {} : { notes: "1" }) })}`}>لديهم ملاحظات</Link>}
-          {bw && (
-            <div className="flex items-center gap-2 rounded-xl bg-canvas px-2 py-1.5 text-sm" title="علّم المعتمرين في العمود الأول ثم اجمعهم">
-              <span className="font-bold text-brand-mid">تجميع المحددين:</span>
-              <select form="groupform" name="kind" aria-label="نوع المجموعة" className="input w-auto py-1"><option value="COMPANIONS">عصبة</option><option value="FAMILY">عائلة (الأول رب الأسرة)</option></select>
-              <button form="groupform" className="btn-secondary btn-sm">اجمع</button>
-            </div>
-          )}
         </div>
         <div className="overflow-x-auto md:overflow-visible">
           <table className="rt w-full">
             <thead><tr>
-              <th className="th w-10"><span className="sr-only">تحديد</span></th><th className="th">المعتمر</th><th className="th">المجموعة</th><th className="th">التسكين</th><th className="th">النقل</th>{money && <th className="th">السعر / المتبقي</th>}<th className="th w-24">تنبيهات</th><th className="th w-12"><span className="sr-only">إجراءات</span></th>
+              <th className="th w-10">{bw ? <SelectAllBox /> : <span className="sr-only">تحديد</span>}</th><th className="th">المعتمر</th><th className="th">المجموعة</th><th className="th">التسكين</th><th className="th">النقل</th>{money && <th className="th">السعر / المتبقي</th>}<th className="th w-24">تنبيهات</th><th className="th w-12"><span className="sr-only">إجراءات</span></th>
             </tr></thead>
             <tbody>
               {shownRows.map((r) => {
@@ -244,6 +255,9 @@ export default async function TripPage({ params, searchParams }: { params: Promi
         </div>
       </section>
 
+      {bw && <TripBulkBar canGroup={bw} accAction={accWrite ? bulkAccommodation.bind(null, trip.id) : undefined} trAction={sw ? bulkTransport.bind(null, trip.id) : undefined}
+        priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} cars={trip.cars.map((c) => ({ id: c.id, label: c.label }))} flights={trip.flights.map((f) => ({ id: f.id, label: `رحلة ${f.flightNo}` }))} />}
+
       <section id="buses" className="card space-y-3">
         <h2 className="font-bold">وسائل النقل (باص، سيارة، رحلة جوية)</h2>
         <>
@@ -273,7 +287,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
       </section>
 
       {(w || money) && (
-      <details className="card space-y-3" open={counter.registered === 0}>
+      <details id="settings" className="card scroll-mt-20 space-y-3" open={counter.registered === 0}>
         <summary className="cursor-pointer text-lg font-bold">إعدادات الرحلة <span className="text-sm font-normal text-brand-mid">(الرقم والتواريخ، الفنادق، الأسعار، العمولة، بيانات الهيئة)</span></summary>
         <div className="space-y-4 pt-3">
       {w && (
