@@ -44,6 +44,7 @@ export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, isAdmin }: {
   const [f, setF] = useState<RoomFilter>({ q: "", hotel: "", category: "", status: "" });
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [target, setTarget] = useState("");
+  const [fOpen, setFOpen] = useState(false); // on a phone the filters stay folded until asked for
   const run = (fn: () => Promise<OfficeActionState>) => start(async () => setMsg(await fn()));
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const drop = (roomId: string | null) => (e: React.DragEvent) => {
@@ -108,6 +109,8 @@ export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, isAdmin }: {
       {/* search and filters */}
       <div className="card flex flex-wrap items-center gap-2 p-3">
         <input type="search" value={f.q} onChange={(e) => setF({ ...f, q: e.target.value })} placeholder="ابحث: اسم معتمر، جواز، وكيل أو رقم غرفة" aria-label="بحث في الغرف" className="input min-w-[14rem] flex-1" />
+        <button type="button" className="btn-secondary md:hidden" aria-expanded={fOpen} onClick={() => setFOpen((o) => !o)}>تصفية{[f.hotel, f.category, f.status].filter(Boolean).length ? ` (${[f.hotel, f.category, f.status].filter(Boolean).length})` : ""} {fOpen ? "▴" : "▾"}</button>
+        <div className={"flex-wrap items-center gap-2 md:contents " + (fOpen ? "flex w-full" : "hidden")}>
         {hotels.length > 1 && (
           <select aria-label="الفندق" className="input w-auto" value={f.hotel} onChange={(e) => setF({ ...f, hotel: e.target.value })}>
             <option value="">كل الفنادق</option>{hotels.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
@@ -120,6 +123,7 @@ export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, isAdmin }: {
           {([["", `كل الغرف (${views.length})`], ["incomplete", `ناقصة (${counts.incomplete})`], ["warning", `فيها تنبيه (${counts.warning})`], ["empty", `فارغة (${counts.empty})`], ["full", `ممتلئة (${counts.full})`]] as const).map(([v, l]) => <button key={v} type="button" aria-pressed={f.status === v} className={chip(f.status === v)} onClick={() => setF({ ...f, status: v })}>{l}</button>)}
         </div>
         {(f.q || f.hotel || f.category || f.status) && <button type="button" className="btn-ghost btn-sm" onClick={() => setF({ q: "", hotel: "", category: "", status: "" })}>مسح الفلاتر ({shown.length} من {views.length})</button>}
+        </div>
       </div>
 
       <div className={"grid gap-4 " + (pool.length ? "lg:grid-cols-[17rem_1fr]" : "")}>

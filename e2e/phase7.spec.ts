@@ -194,7 +194,7 @@ test("archive a trip (hidden from lists and pickers, read-only) and search insid
   await page.goto(tripUrl);
   await page.getByRole("button", { name: "إجراءات الرحلة" }).click();
   await page.getByRole("button", { name: "إلغاء الأرشفة" }).click();
-  await page.waitForURL(new RegExp(`/trips/${tripId}$`));
+  await expect(page.getByText("هذه رحلة مؤرشفة")).toHaveCount(0); // wait for the action to finish before leaving the page
   await page.goto("/trips");
   await expect(page.locator("tr", { hasText: tripName })).toBeVisible();
   // an accountant may archive but not unarchive

@@ -139,3 +139,10 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - **Price preview** uses the same `computePrice` as the server and is only passed to roles that can see money on the trip page.
 - **Phone cards:** tables with class `rt` become cards below 768px; the cell titles are copied from the header by `CardTables`. Wide tables elsewhere (trip pilgrim list, hotels, agents) still scroll sideways — not converted.
 - **Known gap:** the trip page's own pilgrim table and the bus/seat pages were not converted to phone cards.
+
+## Easier rooming and daily work (branch feat/easier-rooming)
+- **Rooming screen:** search (name, passport, agent, room), filters (hotel, category, status) and a cards/table switch. Pilgrims are ticked and moved from a bottom bar (works on touch); dragging still works on a computer. «غرفة جديدة لهم» takes the hotel and room type of the first ticked pilgrim and refuses when the type's capacity is smaller than the selection. A move is MANUAL, so «وزّع المعتمرين تلقائياً» never undoes it. Moves are all-or-nothing and refuse locked rooms.
+- **Hotel room numbers** save when the field is left (no save button); both numbers of a room are sent together.
+- **Trip bulk bar:** appears when pilgrims are ticked; group as family/companions, set hotel / room type / housing / food / تصريف for all, or set transport. A field left on «بلا تغيير» is not touched; any failure rolls everything back and names the pilgrim.
+- **Checklist:** dates (optional), hotels and prices, pilgrims, hotel + room type per pilgrim, rooms, seats (land) or flight (air). Only non-optional steps count toward «جاهزة».
+- **«معتمر جديد» on a trip page** opens `/pilgrims/new?trip=<id>` with that trip already chosen and returns to the trip afterwards.
