@@ -8,7 +8,7 @@ import { hotelOptions, tripChoices } from "@/server/trips";
 import { fullNameAr } from "@/server/pilgrims";
 import { safeReturnTo } from "@/lib/returnTo";
 
-export default async function NewPilgrim({ searchParams }: { searchParams: Promise<{ returnTo?: string; saved?: string; keep?: string }> }) {
+export default async function NewPilgrim({ searchParams }: { searchParams: Promise<{ returnTo?: string; saved?: string; keep?: string; trip?: string }> }) {
   const user = await requirePage("pilgrims.write");
   const sp = await searchParams;
   const [trips, hotels] = await Promise.all([tripChoices(), hotelOptions()]);
@@ -21,6 +21,7 @@ export default async function NewPilgrim({ searchParams }: { searchParams: Promi
     for (const [k, v] of Object.entries(raw)) if (/^(tripIds|agentId|makkahHotelId__.+|madinahHotelId__.+|roomType__.+|hotelId__.+|housing__.+|food__.+|sarf__.+|headOf__.+|isHead__.+)$/.test(k) && (typeof v === "string" || (Array.isArray(v) && v.every((x) => typeof x === "string")))) keep[k] = v as string | string[];
   } catch { keep = {}; }
   const tid = keep.tripIds; const tl = (Array.isArray(tid) ? tid : tid ? [tid] : []).filter((id) => trips.some((t) => t.id === id));
+  if (sp.trip && trips.some((t) => t.id === sp.trip) && !tl.includes(sp.trip)) tl.push(sp.trip); // «معتمر جديد» from a trip page: that trip is already chosen
   keep.tripIds = tl;
   if (typeof keep.agentId === "string" && !agents.some((a) => a.id === keep.agentId)) delete keep.agentId;
   return (

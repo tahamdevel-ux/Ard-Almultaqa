@@ -42,7 +42,7 @@ export function AddPilgrimDialog({ tripId, hotels, defaults, priced, air, tables
 
   return (
     <>
-      <button type="button" className="btn" onClick={() => { setMsg(null); dlg.current?.showModal(); }}>إضافة معتمر</button>
+      <button type="button" className="btn-secondary" title="ابحث عن معتمر سبق تسجيله وأضفه لهذه الرحلة" onClick={() => { setMsg(null); dlg.current?.showModal(); }}>إضافة معتمر مسجّل</button>
       <dialog ref={dlg} className="w-[min(94vw,32rem)] rounded-xl border border-line p-0 shadow-2xl backdrop:bg-black/40" aria-label="إضافة معتمر للرحلة">
         <div className="space-y-3 p-4">
           <div className="flex items-center justify-between">

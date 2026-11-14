@@ -108,6 +108,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {bw && can(user.role, "pilgrims.write") && !archived && <Link className="btn" href={`/pilgrims/new?trip=${trip.id}&returnTo=${encodeURIComponent(`/trips/${trip.id}`)}`}><Icon name="plus" size={16} />معتمر جديد</Link>}
           {bw && <AddPilgrimDialog tripId={trip.id} hotels={hotelOpts} tables={money ? priceTables : undefined} sarfAmount={trip.sarfAmount} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} defaults={{ makkahHotelId: trip.makkahHotelId ?? "", madinahHotelId: trip.madinahHotelId ?? "" }} />}
           <RowMenu label="إجراءات الرحلة">
             {w && <Link className="menu-item" href={`/trips/${trip.id}/edit`}>تعديل الرحلة</Link>}

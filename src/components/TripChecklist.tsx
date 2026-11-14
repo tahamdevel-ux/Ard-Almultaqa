@@ -18,7 +18,7 @@ export function TripChecklist({ steps }: { steps: ChecklistStep[] }) {
           <li key={s.key} className={"flex items-start gap-3 rounded-xl border p-3 " + (s.done ? "border-emerald-200 bg-emerald-50" : next?.key === s.key ? "border-brand bg-brand-light" : "border-line bg-white")}>
             <span className={"grid h-7 w-7 flex-none place-items-center rounded-full text-sm font-bold " + (s.done ? "bg-emerald-600 text-white" : "bg-white text-brand-dark ring-1 ring-line")}>{s.done ? "✓" : i + 1}</span>
             <div className="min-w-0 flex-1">
-              <div className="font-bold">{s.title}</div>
+              <div className="font-bold">{s.title}{s.optional && <span className="ms-1 text-xs font-normal text-brand-mid">(اختياري)</span>}</div>
               <div className="text-xs text-brand-mid">{s.detail}</div>
               {!s.done && <Link href={s.href} className="mt-1 inline-block text-xs font-bold text-brand underline">{s.cta}</Link>}
             </div>

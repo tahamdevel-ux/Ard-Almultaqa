@@ -9,11 +9,11 @@ export interface ChecklistInput {
   transport: { land: boolean; unseated: number; flights: number };
   canSeePrices: boolean;
 }
-export interface ChecklistStep { key: string; title: string; done: boolean; detail: string; href: string; cta: string }
+export interface ChecklistStep { key: string; title: string; done: boolean; detail: string; href: string; cta: string; optional?: boolean }
 
 export function tripChecklist(i: ChecklistInput, tripBase: string): ChecklistStep[] {
   const steps: ChecklistStep[] = [
-    { key: "dates", title: "تواريخ الرحلة", done: i.hasDates, detail: i.hasDates ? "محددة" : "اختيارية، لكنها تظهر في المنفيست والمطبوعات", href: `${tripBase}/edit`, cta: "حدّد التواريخ" },
+    { key: "dates", title: "تواريخ الرحلة", done: i.hasDates, detail: i.hasDates ? "محددة" : "اختيارية، لكنها تظهر في المنفيست والمطبوعات", href: `${tripBase}/edit`, cta: "حدّد التواريخ", optional: true },
     { key: "hotels", title: "فنادق الرحلة وأسعارها", done: i.pricedHotels > 0 && i.madinahHotel, detail: i.pricedHotels === 0 ? "أضف فندق مكة وأسعار الغرف" : !i.madinahHotel ? "اختر فندق المدينة" : `${i.pricedHotels} فندق في مكة`, href: `${tripBase}#settings`, cta: "عيّن الفنادق والأسعار" },
     { key: "pilgrims", title: "المعتمرون", done: i.registered > 0, detail: i.registered ? `${i.registered} معتمر` : "لم يُضَف أحد بعد", href: `${tripBase}#pilgrims`, cta: "إضافة معتمر" },
   ];
@@ -29,4 +29,5 @@ export function tripChecklist(i: ChecklistInput, tripBase: string): ChecklistSte
   return steps;
 }
 
-export const checklistProgress = (steps: ChecklistStep[]) => ({ done: steps.filter((s) => s.done).length, total: steps.length, next: steps.find((s) => !s.done) ?? null });
+/** Optional steps are shown but never block «ready» and are never the suggested next step. */
+export const checklistProgress = (steps: ChecklistStep[]) => { const req = steps.filter((s) => !s.optional); return { done: req.filter((s) => s.done).length, total: req.length, next: req.find((s) => !s.done) ?? null }; };

@@ -40,6 +40,18 @@ export default async function Dashboard() {
     <div className="space-y-5">
       <div><h1 className="page-title">مرحباً {user.name}</h1><p className="text-sm text-brand-mid">ملخص الرحلات القادمة وحالة المعتمرين</p></div>
 
+      <nav aria-label="اختصارات سريعة" className="flex flex-wrap gap-2">
+        {([
+          ["pilgrims.write", "/pilgrims/new", "plus", "معتمر جديد", "btn"],
+          ["trips.write", "/trips/new", "bus", "رحلة جديدة", "btn-secondary"],
+          ["payments.record", "/accounts/pay", "wallet", "تسجيل دفعة", "btn-secondary"],
+          ["pilgrims.view", "/pilgrims", "users", "بحث عن معتمر", "btn-secondary"],
+          ["import.run", "/import", "upload", "استيراد من Excel", "btn-secondary"],
+        ] as const).filter(([perm]) => can(user.role, perm)).map(([, href, icon, label, cls]) => (
+          <Link key={href} href={href} className={cls + " min-h-11 px-5"}><Icon name={icon} size={18} />{label}</Link>
+        ))}
+      </nav>
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard label="إجمالي المعتمرين" value={String(pilgrims)} icon={<Icon name="users" size={22} />} />
         <StatCard label="رحلات قادمة" value={String(trips.length)} icon={<Icon name="bus" size={22} />} tone="gold" />

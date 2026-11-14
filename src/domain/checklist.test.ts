@@ -8,7 +8,7 @@ describe("trip checklist", () => {
   it("a new trip: dates, hotels, pilgrims first; later steps only appear once there are pilgrims", () => {
     const s = tripChecklist({ ...base, hasDates: false, pricedHotels: 0, madinahHotel: false, registered: 0 }, "/trips/x");
     expect(s.map((x) => x.key)).toEqual(["dates", "hotels", "pilgrims"]);
-    expect(checklistProgress(s).next?.key).toBe("dates");
+    expect(checklistProgress(s).next?.key).toBe("hotels"); // dates are optional: never the suggested next step
   });
   it("tells what is missing in words", () => {
     const s = tripChecklist({ ...base, withoutHotelOrType: 3, withoutRoom: 2, transport: { land: true, unseated: 4, flights: 0 } }, "/trips/x");
