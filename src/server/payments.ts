@@ -1,76 +1,89 @@
 import type { Currency, PaymentKind, PaymentMethod, PaymentSource, Prisma } from "@prisma/client";
-import { db } from "./db";
+import { db, type DbTx } from "./db";
 import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
 import { assignOfficeRooms, freeOfficeBeds } from "@/officeRooms/service";
-import { balance, checkPayment, paidTotal } from "@/domain/money";
+import { balance, checkPayment, floorCents, isMoney, paidTotal, round2 } from "@/domain/money";
 import { computePrice, type RoomKind } from "@/domain/pricing";
 
-type Tx = Prisma.TransactionClient;
+type Tx = DbTx;
 export type Result = { ok: true; id?: string; receiptNo?: number } | { ok: false; error: string };
 const fail = (error: string): Result => ({ ok: false, error });
 
-const BOOKING_PRICE_FIELDS = ["roomType", "priceAmount", "priceCurrency", "priceManual"] as const;
+/** Archived trips are view/print only: payments and refunds can still be recorded (debts get settled late), but the booking's price, cancellation and moves are frozen. */
+export const ARCHIVED_MSG = "هذه رحلة مؤرشفة: للعرض والطباعة فقط (يمكن تسجيل الدفعات والاسترداد)";
+const isArchivedTrip = async (tx: Tx, tripId: string) => !!(await tx.trip.findUnique({ where: { id: tripId }, select: { archivedAt: true } }))?.archivedAt;
 
-export async function defaultPrice(tripId: string, roomType: string | null) {
-  if (!roomType) return null;
-  return db.tripPrice.findUnique({ where: { tripId_roomType: { tripId, roomType: roomType as never } } });
+/** Thrown inside a transaction to roll everything back and hand the failure to the caller. */
+class Abort extends Error { constructor(readonly result: Result) { super("abort"); } }
+async function atomic(fn: (tx: Tx) => Promise<Result>): Promise<Result> {
+  try { return await db.$transaction(fn); } catch (e) { if (e instanceof Abort) return e.result; throw e; }
 }
+/** Serialises money changes on one booking: a second payment waits until the first commits, then re-reads the balance. */
+const lockBooking = (tx: Tx, bookingId: string) => tx.$queryRaw`SELECT id FROM "Booking" WHERE id = ${bookingId} FOR UPDATE`;
+const creditsOf = (payments: { kind: PaymentKind; credited: unknown }[]) => payments.map((x) => ({ kind: x.kind, credited: Number(x.credited) }));
 
-/** Sets room type + price on a booking. Omitted amount => use the trip's default price for the room type. */
+const BOOKING_PRICE_FIELDS = ["roomType", "priceAmount", "priceCurrency", "priceManual", "sarfAmount"] as const;
+
+/** Sets room type + price on a booking. Bookings are always priced in USD. Omitted amount => use the hotel table price. */
 export async function setBookingPrice(
   user: SessionUser, bookingId: string,
-  input: { roomType: string | null; amount: number | null; currency: Currency },
+  input: { roomType: string | null; amount: number | null },
 ): Promise<Result> {
-  if (input.amount != null && (!Number.isInteger(input.amount) || input.amount < 0)) return fail("السعر غير صحيح");
+  if (input.amount != null && (!isMoney(input.amount) || input.amount < 0)) return fail("السعر غير صحيح (حتى خانتين عشريتين)");
   return db.$transaction(async (tx) => {
+    await lockBooking(tx, bookingId);
     const before = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { payments: true } });
-    let { amount, currency } = input;
+    if (await isArchivedTrip(tx, before.tripId)) return fail(ARCHIVED_MSG);
+    let amount = input.amount;
+    let sarf: number | null = null; // the تصريف inside a table-computed price (kept on the booking like repriceBooking does)
     let manual = true;
     if (amount == null) {
-      // empty = back to the table: the booking's Makkah hotel (room type price or بدون سكن, + تصريف المعتمر); old per-trip prices only when the trip has no priced hotels
+      // empty = back to the table: the booking's Makkah hotel (room type price or بدون سكن, + تصريف المعتمر)
       manual = false;
       const trip = await tx.trip.findUniqueOrThrow({ where: { id: before.tripId } });
       const th = before.tripHotelId ? await tx.tripHotel.findUnique({ where: { id: before.tripHotelId }, include: { prices: true } }) : null;
       const rt = (input.roomType ?? before.roomType ?? null) as RoomKind | null;
       if (th) {
         const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: rt, noHousing: before.noHousing, sarfByPilgrim: before.sarfByPilgrim, sarfAmount: trip.sarfAmount });
-        if (r.ok) { amount = r.amount; currency = "USD"; } else return fail(r.error);
-      } else if (rt) {
-        const d = await tx.tripPrice.findFirst({ where: { tripId: before.tripId, roomType: rt as never } });
-        if (d) { amount = d.amount; currency = d.currency; }
-      }
+        if (r.ok) { amount = r.amount; sarf = r.sarf; } else return fail(r.error);
+      } else return fail("اختر فندق مكة المسعّر للمعتمر أو اكتب السعر يدوياً");
     }
-    if (before.payments.length && currency !== before.priceCurrency) return fail("لا يمكن تغيير عملة حجز عليه دفعات");
-    const after = await tx.booking.update({ where: { id: bookingId }, data: { roomType: input.roomType, priceAmount: amount, priceCurrency: currency, priceManual: manual && amount != null } });
+    const paid = paidTotal(creditsOf(before.payments));
+    if (amount != null && before.status === "ACTIVE" && amount < paid - 0.005) return fail(`السعر أقل من المدفوع (${paid}) — سجّل استرداداً أولاً`);
+    const after = await tx.booking.update({ where: { id: bookingId }, data: { roomType: input.roomType, priceAmount: amount, priceCurrency: "USD", priceManual: manual && amount != null, ...(sarf != null ? { sarfAmount: sarf } : {}) } });
     await auditChanges(tx, user, "Booking", bookingId, before, after, BOOKING_PRICE_FIELDS);
     return { ok: true } as Result;
   });
 }
 
-export async function addPayment(
-  user: SessionUser, bookingId: string,
-  input: { kind: PaymentKind; amount: number; currency: Currency; rate?: number | null; method: PaymentMethod; paidAt: Date; note?: string; reason?: string; source?: PaymentSource; sourceAgentId?: string | null },
-): Promise<Result> {
+export type PaymentInput = { kind: PaymentKind; amount: number; currency: Currency; rate?: number | null; method: PaymentMethod; paidAt: Date; note?: string; reason?: string; source?: PaymentSource; sourceAgentId?: string | null };
+
+/** Records one payment/refund inside the caller's transaction (booking row locked, so concurrent payments cannot overpay). */
+export async function addPaymentTx(tx: Tx, user: SessionUser, bookingId: string, input: PaymentInput): Promise<Result> {
   const source: PaymentSource = input.kind === "PAYMENT" ? input.source ?? "DIRECT" : "DIRECT";
   if (source === "AGENT" && !input.sourceAgentId) return fail("اختر الوكيل الذي دفع عن طريقه");
-  if (source === "AGENT" && !(await db.agent.findFirst({ where: { id: input.sourceAgentId!, deletedAt: null } }))) return fail("الوكيل غير موجود");
-  return db.$transaction(async (tx) => {
-    const b = await tx.booking.findUnique({ where: { id: bookingId }, include: { payments: true } });
-    if (!b) return fail("الحجز غير موجود");
-    if (b.status !== "ACTIVE" && input.kind === "PAYMENT") return fail("لا يمكن استلام دفعة على حجز ملغى أو منقول");
-    if (b.priceAmount == null && input.kind === "PAYMENT") return fail("حدّد سعر الحجز أولاً");
-    const chk = checkPayment({ ...input }, b.priceCurrency, b.payments.map((x) => ({ kind: x.kind, credited: Number(x.credited) })));
-    if ("error" in chk) return fail(chk.error);
-    if (input.kind === "PAYMENT" && b.priceAmount != null && chk.credited > b.priceAmount - paidTotal(b.payments.map((x) => ({ kind: x.kind, credited: Number(x.credited) }))) + 0.01)
-      return fail("المبلغ أكبر من المتبقي على الحجز");
-    const p = await tx.payment.create({ data: {
-      bookingId, kind: input.kind, amount: input.amount, currency: input.currency, exchangeRate: input.currency === b.priceCurrency ? null : input.rate ?? null,
-      credited: chk.credited, method: input.method, paidAt: input.paidAt,
-      note: input.note || null, reason: input.reason || null, source, sourceAgentId: source === "AGENT" ? input.sourceAgentId : null, receivedById: user.id, receivedByName: user.name } });
-    await auditChanges(tx, user, "Payment", p.id, {}, { kind: p.kind, amount: p.amount, currency: p.currency, receiptNo: p.receiptNo, bookingId, exchangeRate: p.exchangeRate, credited: p.credited.toString(), source: p.source, sourceAgentId: p.sourceAgentId }, ["kind", "amount", "currency", "receiptNo", "bookingId", "exchangeRate", "credited", "source", "sourceAgentId"]);
-    return { ok: true, id: p.id, receiptNo: p.receiptNo } as Result;
-  });
+  if (source === "AGENT" && !(await tx.agent.findFirst({ where: { id: input.sourceAgentId!, deletedAt: null } }))) return fail("الوكيل غير موجود");
+  await lockBooking(tx, bookingId);
+  const b = await tx.booking.findUnique({ where: { id: bookingId }, include: { payments: true } });
+  if (!b) return fail("الحجز غير موجود");
+  if (b.status !== "ACTIVE" && input.kind === "PAYMENT") return fail("لا يمكن استلام دفعة على حجز ملغى أو منقول");
+  if (b.priceAmount == null && input.kind === "PAYMENT") return fail("حدّد سعر الحجز أولاً");
+  const existing = creditsOf(b.payments);
+  const chk = checkPayment({ ...input }, b.priceCurrency, existing);
+  if ("error" in chk) return fail(chk.error);
+  if (input.kind === "PAYMENT" && b.priceAmount != null && chk.credited > b.priceAmount - paidTotal(existing) + 0.005) // amounts are in cents: no slack beyond float noise
+    return fail("المبلغ أكبر من المتبقي على الحجز");
+  const p = await tx.payment.create({ data: {
+    bookingId, kind: input.kind, amount: input.amount, currency: input.currency, exchangeRate: input.currency === b.priceCurrency ? null : input.rate ?? null,
+    credited: chk.credited, method: input.method, paidAt: input.paidAt, tripId: b.tripId, bookingPrice: b.priceAmount,
+    note: input.note || null, reason: input.reason || null, source, sourceAgentId: source === "AGENT" ? input.sourceAgentId : null, receivedById: user.id, receivedByName: user.name } });
+  await auditChanges(tx, user, "Payment", p.id, {}, { kind: p.kind, amount: p.amount, currency: p.currency, receiptNo: p.receiptNo, bookingId, exchangeRate: p.exchangeRate, credited: p.credited.toString(), source: p.source, sourceAgentId: p.sourceAgentId }, ["kind", "amount", "currency", "receiptNo", "bookingId", "exchangeRate", "credited", "source", "sourceAgentId"]);
+  return { ok: true, id: p.id, receiptNo: p.receiptNo };
+}
+
+export async function addPayment(user: SessionUser, bookingId: string, input: PaymentInput): Promise<Result> {
+  return db.$transaction((tx) => addPaymentTx(tx, user, bookingId, input));
 }
 
 async function clearAssignments(tx: Tx, bookingId: string) {
@@ -78,35 +91,40 @@ async function clearAssignments(tx: Tx, bookingId: string) {
   await tx.roomAssignment.deleteMany({ where: { bookingId } });
 }
 
-/** Cancels the booking, frees seat/rooms and optionally records a refund (kept money = paid - refund). */
+/** Cancels the booking, frees seat/rooms and optionally records a refund (kept money = paid - refund). Refund + cancel are one transaction. */
 export async function cancelBooking(
   user: SessionUser, bookingId: string, reason: string,
   refund?: { amount: number; currency?: Currency; rate?: number | null; method: PaymentMethod; paidAt: Date },
 ): Promise<Result> {
   if (!reason.trim()) return fail("سبب الإلغاء مطلوب");
-  const b = await db.booking.findUnique({ where: { id: bookingId } });
-  if (!b || b.status !== "ACTIVE") return fail("الحجز غير فعّال");
-  if (refund && refund.amount > 0) {
-    const r = await addPayment(user, bookingId, { kind: "REFUND", amount: refund.amount, currency: refund.currency ?? b.priceCurrency, rate: refund.rate, method: refund.method, paidAt: refund.paidAt, reason });
-    if (!r.ok) return r;
-  }
-  await db.$transaction(async (tx) => {
+  return atomic(async (tx) => {
+    await lockBooking(tx, bookingId);
+    const b = await tx.booking.findUnique({ where: { id: bookingId } });
+    if (!b || b.status !== "ACTIVE") return fail("الحجز غير فعّال");
+    if (await isArchivedTrip(tx, b.tripId)) return fail(ARCHIVED_MSG);
+    if (refund && refund.amount > 0) {
+      const r = await addPaymentTx(tx, user, bookingId, { kind: "REFUND", amount: refund.amount, currency: refund.currency ?? b.priceCurrency, rate: refund.rate, method: refund.method, paidAt: refund.paidAt, reason });
+      if (!r.ok) throw new Abort(r);
+    }
     await tx.booking.update({ where: { id: bookingId }, data: { status: "CANCELLED", cancelReason: reason.trim(), cancelledAt: new Date() } });
     await auditChanges(tx, user, "Booking", bookingId, { status: "ACTIVE" }, { status: "CANCELLED" }, ["status"]);
     await clearAssignments(tx, bookingId);
     await freeOfficeBeds(tx, [bookingId]); // the bed is freed, the room keeps its number
+    return { ok: true };
   });
-  return { ok: true };
 }
 
 /** Moves a pilgrim to another trip keeping price, history (old booking = MOVED) and payments (re-pointed). */
 export async function moveToTrip(user: SessionUser, bookingId: string, targetTripId: string): Promise<Result> {
   return db.$transaction(async (tx) => {
+    await lockBooking(tx, bookingId); // a payment recorded while we move must wait, otherwise it would stay on the old (MOVED) booking
     const old = await tx.booking.findUnique({ where: { id: bookingId } });
     if (!old || old.status !== "ACTIVE") return fail("الحجز غير فعّال");
     if (old.tripId === targetTripId) return fail("الرحلة نفسها");
+    if (await isArchivedTrip(tx, old.tripId)) return fail(ARCHIVED_MSG);
     const target = await tx.trip.findFirst({ where: { id: targetTripId, deletedAt: null } });
     if (!target) return fail("الرحلة الهدف غير موجودة");
+    if (target.archivedAt) return fail("الرحلة الهدف مؤرشفة: لا تقبل معتمرين جدداً");
     const existing = await tx.booking.findUnique({ where: { pilgrimId_tripId: { pilgrimId: old.pilgrimId, tripId: targetTripId } } });
     if (existing?.status === "ACTIVE") return fail("المعتمر محجوز مسبقاً في الرحلة الهدف");
     const data = { agentId: old.agentId, roomType: old.roomType, priceAmount: old.priceAmount, priceCurrency: old.priceCurrency, movedFromId: old.id };
@@ -149,7 +167,6 @@ export async function familyAccount(groupId: string) {
   }
   return { group: g, tripId: active[0]?.booking.tripId ?? null, members, totals: [...totals].map(([currency, t]) => ({ currency, price: round2(t.price), paid: round2(t.paid), balance: round2(t.balance) })) };
 }
-const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /**
  * One payment received for the whole family: split over the members' bookings, head first, each up to what it still owes.
@@ -165,26 +182,29 @@ export async function addFamilyPayment(
   if (!priced.length) return fail("لا يوجد متبقٍ على أي فرد من الأسرة");
   if (new Set(priced.map((m) => m.currency)).size > 1) return fail("عملات حجوزات الأسرة مختلفة — سجّل الدفعة على كل فرد");
   const cur = priced[0].currency;
-  if (!Number.isInteger(input.amount) || input.amount <= 0) return fail("المبلغ يجب أن يكون رقماً صحيحاً أكبر من صفر");
+  if (!isMoney(input.amount) || input.amount <= 0) return fail("المبلغ يجب أن يكون رقماً أكبر من صفر (حتى خانتين عشريتين)");
   if (input.currency !== cur && (!input.rate || input.rate <= 0)) return fail("أدخل سعر الصرف (دينار لكل دولار) وقت التسديد");
   const rate = input.rate ?? 0;
-  // the most each member can take, in the payment's own currency (whole units)
-  const capacity = (rem: number) => (input.currency === cur ? Math.floor(rem + 0.005) : cur === "USD" ? Math.floor(rem * rate) : Math.floor(rem / rate));
+  // the most each member can take, in the payment's own currency (down to the cent)
+  const capacity = (rem: number) => floorCents(input.currency === cur ? rem : cur === "USD" ? rem * rate : rem / rate);
   const plan: { bookingId: string; amount: number }[] = [];
   let left = input.amount;
   for (const m of priced) {
     if (left <= 0) break;
-    const take = Math.min(left, capacity(m.balance!));
-    if (take > 0) { plan.push({ bookingId: m.bookingId, amount: take }); left -= take; }
+    const take = round2(Math.min(left, capacity(m.balance!)));
+    if (take > 0) { plan.push({ bookingId: m.bookingId, amount: take }); left = round2(left - take); }
   }
-  if (left > 0) return fail("المبلغ أكبر من المتبقي على الأسرة");
+  if (left > 0.004) return fail("المبلغ أكبر من المتبقي على الأسرة");
   const head = fam.members.find((m) => m.isHead);
   const note = [`دفعة أسرة${head ? ` ${head.pilgrimName}` : ""}`, input.note].filter(Boolean).join(" — ");
-  let firstReceipt: number | undefined;
-  for (const part of plan) {
-    const r = await addPayment(user, part.bookingId, { kind: "PAYMENT", amount: part.amount, currency: input.currency, rate: input.rate, method: input.method, paidAt: input.paidAt, note, source: input.source, sourceAgentId: input.sourceAgentId });
-    if (!r.ok) return r;
-    firstReceipt ??= r.receiptNo;
-  }
-  return { ok: true, receiptNo: firstReceipt };
+  // all members' payments commit together or not at all
+  return atomic(async (tx) => {
+    let firstReceipt: number | undefined;
+    for (const part of plan) {
+      const r = await addPaymentTx(tx, user, part.bookingId, { kind: "PAYMENT", amount: part.amount, currency: input.currency, rate: input.rate, method: input.method, paidAt: input.paidAt, note, source: input.source, sourceAgentId: input.sourceAgentId });
+      if (!r.ok) throw new Abort(r);
+      firstReceipt ??= r.receiptNo;
+    }
+    return { ok: true, receiptNo: firstReceipt };
+  });
 }

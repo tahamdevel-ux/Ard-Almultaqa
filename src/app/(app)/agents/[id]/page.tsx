@@ -28,7 +28,7 @@ export default async function AgentStatementPage({ params, searchParams }: { par
         </div>
       </div>
       <form className="flex gap-2"><select name="trip" defaultValue={trip ?? ""} className="input w-64"><option value="">كل الرحلات</option>{trips.map((t) => <option key={t.id} value={t.id}>{tripLabel(t)}</option>)}</select><button className="btn-secondary">عرض</button></form>
-      <p className="text-sm text-brand-mid">العمولة: {agent.commissionType === "PERCENT" ? `${agent.commissionValue}% من السعر` : `سعر جملة ثابت ${formatMoney(Number(agent.commissionValue), c)} للمعتمر (الباقي للوكيل)`}</p>
+      <p className="text-sm text-brand-mid">العمولة: مبلغ ثابت لكل معتمر (من صفحة الرحلة)، ولا تزيد على سعر المعتمر.</p>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5 text-center">
         {([["المعتمرون", String(d.sum.count)], ["إجمالي الأسعار", formatMoney(d.sum.totalPrice, c)], ["العمولة", formatMoney(d.sum.commission, c)], ["المستلم", formatMoney(d.sum.collected, c)], [d.sum.dueToCompany >= 0 ? "المتبقي للشركة" : "زيادة مدفوعة", formatMoney(Math.abs(d.sum.dueToCompany), c)]] as const).map(([l, v]) => (
           <div key={l} className="card"><div className="text-xs text-brand-mid">{l}</div><div className="font-bold">{v}</div></div>

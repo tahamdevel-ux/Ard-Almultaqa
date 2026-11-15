@@ -4,7 +4,14 @@ export interface PaymentLike { kind: "PAYMENT" | "REFUND"; credited: number }
 
 export const CURRENCY_LABELS: Record<CurrencyKey, string> = { IQD: "دينار", USD: "دولار" };
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
+export const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** A valid amount of money: a finite number with at most 2 decimals (cents), within what DECIMAL(14,2) holds. */
+export function isMoney(n: unknown): n is number {
+  return typeof n === "number" && Number.isFinite(n) && Math.abs(n) < 1e11 && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
+}
+/** Rounds DOWN to whole cents (float-safe). */
+export const floorCents = (n: number) => Math.floor(n * 100 + 1e-6) / 100;
 
 export function formatMoney(amount: number, currency: CurrencyKey): string {
   const abs = Math.abs(amount);
@@ -35,7 +42,9 @@ export interface PaymentInput { kind: "PAYMENT" | "REFUND"; amount: number; curr
 
 /** Returns { error } in Arabic, or { credited } when valid. */
 export function checkPayment(p: PaymentInput, bookingCurrency: CurrencyKey, existing: PaymentLike[]): { error: string } | { credited: number } {
-  if (!Number.isInteger(p.amount) || p.amount <= 0) return { error: "المبلغ يجب أن يكون رقماً صحيحاً أكبر من صفر" };
+  if (!isMoney(p.amount) || p.amount <= 0) return { error: "المبلغ يجب أن يكون رقماً أكبر من صفر (حتى خانتين عشريتين)" };
+  // the rate is stored as a whole number (dinars per dollar); a fraction would be rejected by the database
+  if (p.currency !== bookingCurrency && p.rate != null && (!Number.isInteger(p.rate) || p.rate <= 0)) return { error: "سعر الصرف يجب أن يكون رقماً صحيحاً أكبر من صفر" };
   const credited = creditedValue(p.amount, p.currency, bookingCurrency, p.rate);
   if (credited == null) return { error: "أدخل سعر الصرف (دينار لكل دولار) وقت التسديد" };
   if (p.kind === "REFUND") {
@@ -45,23 +54,22 @@ export function checkPayment(p: PaymentInput, bookingCurrency: CurrencyKey, exis
   return { credited };
 }
 
-export interface AgentRule { type: "PERCENT" | "FIXED_WHOLESALE" | "FIXED_PER_PILGRIM"; value: number }
-/** `fixed` = this booking's fixed commission (rule FIXED_PER_PILGRIM; trip/agent specific). */
-export interface StatementBooking { price: number | null; paid: number; cancelled: boolean; fixed?: number }
+/** `fixed` = this booking's fixed commission in USD (trip/agent specific, see resolveCommission). */
+export interface StatementBooking { price: number | null; paid: number; cancelled: boolean; fixed: number }
 
 /**
- * Agent statement (one currency; bookings are priced in USD).
- * PERCENT: commission = value% of price. FIXED_WHOLESALE: the company's price per pilgrim is `value`, the agent keeps price - value.
+ * Agent statement (USD; bookings are always priced in USD).
+ * commission = the booking's fixed commission, never more than its price.
  * dueToCompany = price - commission - collected (negative = overpaid). Cancelled bookings add no price/commission,
  * only what was actually kept (paid net of refunds).
  */
-export function agentStatement(rows: StatementBooking[], rule: AgentRule) {
+export function agentStatement(rows: StatementBooking[]) {
   let totalPrice = 0, commission = 0, collected = 0;
   for (const r of rows) {
     collected += r.paid;
     if (r.cancelled || r.price == null) continue;
     totalPrice += r.price;
-    commission += rule.type === "FIXED_PER_PILGRIM" ? Math.min(r.fixed ?? 0, r.price) : rule.type === "PERCENT" ? round2((r.price * rule.value) / 100) : Math.max(0, r.price - rule.value);
+    commission += Math.min(r.fixed, r.price);
   }
   const netToCompany = round2(totalPrice - commission);
   return { count: rows.filter((r) => !r.cancelled).length, totalPrice, commission: round2(commission), netToCompany, collected: round2(collected), dueToCompany: round2(netToCompany - collected) };

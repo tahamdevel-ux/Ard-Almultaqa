@@ -1,11 +1,11 @@
 import type { Prisma } from "@prisma/client";
-import { db } from "./db";
+import { db, type DbTx } from "./db";
 import { overlapWarning } from "./trips";
 import { autoSeatNewBooking, withTripLock } from "./buses";
 import { assignOfficeRooms } from "@/officeRooms/service";
 import { tripLabel } from "@/lib/tripLabel";
 
-type Client = Prisma.TransactionClient | typeof db;
+type Client = DbTx | typeof db;
 
 export type AddToTripsResult = {
   added: string[]; // trip ids where a booking was created or reactivated

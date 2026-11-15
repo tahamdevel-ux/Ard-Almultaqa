@@ -8,7 +8,7 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 4. **Session:** 30 min idle / 12 h absolute timeout, configurable in settings.
 5. **Roles:** one role per user. SUPERVISOR sees only trips where they are the assigned supervisor.
 6. **Phone format:** `^07[3-9]\d{8}$` for Iraqi mobiles (validated, normalised); emergency contact uses the same rule, with a looser international fallback.
-7. **Money:** IQD default; amounts stored as integers in minor units plus a currency code; no automatic FX conversion (each amount keeps its own currency). Phase 3.
+7. **Money:** superseded by the Phase 3 and "USD only" decisions below: bookings are priced in whole USD; dinar payments are converted at the rate typed on the payment.
 8. **Mahram rule:** women travelling without a mahram is normal for the company, so the warning is **off by default**. If enabled in settings it is a non-blocking warning, and a woman in a عصبة (companion group) is exempt.
 8b. **عصبة (companion group):** unrelated pilgrims (typically ~4 women) housed and seated together. Membership is per trip and set at rooming/trip time, not at registration. Treated like a family by auto-assign and seat adjacency.
 9. **Passport expiry warning:** expiry < return date + N months (default 6).
@@ -54,7 +54,7 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - **Receipts:** sequential integer (`Payment.receiptNo`, database sequence). A rolled-back insert can leave a gap in the numbering; receipts are never deleted.
 - **Cancellation:** requires a reason, frees seat and rooms, optionally records a refund; unrefunded money stays with the company.
 - **Move to another trip:** creates a new booking on the target trip carrying price and visa data, re-points the payments to it, and keeps the old booking as `MOVED` (history).
-- **Agent statement:** PERCENT = commission is that % of the price; FIXED_WHOLESALE = the company price per pilgrim is the fixed value and the agent keeps the difference. Due to company = price − commission − net money received. Cancelled bookings add no price/commission.
+- **Agent statement:** commission is a fixed USD amount per non-cancelled pilgrim (see C6 v2). Due to company = price − commission − net money received. Cancelled bookings add no price/commission. (The original percent / wholesale rules were removed in the "USD only" change.)
 - **Audit:** price/room type changes and every payment (amount, currency, rate, credited value, receipt no.) are written to the audit log.
 - **Who:** only ADMIN and ACCOUNTANT see or edit prices and payments; moving a pilgrim between trips needs `bookings.write` (ADMIN/REGISTRATION).
 
@@ -106,7 +106,7 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - بدون سكن: fixed price per hotel; requires the pilgrim to be in a family on the same trip whose head is on the same Makkah hotel; no hotel bed is used (room numbers of hotels are no longer typed per pilgrim — C8 handles hotel room numbers on office rooms).
 - تصريف (air trips only): trip amount; "تصريف المعتمر" adds it to the pilgrim's price (`sarfAmount` is stored), "تصريف الشركة" adds nothing.
 - Food: trip default (`foodDefault`) copied onto new bookings (`withFood`); never affects price.
-- Agent commission is now a fixed USD amount per non-cancelled pilgrim: the agent's override on the trip, else the trip amount, else 0 ("غير محدد"). The old percentage / wholesale columns are kept but unused. Commission never exceeds the pilgrim's price.
+- Agent commission is now a fixed USD amount per non-cancelled pilgrim: the agent's override on the trip, else the trip amount, else 0 ("غير محدد"). The old percentage / wholesale columns were dropped later (see "USD only" below). Commission never exceeds the pilgrim's price.
 - Moving a pilgrim to another trip keeps his price but clears the hotel link (the hotels belong to the old trip).
 
 ### C8 (v2): office rooms by hotel
@@ -146,3 +146,22 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - **Trip bulk bar:** appears when pilgrims are ticked; group as family/companions, set hotel / room type / housing / food / تصريف for all, or set transport. A field left on «بلا تغيير» is not touched; any failure rolls everything back and names the pilgrim.
 - **Checklist:** dates (optional), hotels and prices, pilgrims, hotel + room type per pilgrim, rooms, seats (land) or flight (air). Only non-optional steps count toward «جاهزة».
 - **«معتمر جديد» on a trip page** opens `/pilgrims/new?trip=<id>` with that trip already chosen and returns to the trip afterwards.
+
+### Money hardening (Nov 14)
+- **Payments are atomic and serialised per booking:** `addPaymentTx` locks the booking row (`SELECT ... FOR UPDATE`) and re-reads the balance, so two simultaneous payments cannot overpay. Cancel + refund, and a family payment over several members, each commit as one transaction. The exchange rate must be a whole number. A price cannot be set below what was already paid (refund first); "apply to existing" skips such bookings.
+- **USD only:** every booking is priced in USD (`setBookingPrice` has no currency; a database CHECK enforces `priceCurrency = 'USD'`). Payments may still be taken in dinars and are converted at the rate typed on the payment. The migration refuses to run if a dinar-priced booking exists (convert it and its payments' credited values by hand first).
+- **Legacy commission removed:** `Agent.commissionType` / `commissionValue` and the `CommissionType` enum are dropped; the agents form and pages no longer show them. Commission is only the fixed per-pilgrim amount. The old per-trip `TripPrice` table is no longer read anywhere (the table and its rows are kept, unused); an empty price on a booking without a priced hotel is refused with a message.
+- **Receipts are snapshots:** `Payment.tripId` and `Payment.bookingPrice` store the trip and the booking price when the payment was recorded, so a reprinted receipt of a pilgrim who later moved trips or was re-priced still shows what applied that day ("remaining after this receipt" uses the snapshot price). The migration back-filled existing payments (payments made before a move use the booking he moved from; a pilgrim moved more than once, or into a previously cancelled booking, may show the wrong earlier trip).
+- **Payments log:** 100 rows per page; the cards (count, received, refunded, net) are totals of everything the search/period matches, not just the visible page.
+
+### Cents, commission timing, period filters (Nov 14)
+- **Cents everywhere:** every money column (prices, hotel tables, بدون سكن, تصريف, commissions, payment amounts, the receipt price snapshot) is `DECIMAL(14,2)`; existing whole values were kept as they were. The app's database client (`src/server/db.ts`) returns them as plain JS numbers (a query hook converts Decimal in place; a type-only result-extension client gives the `number` types), so no code handles Prisma `Decimal` objects. Do NOT switch to a Prisma result extension at runtime: its records carry a hidden symbol property and React refuses them when passed to Client Components. An amount is valid when it has at most 2 decimals (`isMoney`); sums are rounded with `round2`; the exchange rate stays a whole number (dinars per dollar). The overpayment guard has no slack beyond float noise (a payment can no longer exceed the balance by a cent). The family split works down to the cent, which removes the old "fraction left behind" failure with dinar payments.
+- **Commission timing (decision: keep):** the agent's commission counts for every non-cancelled booking as soon as it is booked, whether or not the pilgrim has paid. Cancelled bookings add none; it never exceeds the booking price.
+- **Period filters:** unchanged on purpose. Cards and the trips/pilgrims/agents tabs use the trip's creation date; the payments log uses the payment date. The Accounts page now says so whenever a period is selected.
+- **Converting old dinar-priced bookings:** `deploy/convert-iqd-bookings.sql` (dry run by default; `-v rate=<dinars per dollar>`, `-v apply=1` to apply) converts bookings priced in IQD and their payments to USD in one transaction. Run it BEFORE deploying the "USD only" migration, which refuses to run while any IQD-priced booking exists. Back up first.
+- **Moves take the booking lock too:** `moveToTrip` locks the booking row like payments, cancels and price edits do, so a payment recorded during a move waits and then travels with the pilgrim instead of staying on the old (MOVED) booking.
+- **e2e status (Nov 14):** all 33 specs pass. The older failures were stale steps (opening a trip by its number text instead of the row link, the accommodation popover that now closes after saving) and one race in the archive spec (it waited for a URL it was already on). The suite shares one database across tests and the dev server slows down over a long run, so a single slow navigation can very rarely fail a spec that passes on its own: rerun that spec before suspecting the code.
+
+### Deleted and archived trips (Nov 14, decisions)
+- **Deleted trips:** deleting stays always allowed. Money kept on a deleted trip (paid and not refunded) still counts in Accounts (received, trips and pilgrims tabs, with a «محذوفة» chip), so Accounts, the agent statements and the payments log all say the same. A deleted trip whose bookings hold no money is left out of the lists. It never adds anything to "المطلوب" (its bookings are cancelled).
+- **Archived trips:** payments and refunds can still be recorded (old debts get settled late). The booking's price, cancellation and moving it to another trip are refused (message: archived trip, view and print only), and the booking page hides those forms. Nobody can be moved INTO an archived trip. Unarchiving (admin) reopens everything.

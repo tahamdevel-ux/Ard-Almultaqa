@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import { db } from "@/server/db";
+import { db, type DbTx } from "@/server/db";
 import { getSetting } from "@/server/settings";
 import {
   capacityFor, categoryOf, codeFor, nextSeq, planAssignments, renumber,
@@ -7,11 +7,12 @@ import {
 } from "@/domain/officeRooms";
 import type { RoomTypeKey } from "@/domain/rooming";
 
-type Tx = Prisma.TransactionClient;
+type Tx = DbTx;
 type DbLike = Tx | typeof db;
 
 const bookingInclude = { pilgrim: { select: { gender: true } }, groups: { include: { group: true } }, seat: { select: { busId: true } }, officeMember: true } satisfies Prisma.BookingInclude;
-type BookingRow = Prisma.BookingGetPayload<{ include: typeof bookingInclude }>;
+// the money columns are not needed here (and the app client returns them as numbers, not Decimals)
+type BookingRow = Omit<Prisma.BookingGetPayload<{ include: typeof bookingInclude }>, "priceAmount" | "sarfAmount">;
 
 export function personOf(b: BookingRow): OfficePerson {
   return {

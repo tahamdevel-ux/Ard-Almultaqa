@@ -20,18 +20,18 @@ async function setup(gender: "MALE" | "FEMALE" = "MALE") {
 }
 
 describe("accommodation when adding a pilgrim", () => {
-  it("stores his own hotel, creates the room, sets room type and the trip's price", async () => {
+  it("stores his own hotel, creates the room and sets the room type (no price from the old per-trip list)", async () => {
     const h1 = await db.hotel.create({ data: { officialName: "Hotel One", city: "MAKKAH" } });
     const h2 = await db.hotel.create({ data: { officialName: "Hotel Two", city: "MAKKAH" } });
     const t = await db.trip.create({ data: { name: "رحلة", transportType: "AIR", capacity: 10, makkahHotelId: h1.id } });
-    await db.tripPrice.create({ data: { tripId: t.id, roomType: "QUAD", currency: "USD", amount: 1200 } });
+    await db.tripPrice.create({ data: { tripId: t.id, roomType: "QUAD", currency: "USD", amount: 1200 } }); // stale legacy row: must be ignored
     const p = await setup();
     await addPilgrimToTrips(db, p.id, null, [t.id]);
     const b = await db.booking.findFirstOrThrow({ where: { pilgrimId: p.id } });
     const r = await applyAccommodation(t.id, b.id, { makkahHotelId: h2.id, roomType: "QUAD", makkahRoomNo: "305" });
     expect(r.ok).toBe(true);
     const after = await db.booking.findUniqueOrThrow({ where: { id: b.id }, include: { rooms: { include: { room: true } } } });
-    expect(after.makkahHotelId).toBe(h2.id); expect(after.roomType).toBe("QUAD"); expect(after.priceAmount).toBe(1200);
+    expect(after.makkahHotelId).toBe(h2.id); expect(after.roomType).toBe("QUAD"); expect(after.priceAmount).toBeNull();
     expect(after.rooms[0].room).toMatchObject({ roomNo: "305", hotelId: h2.id, type: "QUAD", beds: 4 });
   });
 

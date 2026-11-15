@@ -20,7 +20,7 @@ const DEFAULTS = {
 type Defaults = typeof DEFAULTS;
 
 export async function getSetting<K extends keyof Defaults>(key: K): Promise<Defaults[K]> {
-  const row = await db.setting.findUnique({ where: { key } });
+  const row = await db.setting.findUnique({ where: { key: key as string } });
   if (!row) return DEFAULTS[key];
   const v = row.value as unknown;
   return (typeof DEFAULTS[key] === "object" ? { ...(DEFAULTS[key] as object), ...(v as object) } : v) as Defaults[K];

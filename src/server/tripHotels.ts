@@ -1,11 +1,12 @@
 import type { Prisma } from "@prisma/client";
-import { db } from "./db";
+import { db, type DbTx } from "./db";
 import type { SessionUser } from "./auth";
 import { auditChanges } from "./audit";
 import { creditedValue } from "@/domain/money";
 import { computePrice, noHousingError, type RoomKind } from "@/domain/pricing";
+import { isMoney, paidTotal, round2 } from "@/domain/money";
 
-type Tx = Prisma.TransactionClient;
+type Tx = DbTx;
 export const ROOM_KINDS: RoomKind[] = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"];
 
 /** Map "tripId:agentId" -> fixed commission override for those trips. */
@@ -28,8 +29,8 @@ export async function saveTripHotels(user: SessionUser, tripId: string, input: T
   const seen = new Set<string>();
   for (const h of names) { const n = normName(h); if (seen.has(n)) return { ok: false, error: `الفندق «${h.localName ?? h.officialName}» مكرر في الجدول — لا يمكن أن يكون لنفس الفندق سعران` }; seen.add(n); }
   for (const i of input) {
-    if (i.noHousingPrice != null && (!Number.isInteger(i.noHousingPrice) || i.noHousingPrice < 0)) return { ok: false, error: "سعر غير صحيح" };
-    for (const v of Object.values(i.prices)) if (!Number.isInteger(v) || (v as number) < 0) return { ok: false, error: "سعر غير صحيح" };
+    if (i.noHousingPrice != null && (!isMoney(i.noHousingPrice) || i.noHousingPrice < 0)) return { ok: false, error: "سعر غير صحيح" };
+    for (const v of Object.values(i.prices)) if (!isMoney(v) || (v as number) < 0) return { ok: false, error: "سعر غير صحيح" };
   }
   return db.$transaction(async (tx) => {
     const before = await loadTripHotels(tripId, tx);
@@ -62,11 +63,13 @@ export async function saveTripHotels(user: SessionUser, tripId: string, input: T
 
 /** Recomputes a booking's price from its hotel, room type, بدون سكن and تصريف. Returns true when the price changed. */
 export async function repriceBooking(tx: Tx, user: SessionUser, bookingId: string): Promise<boolean> {
-  const b = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { trip: true, tripHotel: { include: { prices: true } } } });
+  const b = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { trip: true, payments: true, tripHotel: { include: { prices: true } } } });
   if (!b.tripHotel || b.priceManual) return false;
   const table = { prices: Object.fromEntries(b.tripHotel.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: b.tripHotel.noHousingPrice };
   const r = computePrice({ table, roomType: (b.roomType as RoomKind) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: b.trip.sarfAmount });
   if (!r.ok || r.amount === b.priceAmount) return false;
+  // never push the price below what was already received (it would show as overpaid); staff fix those by hand with a refund
+  if (r.amount < paidTotal(b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) - 0.005) return false;
   const after = await tx.booking.update({ where: { id: bookingId }, data: { priceAmount: r.amount, sarfAmount: r.sarf, priceCurrency: "USD" } });
   await auditChanges(tx, user, "Booking", bookingId, b, after, ["priceAmount", "sarfAmount"] as never);
   return true;
@@ -111,7 +114,7 @@ export async function auditTripPrices(tripId: string): Promise<PriceAudit> {
     if (th) {
       const key = `${normName(th.hotel)}|${b.noHousing ? "NOHOUSING" : b.roomType ?? "-"}`;
       const g = groups.get(key) ?? { hotel: th.hotel.localName ?? th.hotel.officialName, roomType: b.noHousing ? "NOHOUSING" : b.roomType ?? "-", entries: [] };
-      const base = b.priceAmount - b.sarfAmount; // تصريف is not part of the room price
+      const base = round2(b.priceAmount - b.sarfAmount); // تصريف is not part of the room price (rounded: 512.49 - 12.5 must equal 499.99)
       const e = g.entries.find((x) => x.base === base && x.manual === b.priceManual);
       if (e) e.count++; else g.entries.push({ base, count: 1, manual: b.priceManual });
       groups.set(key, g);

@@ -36,6 +36,26 @@ async function book(tripId: string, agentId?: string) {
   return db.booking.findFirstOrThrow({ where: { pilgrimId: p.id, tripId } });
 }
 
+describe("hotel price table with cents", () => {
+  it("keeps cents in room prices, بدون سكن and تصريف, and refuses more than 2 decimals", async () => {
+    const h = await db.hotel.create({ data: { officialName: "Makkah Cents", city: "MAKKAH" } });
+    const t = await db.trip.create({ data: { name: "رحلة", transportType: "AIR", capacity: 10, sarfAmount: 12.5 } });
+    expect((await saveTripHotels(user, t.id, [{ hotelId: h.id, noHousingPrice: 300.75, prices: { DOUBLE: 499.99 } }], false)).ok).toBe(true);
+    expect((await saveTripHotels(user, t.id, [{ hotelId: h.id, noHousingPrice: null, prices: { DOUBLE: 499.999 } }], false)).ok).toBe(false);
+    const th = await db.tripHotel.findFirstOrThrow({ where: { tripId: t.id }, include: { prices: true } });
+    expect(th.noHousingPrice).toBe(300.75); expect(th.prices[0].amount).toBe(499.99);
+    const b = await book(t.id);
+    await db.booking.update({ where: { id: b.id }, data: { tripHotelId: th.id, roomType: "DOUBLE", sarfByPilgrim: true } });
+    expect((await setBookingPrice(user, b.id, { roomType: "DOUBLE", amount: null })).ok).toBe(true);
+    expect(await db.booking.findUniqueOrThrow({ where: { id: b.id } })).toMatchObject({ priceAmount: 512.49 });
+    // a second pilgrim in the same room type, تصريف paid by the company: price 499.99. Same room price => no "inconsistent prices" group (512.49 - 12.5 must equal 499.99 exactly)
+    const b2 = await book(t.id);
+    await db.booking.update({ where: { id: b2.id }, data: { tripHotelId: th.id, roomType: "DOUBLE", sarfByPilgrim: false } });
+    expect((await setBookingPrice(user, b2.id, { roomType: "DOUBLE", amount: null })).ok).toBe(true);
+    expect(await auditTripPrices(t.id)).toMatchObject({ groups: [], differs: 0, noPrice: 0 });
+  });
+});
+
 describe("per-hotel prices", () => {
   it("price follows the Makkah hotel and the room type; the other hotel costs more", async () => {
     const { h1, h2, t } = await setup();
@@ -98,7 +118,7 @@ describe("manual prices survive", () => {
     const head = await book(t.id), wife = await book(t.id);
     for (const b of [head, wife]) await applyAccommodation(t.id, b.id, { makkahHotelId: h1.id, roomType: "DOUBLE" });
     // agreed 425 each (850 for the couple) instead of the table's 500
-    for (const b of [head, wife]) expect((await setBookingPrice(user, b.id, { roomType: "DOUBLE", amount: 425, currency: "USD" })).ok).toBe(true);
+    for (const b of [head, wife]) expect((await setBookingPrice(user, b.id, { roomType: "DOUBLE", amount: 425 })).ok).toBe(true);
     // saving the accommodation again (role / room label / same hotel) must not reset the price
     await applyAccommodation(t.id, head.id, { makkahHotelId: h1.id, roomType: "DOUBLE", tripRole: "CONTRACTOR" });
     await applyAccommodation(t.id, wife.id, { makkahHotelId: h1.id, roomType: "DOUBLE", food: "0" });
@@ -107,7 +127,7 @@ describe("manual prices survive", () => {
     expect(r).toMatchObject({ ok: true, repriced: 0 });
     for (const b of [head, wife]) expect((await db.booking.findUniqueOrThrow({ where: { id: b.id } })).priceAmount).toBe(425);
     // leaving the amount empty means "use the table again"
-    await setBookingPrice(user, head.id, { roomType: "DOUBLE", amount: null, currency: "USD" });
+    await setBookingPrice(user, head.id, { roomType: "DOUBLE", amount: null });
     expect((await db.booking.findUniqueOrThrow({ where: { id: head.id } })).priceAmount).toBe(600);
   });
   it("«سعر الرحلة الافتراضي» on the booking page uses the hotel table (with تصريف), not an old price list", async () => {
@@ -115,7 +135,7 @@ describe("manual prices survive", () => {
     await db.tripPrice.create({ data: { tripId: t.id, roomType: "DOUBLE", currency: "USD", amount: 9999 } }); // stale legacy row
     const b = await book(t.id);
     await applyAccommodation(t.id, b.id, { makkahHotelId: h1.id, roomType: "DOUBLE", sarf: "PILGRIM" });
-    await setBookingPrice(user, b.id, { roomType: "DOUBLE", amount: null, currency: "USD" });
+    await setBookingPrice(user, b.id, { roomType: "DOUBLE", amount: null });
     expect((await db.booking.findUniqueOrThrow({ where: { id: b.id } })).priceAmount).toBe(540);
   });
 });

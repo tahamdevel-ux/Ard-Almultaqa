@@ -10,3 +10,4 @@ storage-test/
 
 # commercial font used by the internal rooming print; copied by hand to the server, never committed
 public/fonts/custom/
+storage-e2e/

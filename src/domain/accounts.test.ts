@@ -22,9 +22,8 @@ describe("accounts definitions", () => {
     expect(accountTotals([{ status: "MOVED", price: 500, paid: 500 }, { status: "ACTIVE", price: 500, paid: 500 }])).toMatchObject({ due: 500, received: 500 });
   });
   it("agent commission uses the agent-statement rules", () => {
-    const rows = [{ status: "ACTIVE" as const, price: 1000, paid: 0 }, { status: "CANCELLED" as const, price: 1000, paid: 0 }];
-    expect(agentCommission(rows, { type: "PERCENT", value: 10 })).toBe(100);
-    expect(agentCommission(rows, { type: "FIXED_WHOLESALE", value: 900 })).toBe(100);
+    const rows = [{ status: "ACTIVE" as const, price: 1000, paid: 0, fixed: 100 }, { status: "CANCELLED" as const, price: 1000, paid: 0, fixed: 100 }, { status: "MOVED" as const, price: 1000, paid: 0, fixed: 100 }];
+    expect(agentCommission(rows)).toBe(100);
   });
 });
 

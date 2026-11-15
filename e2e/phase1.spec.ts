@@ -37,7 +37,7 @@ test("full flow: create pilgrim, attach to land trip, seat, manifest PDF, audit"
 
   // attach to trip
   await page.goto("/trips");
-  await page.click("text=L-2611");
+  await page.locator("tr[data-href]", { hasText: "L-2611" }).first().locator("a").first().click(); // the list links the trip name; the number is a chip in the same row
   await page.getByRole("button", { name: "إضافة معتمر" }).click();
   await page.getByLabel("بحث عن معتمر").fill(passport.toLowerCase());
   await expect(page.getByRole("dialog").getByText("A-2612")).toBeVisible(); // his other trip is shown

@@ -62,6 +62,8 @@ import { formatMoney, paidTotal as paidSum } from "@/domain/money";
 import { db } from "@/server/db";
 import { getSetting } from "@/server/settings";
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 export async function renderAgentStatement(agentId: string, tripId: string | undefined, format: "pdf" | "xlsx") {
   const d = await agentStatementData(agentId, tripId);
   const c = d.currency;
@@ -87,18 +89,21 @@ export async function renderReceipt(paymentId: string) {
   const p = await db.payment.findUniqueOrThrow({ where: { id: paymentId }, include: { booking: { include: { pilgrim: true, trip: true, payments: true } } } });
   const company = (await getSetting("company")) as Company;
   const b = p.booking, cur = b.priceCurrency;
-  const bal = b.priceAmount == null ? null : b.priceAmount - paidSum(b.payments.filter((x) => x.receiptNo <= p.receiptNo).map((x) => ({ kind: x.kind, credited: Number(x.credited) })));
+  // trip and price as they were when this receipt was issued (the pilgrim may have moved trips or been re-priced since)
+  const trip = p.tripId && p.tripId !== b.tripId ? (await db.trip.findUnique({ where: { id: p.tripId } })) ?? b.trip : b.trip;
+  const price = p.bookingPrice ?? b.priceAmount;
+  const bal = price == null ? null : round2(price - paidSum(b.payments.filter((x) => x.receiptNo <= p.receiptNo).map((x) => ({ kind: x.kind, credited: Number(x.credited) }))));
   const refund = p.kind === "REFUND";
   const line = (k: string, v: string) => `<tr><th style="width:35%">${esc(k)}</th><td>${esc(v)}</td></tr>`;
   const body = `<table style="font-size:13px">
     ${line("رقم الوصل", String(p.receiptNo))}${line("التاريخ", fmtDate(p.paidAt))}
     ${line(refund ? "المبلغ المُسترد إلى" : "استلمنا من", fullNameAr(b.pilgrim))}${line("رقم الجواز", b.pilgrim.passportNo)}
-    ${line("الرحلة", tripLabel(b.trip))}
+    ${line("الرحلة", tripLabel(trip))}
     ${line("المبلغ", formatMoney(p.amount, p.currency))}
     ${p.exchangeRate ? line("سعر الصرف", `${p.exchangeRate} دينار لكل دولار`) + line("القيمة المحتسبة", formatMoney(Number(p.credited), cur)) : ""}
     ${line("الطريقة", { CASH: "نقداً", TRANSFER: "حوالة", CARD: "بطاقة", OTHER: "أخرى" }[p.method])}
     ${refund ? line("سبب الاسترداد", p.reason ?? "") : p.note ? line("ملاحظة", p.note) : ""}
-    ${b.priceAmount != null ? line("سعر الحجز", formatMoney(b.priceAmount, cur)) + line("المتبقي بعد هذا الوصل", formatMoney(bal ?? 0, cur)) : ""}
+    ${price != null ? line("سعر الحجز", formatMoney(price, cur)) + line("المتبقي بعد هذا الوصل", formatMoney(bal ?? 0, cur)) : ""}
     ${line("استلمها", p.receivedByName)}</table>
     <p style="margin-top:30px">التوقيع: ____________________</p>`;
   return htmlToPdf(pageHtml(company, refund ? "وصل استرداد" : "وصل قبض", `رقم ${p.receiptNo}`, body));

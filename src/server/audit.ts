@@ -1,7 +1,8 @@
 import type { Prisma } from "@prisma/client";
+import type { DbTx } from "./db";
 import type { SessionUser } from "./auth";
 
-type Tx = Prisma.TransactionClient;
+type Tx = DbTx;
 
 const str = (v: unknown): string | null => {
   if (v == null) return null;

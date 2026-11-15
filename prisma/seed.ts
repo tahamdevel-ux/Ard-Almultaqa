@@ -1,8 +1,6 @@
-import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
 import { assignOfficeRooms } from "../src/officeRooms/service";
-
-const db = new PrismaClient();
+import { db } from "../src/server/db";
 const d = (s: string) => new Date(s + "T00:00:00Z");
 const hash = (p: string) => argon2.hash(p, { type: argon2.argon2id });
 
@@ -24,9 +22,9 @@ async function main() {
 
   if ((await db.agent.count()) === 0) {
     await db.agent.createMany({ data: [
-      { name: "أبو بكر الموصلي", officeName: "مكتب النور للسياحة", phones: ["07701112233"], commissionType: "PERCENT", commissionValue: 5, roomCode: "a" },
-      { name: "حسام العبيدي", officeName: "مكتب الرافدين", phones: ["07509998877"], commissionType: "FIXED_WHOLESALE", commissionValue: 450000, roomCode: "b" },
-      { name: "سلوى الطائي", officeName: "مكتب البشائر", phones: ["07712223344", "0501234567"], commissionType: "PERCENT", commissionValue: 7 }, // no room code: its rooms get plain numbers
+      { name: "أبو بكر الموصلي", officeName: "مكتب النور للسياحة", phones: ["07701112233"], roomCode: "a" },
+      { name: "حسام العبيدي", officeName: "مكتب الرافدين", phones: ["07509998877"], roomCode: "b" },
+      { name: "سلوى الطائي", officeName: "مكتب البشائر", phones: ["07712223344", "0501234567"], }, // no room code: its rooms get plain numbers
     ] });
   }
   const agents = await db.agent.findMany();

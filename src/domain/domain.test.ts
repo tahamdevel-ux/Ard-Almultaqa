@@ -150,7 +150,8 @@ describe("readiness", () => {
   });
 });
 
-import { formatMoney, paidTotal, balance, checkPayment, creditedValue, agentStatement } from "./money";
+import { formatMoney, paidTotal, balance, checkPayment, creditedValue, agentStatement, isMoney, floorCents } from "./money";
+import { computePrice } from "./pricing";
 
 describe("money", () => {
   it("formats", () => {
@@ -174,17 +175,18 @@ describe("money", () => {
     expect(checkPayment({ kind: "PAYMENT", amount: 0, currency: "USD" }, "USD", ps)).toHaveProperty("error");
     expect(checkPayment({ kind: "PAYMENT", amount: 700000, currency: "IQD" }, "USD", ps)).toHaveProperty("error"); // no rate
     expect(checkPayment({ kind: "PAYMENT", amount: 700000, currency: "IQD", rate: 1400 }, "USD", ps)).toEqual({ credited: 500 });
+    expect(checkPayment({ kind: "PAYMENT", amount: 700000, currency: "IQD", rate: 1400.5 }, "USD", ps)).toHaveProperty("error"); // the rate is a whole number
     expect(checkPayment({ kind: "REFUND", amount: 500, currency: "USD" }, "USD", ps)).toHaveProperty("error"); // no reason
     expect(checkPayment({ kind: "REFUND", amount: 2000, currency: "USD", reason: "x" }, "USD", ps)).toHaveProperty("error");
     expect(checkPayment({ kind: "REFUND", amount: 500, currency: "USD", reason: "x" }, "USD", ps)).toEqual({ credited: 500 });
   });
-  it("agent statement: percent", () => {
-    const s = agentStatement([{ price: 1000, paid: 400, cancelled: false }, { price: 1000, paid: 1000, cancelled: false }], { type: "PERCENT", value: 5 });
+  it("agent statement: fixed commission per pilgrim", () => {
+    const s = agentStatement([{ price: 1000, paid: 400, cancelled: false, fixed: 50 }, { price: 1000, paid: 1000, cancelled: false, fixed: 50 }]);
     expect(s).toMatchObject({ totalPrice: 2000, commission: 100, netToCompany: 1900, collected: 1400, dueToCompany: 500, count: 2 });
   });
-  it("agent statement: fixed wholesale, cancelled gives no commission", () => {
-    const s = agentStatement([{ price: 1000, paid: 0, cancelled: false }, { price: 1000, paid: 100, cancelled: true }], { type: "FIXED_WHOLESALE", value: 900 });
-    expect(s).toMatchObject({ totalPrice: 1000, commission: 100, netToCompany: 900, collected: 100, dueToCompany: 800, count: 1 });
+  it("agent statement: cancelled gives no commission, commission is capped at the price", () => {
+    const s = agentStatement([{ price: 1000, paid: 0, cancelled: false, fixed: 100 }, { price: 1000, paid: 100, cancelled: true, fixed: 100 }, { price: 80, paid: 0, cancelled: false, fixed: 100 }]);
+    expect(s).toMatchObject({ totalPrice: 1080, commission: 180, netToCompany: 900, collected: 100, dueToCompany: 800, count: 2 });
   });
 });
 
@@ -292,4 +294,25 @@ describe("trip roles (contractor / driver / assistant)", () => {
     expect(roleConflict(holders, { bookingId: "x", role: "CONTRACTOR", busId: null })).toBeNull(); // air: no bus
   });
   it("manifest order", () => { expect([null, "ASSISTANT", "CONTRACTOR", "DRIVER"].map((r) => roleOrder(r as never))).toEqual([3, 2, 0, 1]); });
+});
+
+describe("cents", () => {
+  it("isMoney accepts up to 2 decimals only", () => {
+    for (const v of [0, 1, 12.5, 100.25, 0.01, 99999999999.99 - 1]) expect(isMoney(v)).toBe(true);
+    for (const v of [12.345, 0.001, NaN, Infinity, "5", null, 1e12]) expect(isMoney(v)).toBe(false);
+  });
+  it("floorCents rounds down to the cent, float-safe", () => {
+    expect(floorCents(33.33)).toBe(33.33); expect(floorCents(0.29)).toBe(0.29); expect(floorCents(10.019)).toBe(10.01);
+  });
+  it("payments take cents; sums do not drift", () => {
+    expect(checkPayment({ kind: "PAYMENT", amount: 12.5, currency: "USD" }, "USD", [])).toEqual({ credited: 12.5 });
+    expect(checkPayment({ kind: "PAYMENT", amount: 12.345, currency: "USD" }, "USD", [])).toHaveProperty("error");
+    expect(checkPayment({ kind: "PAYMENT", amount: 0, currency: "USD" }, "USD", [])).toHaveProperty("error");
+    const ps = [0.1, 0.2, 0.3].map((credited) => ({ kind: "PAYMENT" as const, credited }));
+    expect(paidTotal(ps)).toBe(0.6); expect(balance(100.6, ps)).toBe(100);
+  });
+  it("the price adds the تصريف with cents", () => {
+    const r = computePrice({ table: { prices: { DOUBLE: 100.25 }, noHousingPrice: null }, roomType: "DOUBLE", noHousing: false, sarfByPilgrim: true, sarfAmount: 12.5 });
+    expect(r).toEqual({ ok: true, amount: 112.75, sarf: 12.5 });
+  });
 });

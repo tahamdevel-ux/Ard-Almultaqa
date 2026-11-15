@@ -16,8 +16,8 @@ export function HotelPricesForm({ action, rows, candidates }: { action: Act; row
   const free = candidates.filter((c) => !rows.some((r) => r.hotelId === c.id));
   const cells = (key: string, r?: HotelRow) => (
     <>
-      {KINDS.map(([k, l]) => <td key={k} className="td"><input aria-label={l} name={`${key}_${k}`} type="number" min={0} defaultValue={r?.prices[k] ?? ""} className="input w-24" dir="ltr" /></td>)}
-      <td className="td"><input aria-label="بدون سكن" name={`${key}_NOHOUSING`} type="number" min={0} defaultValue={r?.noHousingPrice ?? ""} className="input w-24" dir="ltr" /></td>
+      {KINDS.map(([k, l]) => <td key={k} className="td"><input aria-label={l} name={`${key}_${k}`} type="number" min={0} step="0.01" defaultValue={r?.prices[k] ?? ""} className="input w-24" dir="ltr" /></td>)}
+      <td className="td"><input aria-label="بدون سكن" name={`${key}_NOHOUSING`} type="number" min={0} step="0.01" defaultValue={r?.noHousingPrice ?? ""} className="input w-24" dir="ltr" /></td>
     </>
   );
   return (
@@ -50,12 +50,12 @@ export function TripExtrasForm({ action, air, values, agents }: { action: Act; a
       <div className="flex flex-wrap items-end gap-3">
         <div><label className="label" htmlFor="foodDefault">الطعام (افتراضي المعتمرين)</label>
           <select id="foodDefault" name="foodDefault" className="input w-36" defaultValue={values.foodDefault ? "1" : "0"}><option value="1">مع طعام</option><option value="0">بدون طعام</option></select></div>
-        {air && <div><label className="label" htmlFor="sarfAmount">مبلغ التصريف (دولار)</label><input id="sarfAmount" name="sarfAmount" type="number" min={0} className="input w-32" dir="ltr" defaultValue={values.sarfAmount ?? ""} /></div>}
-        <div><label className="label" htmlFor="agentCommission">عمولة الوكيل الثابتة لكل معتمر (دولار)</label><input id="agentCommission" name="agentCommission" type="number" min={0} className="input w-36" dir="ltr" defaultValue={values.agentCommission ?? ""} placeholder="غير محدد" /></div>
+        {air && <div><label className="label" htmlFor="sarfAmount">مبلغ التصريف (دولار)</label><input id="sarfAmount" name="sarfAmount" type="number" min={0} step="0.01" className="input w-32" dir="ltr" defaultValue={values.sarfAmount ?? ""} /></div>}
+        <div><label className="label" htmlFor="agentCommission">عمولة الوكيل الثابتة لكل معتمر (دولار)</label><input id="agentCommission" name="agentCommission" type="number" min={0} step="0.01" className="input w-36" dir="ltr" defaultValue={values.agentCommission ?? ""} placeholder="غير محدد" /></div>
       </div>
       {agents.length > 0 && (
         <details><summary className="cursor-pointer text-sm underline">عمولة مختلفة لوكيل معيّن في هذه الرحلة</summary>
-          <div className="mt-2 flex flex-wrap gap-2">{agents.map((a) => <div key={a.id}><label className="label" htmlFor={"ag_" + a.id}>{a.name}</label><input id={"ag_" + a.id} name={"ag_" + a.id} type="number" min={0} className="input w-28" dir="ltr" defaultValue={a.amount ?? ""} placeholder="الافتراضي" /></div>)}</div>
+          <div className="mt-2 flex flex-wrap gap-2">{agents.map((a) => <div key={a.id}><label className="label" htmlFor={"ag_" + a.id}>{a.name}</label><input id={"ag_" + a.id} name={"ag_" + a.id} type="number" min={0} step="0.01" className="input w-28" dir="ltr" defaultValue={a.amount ?? ""} placeholder="الافتراضي" /></div>)}</div>
         </details>
       )}
       <button className="btn" disabled={pending}>حفظ</button>

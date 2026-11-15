@@ -22,7 +22,7 @@ export async function savePrice(bookingId: string, _p: FormState, f: FormData): 
   return guard("prices.write", async (u) => {
     const amountRaw = s(f, "amount");
     const r = await setBookingPrice(u, bookingId, {
-      roomType: s(f, "roomType") || null, amount: amountRaw === "" ? null : Number(amountRaw), currency: s(f, "currency") === "IQD" ? "IQD" : "USD" });
+      roomType: s(f, "roomType") || null, amount: amountRaw === "" ? null : Number(amountRaw) });
     touch(bookingId);
     return r.ok ? { ok: true } : { error: r.error };
   });
@@ -63,12 +63,3 @@ export async function move(bookingId: string, _p: FormState, f: FormData): Promi
   redirect(`/bookings/${r.id}`);
 }
 
-export async function saveTripPrices(tripId: string, f: FormData) {
-  await requirePermission("prices.write");
-  for (const t of ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"] as const) {
-    const v = s(f, t);
-    if (v === "") await db.tripPrice.deleteMany({ where: { tripId, roomType: t } });
-    else if (Number(v) >= 0) await db.tripPrice.upsert({ where: { tripId_roomType: { tripId, roomType: t } }, create: { tripId, roomType: t, currency: "USD", amount: Math.round(Number(v)) }, update: { amount: Math.round(Number(v)), currency: "USD" } });
-  }
-  revalidatePath(`/trips/${tripId}`);
-}

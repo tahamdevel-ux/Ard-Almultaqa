@@ -24,7 +24,7 @@ export function AccountsPayForm({ bookings, agents, rate, today, initialBooking 
           </select></div>
       </div>
       <div className="flex flex-wrap items-end gap-2" key={sel?.id ?? "none"}>
-        <div><label className="label">المبلغ</label><input name="amount" type="number" min={1} className="input w-32" dir="ltr" required /></div>
+        <div><label className="label">المبلغ</label><input name="amount" type="number" min="0.01" step="0.01" className="input w-32" dir="ltr" required /></div>
         <div><label className="label">العملة</label><select name="currency" defaultValue="USD" className="input w-24"><option value="USD">دولار</option><option value="IQD">دينار</option></select></div>
         <div><label className="label">سعر الصرف (إن كان بالدينار)</label><input name="rate" type="number" defaultValue={rate} className="input w-28" dir="ltr" /></div>
         <div><label className="label">الطريقة</label><select name="method" className="input w-24"><option value="CASH">نقداً</option><option value="TRANSFER">حوالة</option><option value="CARD">بطاقة</option><option value="OTHER">أخرى</option></select></div>
