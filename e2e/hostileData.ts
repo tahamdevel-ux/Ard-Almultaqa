@@ -63,7 +63,7 @@ export async function seedHostile(db: PrismaClient) {
   const b5 = await booking(p0.id, arch.id, { status: "CANCELLED", cancelledAt: new Date(), cancelReason: "" }); // cancelled, on archived trip
   const bGoneTrip = await booking(pDel.id, gone.id);
   const p6 = await pil(); const b6 = await booking(p6.id, air.id, { transport: "FLIGHT", sarfByPilgrim: true, sarfAmount: 100, priceAmount: 1000, withFood: false });
-  const p7 = await pil(); const b7 = await booking(p7.id, air.id, { transport: "CAR", priceAmount: 900, priceCurrency: "IQD" as never }); // CAR without car
+  const p7 = await pil(); const b7 = await booking(p7.id, air.id, { transport: "CAR", priceAmount: 900 }); // CAR without car
   const p8 = await pil(); const b8 = await booking(p8.id, bare.id);
   const p9 = await pil(); const b9 = await booking(p9.id, land.id, { tripHotelId: th.id, roomType: "DOUBLE", priceAmount: 850, tripRole: "DRIVER" as never });
 
