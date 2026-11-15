@@ -186,3 +186,47 @@ describe("office rooms: manual changes", () => {
     expect(await db.officeRoomMember.count({ where: { bookingId: ids[0] } })).toBe(0);
   });
 });
+
+describe("office rooms: a family always shares one room", () => {
+  const roomOf = async (id: string) => (await db.officeRoomMember.findUniqueOrThrow({ where: { bookingId: id } })).officeRoomId;
+  it("members added later and edited later end up with their head", async () => {
+    const { createPilgrimWithTrips } = await import("@/server/pilgrims");
+    const t = await trip("LAND");
+    const base = { firstName: "ن", fatherName: "ب", grandfatherName: "ج", familyName: "د", gender: "MALE" as const, birthDate: D("1980-01-01"), passportExpiry: D("2035-01-01"), enGivenName: "A", enSurname: "B", passportType: "IRAQI" as const, nationality: "IRAQI" };
+    const mk = (no: string) => ({ ...base, passportNo: no }) as never;
+    const r1 = await createPilgrimWithTrips(user as never, mk("A50000001"), [t.id], {}, { [t.id]: { isHead: true, headOf: "" } });
+    const head = (r1 as { bookingIds: Record<string, string> }).bookingIds[t.id];
+    // a stranger takes the next place, then a family member is added: he must join the head, not the stranger's room
+    const stranger = await pilgrim(); await add(t.id, stranger);
+    const r2 = await createPilgrimWithTrips(user as never, mk("A50000002"), [t.id], {}, { [t.id]: { isHead: false, headOf: head } });
+    const member = (r2 as { bookingIds: Record<string, string> }).bookingIds[t.id];
+    expect(await roomOf(member)).toBe(await roomOf(head));
+    // each one was alone before the link: linking an existing booking (older data) and pressing «وزّع تلقائياً» gathers them
+    const p3 = await pilgrim(); const b3 = await add(t.id, p3);
+    const p4 = await pilgrim(); const b4 = await add(t.id, p4);
+    const g = await db.familyGroup.create({ data: { kind: "FAMILY" } });
+    await db.bookingGroupMember.createMany({ data: [{ bookingId: b3.id, groupId: g.id, isHead: true }, { bookingId: b4.id, groupId: g.id }] });
+    await db.$transaction((tx) => rerunAssignment(tx, t.id));
+    expect(await roomOf(b3.id)).toBe(await roomOf(b4.id));
+  });
+
+  it("changing a family member's room type moves the whole family together", async () => {
+    const { applyAccommodation } = await import("@/server/accommodation");
+    const t = await trip("LAND");
+    const p1 = await pilgrim(); const b1 = await add(t.id, p1);
+    const p2 = await pilgrim(); const b2 = await add(t.id, p2);
+    await db.booking.updateMany({ where: { id: { in: [b1.id, b2.id] } }, data: { priceManual: true, priceAmount: 800 } }); await db.booking.update({ where: { id: b1.id }, data: { roomType: "DOUBLE" } });
+    const g = await db.familyGroup.create({ data: { kind: "FAMILY" } });
+    await db.bookingGroupMember.createMany({ data: [{ bookingId: b1.id, groupId: g.id, isHead: true }, { bookingId: b2.id, groupId: g.id }] });
+    await db.officeRoomMember.deleteMany(); await db.officeRoom.deleteMany();
+    await db.$transaction(async (tx) => { await assignOfficeRooms(tx, t.id, [b1.id]); await db.$executeRawUnsafe("select 1"); });
+    await db.$transaction((tx) => assignOfficeRooms(tx, t.id, [b2.id]));
+    // force them apart (as old data had them), both AUTO
+    const r = await db.officeRoom.create({ data: { tripId: t.id, seq: 99, capacity: 4, category: "MEN" } });
+    await db.officeRoomMember.update({ where: { bookingId: b2.id }, data: { officeRoomId: r.id } });
+    expect(await roomOf(b1.id)).not.toBe(await roomOf(b2.id));
+    const res = await applyAccommodation(t.id, b2.id, { roomType: "DOUBLE" } as never);
+    expect(res.ok).toBe(true);
+    expect(await roomOf(b1.id)).toBe(await roomOf(b2.id));
+  });
+});

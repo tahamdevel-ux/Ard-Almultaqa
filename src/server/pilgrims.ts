@@ -6,7 +6,7 @@ import { auditChanges, PILGRIM_AUDITED } from "./audit";
 import { normalizePassport, normalizePhone, validatePassport, validatePhone } from "@/domain/identity";
 import { parseDate } from "@/domain/dates";
 import { addPilgrimToTrips } from "./bookings";
-import { assignOfficeRooms } from "@/officeRooms/service";
+import { assignOfficeRooms, gatherFamilyOfBooking } from "@/officeRooms/service";
 import { applyAccommodation, AccommodationError, type Accommodation } from "./accommodation";
 import { applyFamilyChoice, type FamilyChoice } from "./families";
 
@@ -134,6 +134,7 @@ export async function createPilgrimWithTrips(user: SessionUser, data: PilgrimInp
           if (!r.ok) throw new AccommodationError(r.error); // rolls back the pilgrim and every booking
         }
         if (!(await tx.officeRoomMember.findUnique({ where: { bookingId: booking.id } }))) await assignOfficeRooms(tx, tripId, [booking.id]); // together with his family, automatically
+        if (f) await gatherFamilyOfBooking(tx, tripId, booking.id); // joined a family: it sits in one room, whatever was placed before
       }
       return { ok: true, id: p.id, bookingIds } as ActionState;
     });

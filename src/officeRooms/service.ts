@@ -108,6 +108,12 @@ export async function gatherGroupInOfficeRooms(tx: Tx, tripId: string, groupId: 
   return assignOfficeRooms(tx, tripId, ids);
 }
 
+/** After a family link or an accommodation change of one pilgrim: his family / companions share one office room again. */
+export async function gatherFamilyOfBooking(tx: Tx, tripId: string, bookingId: string) {
+  const links = await tx.bookingGroupMember.findMany({ where: { bookingId }, select: { groupId: true } });
+  for (const l of links) await gatherGroupInOfficeRooms(tx, tripId, l.groupId);
+}
+
 /** A cancelled / removed / moved booking leaves its room; the room keeps its number. */
 export async function freeOfficeBeds(tx: DbLike, bookingIds: string[]) {
   if (bookingIds.length) await tx.officeRoomMember.deleteMany({ where: { bookingId: { in: bookingIds } } });

@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { db, type DbTx } from "./db";
 import { withTripLock } from "./buses";
-import { assignOfficeRooms, placeInRoomByLabel } from "@/officeRooms/service";
+import { assignOfficeRooms, gatherFamilyOfBooking, placeInRoomByLabel } from "@/officeRooms/service";
 import { busRoleConflict } from "./buses";
 import { isTripRole, type TripRole } from "@/domain/tripRoles";
 import { computePrice, type RoomKind } from "@/domain/pricing";
@@ -131,6 +131,7 @@ export async function applyAccommodation(tripId: string, bookingId: string, a: A
     } else if (!(await tx.officeRoomMember.findUnique({ where: { bookingId } }))) {
       await assignOfficeRooms(tx, tripId, [bookingId]); // rooming waited for the hotel / room type chosen here
     }
+    if (!a.officeRoom) await gatherFamilyOfBooking(tx, tripId, bookingId); // a family stays in one room after its hotel / room type changes
     return { ok: true } as AccResult;
   }).catch((e) => { if (e instanceof RollbackError) return { ok: false, error: e.message } as AccResult; throw e; });
 }
