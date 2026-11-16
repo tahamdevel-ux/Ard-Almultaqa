@@ -47,7 +47,7 @@ import { passportExpiryWarning } from "@/domain/passport";
 
 const CITY_AR = { MAKKAH: "مكة المكرمة", MADINAH: "المدينة المنورة" } as const;
 const CITY_EN = { MAKKAH: "Makkah", MADINAH: "Madinah" } as const;
-const ROOM_EN = { SINGLE: "Single", DOUBLE: "Double", TRIPLE: "Triple", QUAD: "Quad", QUINT: "Quint" } as const;
+const ROOM_EN = { SINGLE: "Single", DOUBLE: "Double", TRIPLE: "Triple", QUAD: "Quad", QUINT: "Quint", SEXT: "Sext", SEPT: "Sept" } as const;
 
 /** Hotel rooming list: built from the office rooms, shows the HOTEL's own room number (blank when not entered) and never the office label. `tripHotelId` picks one Makkah hotel; Madinah has the trip's fixed hotel. */
 export async function roomingData(tripId: string, city: "MAKKAH" | "MADINAH", tripHotelId?: string) {

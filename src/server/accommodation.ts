@@ -120,6 +120,8 @@ export async function applyAccommodation(tripId: string, bookingId: string, a: A
       if (clash) throw new RollbackError(clash);
       data.tripRole = role;
     }
+    // a new Makkah hotel: an automatically placed pilgrim leaves his old room (it belongs to the old hotel) and is placed again below
+    if (typeof data.tripHotelId === "string" && data.tripHotelId !== b.tripHotelId) await tx.officeRoomMember.deleteMany({ where: { bookingId, assignedBy: "AUTO", officeRoom: { locked: false } } });
     await tx.booking.update({ where: { id: bookingId }, data });
     for (const [city, hotelId, no] of [["MAKKAH", mk, a.makkahRoomNo ?? ""], ["MADINAH", md, a.madinahRoomNo ?? ""]] as const) {
       const err = await placeInRoom(tx, tripId, bookingId, city, hotelId, a.roomType ?? b.roomType ?? null, no);

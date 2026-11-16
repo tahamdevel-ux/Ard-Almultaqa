@@ -9,7 +9,7 @@ export type AccValues = { makkahHotelId: string; madinahHotelId: string; roomTyp
 export type PricedHotel = { id: string; name: string };
 /** Price table of one priced hotel (USD), for the live price line. */
 export type PriceTables = Record<string, { prices: Record<string, number>; noHousing: number | null }>;
-const TYPES = [["", "—"], ["SINGLE", "سنكل"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"]];
+const TYPES = [["", "—"], ["SINGLE", "سنكل"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"], ["SEXT", "سداسية"], ["SEPT", "سباعية"]];
 
 /** Hotel per city, room type and room numbers for one pilgrim. Names match accommodationFromForm(). */
 export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc", nameSuffix = "", priced, air, tables, sarfAmount }: { hotels: HotelOpt[]; priced?: PricedHotel[]; air?: boolean; tables?: PriceTables; sarfAmount?: number | null; values: AccValues; onChange?: (v: AccValues) => void; idPrefix?: string; nameSuffix?: string }) {

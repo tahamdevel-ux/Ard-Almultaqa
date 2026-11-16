@@ -4,7 +4,7 @@ import type { TripActionState } from "@/app/(app)/trips/actions";
 import { MODE_LABELS, TRANSPORT_MODES, type TransportMode } from "@/domain/transport";
 
 type Act = (p: TripActionState, f: FormData) => Promise<TripActionState>;
-const ROOM_TYPES: [string, string][] = [["SINGLE", "سنكل"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"]];
+const ROOM_TYPES: [string, string][] = [["SINGLE", "سنكل"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"], ["SEXT", "سداسية"], ["SEPT", "سباعية"]];
 const boxes = () => [...document.querySelectorAll<HTMLInputElement>("input[name=bookingIds]")];
 
 /** Header checkbox: ticks / unticks every pilgrim currently shown. */

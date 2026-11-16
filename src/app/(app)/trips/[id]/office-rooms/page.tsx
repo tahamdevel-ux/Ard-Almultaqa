@@ -26,16 +26,16 @@ export default async function OfficeRoomsPage({ params }: { params: Promise<{ id
   const nameOf = new Map(pilgrims.map((p) => [p.id, tripleNameAr(p)]));
   const passportOf = new Map(pilgrims.map((p) => [p.id, p.passportNo]));
   const person = (bookingId: string, gender: "MALE" | "FEMALE", group?: string): BoardPerson => ({
-    bookingId, gender, passport: passportOf.get(names.get(bookingId)!.pilgrimId) ?? "", name: nameOf.get(names.get(bookingId)!.pilgrimId) ?? "", locked: false, group, head: !!names.get(bookingId)?.groups.some((g) => g.isHead && g.group.kind === "FAMILY"),
+    bookingId, gender, tripHotelId: names.get(bookingId)?.tripHotelId ?? null, passport: passportOf.get(names.get(bookingId)!.pilgrimId) ?? "", name: nameOf.get(names.get(bookingId)!.pilgrimId) ?? "", locked: false, group, head: !!names.get(bookingId)?.groups.some((g) => g.isHead && g.group.kind === "FAMILY"),
   });
   const hotelNames = new Map((await db.tripHotel.findMany({ where: { tripId: id }, include: { hotel: true } })).map((h) => [h.id, h.hotel.localName ?? h.hotel.officialName]));
-  const roomNos = new Map((await db.officeRoom.findMany({ where: { tripId: id }, select: { id: true, makkahHotelRoomNo: true, madinahHotelRoomNo: true } })).map((r) => [r.id, r]));
+  const roomNos = new Map((await db.officeRoom.findMany({ where: { tripId: id }, select: { id: true, makkahHotelRoomNo: true, madinahHotelRoomNo: true, note: true } })).map((r) => [r.id, r]));
   const agentNames = new Map((await db.agent.findMany({ select: { id: true, name: true } })).map((a) => [a.id, a.name]));
   const groupLabel = (bookingId: string) => { const g = names.get(bookingId)?.groups[0]; return g ? (g.group.kind === "FAMILY" ? "عائلة" : "عصبة") : undefined; };
   const ordered = printOrder(state.rooms);
   const cards: BoardCard[] = ordered.map((r: OfficeRoomState) => ({
     id: r.id, hotelId: r.hotelId ?? null, label: roomLabel(r), typeLabel: r.roomType ? ROOM_TYPE_LABELS[r.roomType as RoomTypeKey] : `${r.capacity} (افتراضي)`, category: r.category, capacity: r.capacity, locked: r.locked,
-    hotel: r.hotelId ? hotelNames.get(r.hotelId) : undefined, makkahNo: roomNos.get(r.id)?.makkahHotelRoomNo ?? "", madinahNo: roomNos.get(r.id)?.madinahHotelRoomNo ?? "",
+    hotel: r.hotelId ? hotelNames.get(r.hotelId) : undefined, name: roomNos.get(r.id)?.note ?? "", makkahNo: roomNos.get(r.id)?.makkahHotelRoomNo ?? "", madinahNo: roomNos.get(r.id)?.madinahHotelRoomNo ?? "",
     people: r.members.map((m) => ({ ...person(m.bookingId, m.gender, groupLabel(m.bookingId)), agent: m.agentId ? agentNames.get(m.agentId) : undefined, noHousing: m.noHousing, manual: m.assignedBy === "MANUAL", warning: memberWarning(r, m, state.ctx.agentCodes) })),
   }));
   const housed = new Set(state.rooms.flatMap((r) => r.members.map((m) => m.bookingId)));
@@ -50,6 +50,7 @@ export default async function OfficeRoomsPage({ params }: { params: Promise<{ id
         <h1 className="page-title">غرف المكتب — {tripLabel(trip)}</h1>
         <div className="flex flex-wrap gap-2">
           <Link href={`/trips/${id}`} className="btn-secondary">رجوع للرحلة</Link>
+          <DownloadLink className="btn-secondary" href={`/api/trips/${id}/office-rooms/print?format=xlsx`}>تصدير Excel</DownloadLink>
           <DownloadLink className="btn" href={`/api/trips/${id}/office-rooms/print`}>طباعة التسكين الداخلي</DownloadLink>
         </div>
       </div>
@@ -59,7 +60,7 @@ export default async function OfficeRoomsPage({ params }: { params: Promise<{ id
         ))}
       </section>
       <p className="text-xs font-bold text-red-800"><span className="chip chip-bad me-1">داخلي للمكتب</span>لا يُسلَّم لأي جهة — أرقام الغرف هنا لا تظهر في أي مستند آخر.</p>
-      <OfficeBoard tripId={id} cards={cards} pool={pool} hotels={[...hotelNames].map(([hid, name]) => ({ id: hid, name }))} canEdit={w} isAdmin={can(user.role, "officeRooms.renumber")} />
+      <OfficeBoard tripId={id} cards={cards} pool={pool} hotels={[...hotelNames].map(([hid, name]) => ({ id: hid, name }))} canEdit={w} canHotel={can(user.role, "bookings.write")} isAdmin={can(user.role, "officeRooms.renumber")} />
     </div>
   );
 }

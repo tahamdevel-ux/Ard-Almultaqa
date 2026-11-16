@@ -15,8 +15,8 @@ const COLORS = {
   FAMILY: { label: "عائلة", bg: "#E2F1E5", fg: "#2E6B3F" },
   EMPTY: { label: "سرير فارغ", bg: "#FFF3D1", fg: "#8A6400" },
 } as const;
-const TYPE_AR: Record<string, string> = { SINGLE: "سنكل", DOUBLE: "ثنائي", TRIPLE: "ثلاثي", QUAD: "رباعي", QUINT: "خماسي" };
-const TYPE_ORDER = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"];
+const TYPE_AR: Record<string, string> = { SINGLE: "سنكل", DOUBLE: "ثنائي", TRIPLE: "ثلاثي", QUAD: "رباعي", QUINT: "خماسي", SEXT: "سداسي", SEPT: "سباعي" };
+const TYPE_ORDER = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT", "SEXT", "SEPT"];
 const ROOM_SLOTS = 17;
 
 /**
@@ -57,12 +57,13 @@ export async function renderOfficeRoomsPdf(tripId: string): Promise<Buffer> {
   const perType = TYPE_ORDER.map((t) => [t, state.rooms.filter((r) => r.roomType === t).length] as const).filter(([, c]) => c > 0);
   const noType = state.rooms.filter((r) => !r.roomType).length;
 
+  const rname = new Map((await db.officeRoom.findMany({ where: { tripId }, select: { id: true, note: true } })).map((r) => [r.id, r.note ?? ""]));
   const card = (r: (typeof rooms)[number]) => {
     const c = COLORS[r.category];
     const empty = Math.max(0, r.capacity - housedOf(r));
     const dense = r.members.length + empty > 6 ? " dense" : "";
     const typeLabel = r.roomType ? TYPE_AR[r.roomType] : `${r.capacity} أسرّة`;
-    return `<div class="room" style="border-color:${c.fg}"><div class="rh" style="background:${c.bg};color:${c.fg}"><b class="rl">${esc(roomLabel(r))}</b><span>${esc(typeLabel)} · ${c.label}${multiHotel && r.hotelId ? `<br><small class="hn">${esc(hotelName.get(r.hotelId) ?? "")}</small>` : ""}</span></div>
+    return `<div class="room" style="border-color:${c.fg}"><div class="rh" style="background:${c.bg};color:${c.fg}"><b class="rl">${esc(roomLabel(r))}</b><span>${esc(typeLabel)} · ${c.label}${rname.get(r.id) ? `<br><small class="hn">«${esc(rname.get(r.id)!)}»</small>` : ""}${r.hotelId ? `<br><small class="hn">${esc(hotelName.get(r.hotelId) ?? "")}</small>` : ""}</span></div>
       <ol class="mem${dense}">${r.members.map((m, i) => `<li><span class="n">${i + 1}.</span> ${esc(bookingName.get(m.bookingId) ?? "")}${byBooking.get(m.bookingId)?.groups.some((g) => g.isHead && g.group.kind === "FAMILY") ? ` <span class="tag">رب الأسرة</span>` : ""}${byBooking.get(m.bookingId)?.withFood === false ? ` <span class="nf">بدون طعام</span>` : ""}${m.noHousing ? ` <span class="nf">بدون سكن</span>` : ""}</li>`).join("")}${Array.from({ length: empty }, () => `<li class="emp">—&nbsp; فارغ &nbsp;—</li>`).join("")}</ol></div>`;
   };
   const summary = `<div class="room sum"><div class="rh" style="background:#1B2A4A;color:#fff"><b>الملخص · الرحلة كاملة</b></div>
@@ -126,19 +127,19 @@ export async function renderOfficeRoomsXlsx(tripId: string): Promise<Buffer> {
   ]);
   const P = new Map(pilgrims.map((p) => [p.id, p])), A = new Map(agents.map((a) => [a.id, a.name])), H = new Map(tripHotels.map((h) => [h.id, h.hotel.localName ?? h.hotel.officialName]));
   const byBooking = new Map(state.bookings.map((b) => [b.id, b]));
-  const meta = await db.officeRoom.findMany({ where: { tripId }, select: { id: true, makkahHotelRoomNo: true, madinahHotelRoomNo: true } });
+  const meta = await db.officeRoom.findMany({ where: { tripId }, select: { id: true, makkahHotelRoomNo: true, madinahHotelRoomNo: true, note: true } });
   const M = new Map(meta.map((m) => [m.id, m]));
   const CAT = { MEN: "رجال", WOMEN: "نساء", FAMILY: "عائلة" } as const;
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet("التسكين الداخلي", { views: [{ rightToLeft: true, state: "frozen", ySplit: 1 }] });
-  const cols: [string, number][] = [["الغرفة", 9], ["الفندق", 22], ["غرفة مكة", 11], ["غرفة المدينة", 12], ["نوع الغرفة", 11], ["التصنيف", 9], ["الاسم", 34], ["الوكيل", 20], ["رب الأسرة", 10], ["الطعام", 10], ["الهاتف", 16]];
+  const cols: [string, number][] = [["الغرفة", 9], ["الفندق", 22], ["غرفة مكة", 11], ["غرفة المدينة", 12], ["نوع الغرفة", 11], ["اسم الغرفة", 16], ["التصنيف", 9], ["الاسم", 34], ["الوكيل", 20], ["رب الأسرة", 10], ["الطعام", 10], ["الهاتف", 16]];
   ws.columns = cols.map(([header, width]) => ({ header, width }));
   ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
   ws.getRow(1).eachCell((c) => { c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF1B2A4A" } }; });
   for (const r of printOrder(state.rooms)) for (const m of r.members) {
     const b = byBooking.get(m.bookingId), p = b ? P.get(b.pilgrimId) : undefined;
     if (!b || !p) continue;
-    ws.addRow([roomLabel(r), r.hotelId ? H.get(r.hotelId) ?? "" : "", M.get(r.id)?.makkahHotelRoomNo ?? "", M.get(r.id)?.madinahHotelRoomNo ?? "", r.roomType ? TYPE_AR[r.roomType] : "", CAT[r.category],
+    ws.addRow([roomLabel(r), r.hotelId ? H.get(r.hotelId) ?? "" : "", M.get(r.id)?.makkahHotelRoomNo ?? "", M.get(r.id)?.madinahHotelRoomNo ?? "", r.roomType ? TYPE_AR[r.roomType] : "", M.get(r.id)?.note ?? "", CAT[r.category],
       tripleNameAr(p), m.agentId ? A.get(m.agentId) ?? "" : "", b.groups.some((g) => g.isHead && g.group.kind === "FAMILY") ? "نعم" : "", b.withFood ? "مع طعام" : "بدون طعام", p.phone ?? ""]);
   }
   ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: cols.length } };

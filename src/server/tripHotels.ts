@@ -7,7 +7,7 @@ import { computePrice, noHousingError, type RoomKind } from "@/domain/pricing";
 import { isMoney, paidTotal, round2 } from "@/domain/money";
 
 type Tx = DbTx;
-export const ROOM_KINDS: RoomKind[] = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"];
+export const ROOM_KINDS: RoomKind[] = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT", "SEXT", "SEPT"];
 
 /** Map "tripId:agentId" -> fixed commission override for those trips. */
 export async function commissionOverrides(tripIds: string[]) {

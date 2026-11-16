@@ -3,7 +3,7 @@ import { useActionState } from "react";
 import type { TripActionState } from "@/app/(app)/trips/actions";
 
 type Act = (p: TripActionState, f: FormData) => Promise<TripActionState>;
-const KINDS: [string, string][] = [["SINGLE", "سنكل"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"]];
+const KINDS: [string, string][] = [["SINGLE", "سنكل"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"], ["SEXT", "سداسية"], ["SEPT", "سباعية"]];
 export type HotelRow = { hotelId: string; name: string; used: number; prices: Record<string, number>; noHousingPrice: number | null };
 
 function Status({ st }: { st: TripActionState }) {

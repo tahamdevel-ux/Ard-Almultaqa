@@ -2,10 +2,10 @@
 import { useMemo, useState, useTransition } from "react";
 import { HeadTag } from "@/components/HeadTag";
 import { filterRooms, personMatches, roomStatus, type RoomFilter } from "@/domain/roomFilter";
-import { moveMember, moveMembers, newRoom, removeRoom, renumber, rerun, saveHotelNos, toggleLock, type OfficeActionState } from "@/app/(app)/trips/[id]/office-rooms/actions";
+import { moveMember, moveMembers, newRoom, removeRoom, renumber, rerun, saveHotelNos, saveRoomName, setPilgrimHotel, toggleLock, type OfficeActionState } from "@/app/(app)/trips/[id]/office-rooms/actions";
 
-export interface BoardPerson { bookingId: string; name: string; passport: string; gender: "MALE" | "FEMALE"; group?: string; manual?: boolean; warning?: string | null; locked: boolean; head?: boolean; agent?: string; noHousing?: boolean; reason?: string }
-export interface BoardCard { id: string; label: string; typeLabel: string; category: "MEN" | "WOMEN" | "FAMILY"; capacity: number; locked: boolean; hotel?: string; hotelId?: string | null; makkahNo?: string; madinahNo?: string; people: BoardPerson[] }
+export interface BoardPerson { bookingId: string; name: string; passport: string; gender: "MALE" | "FEMALE"; group?: string; manual?: boolean; warning?: string | null; locked: boolean; head?: boolean; agent?: string; noHousing?: boolean; reason?: string; tripHotelId?: string | null }
+export interface BoardCard { id: string; label: string; typeLabel: string; category: "MEN" | "WOMEN" | "FAMILY"; capacity: number; locked: boolean; hotel?: string; name?: string; hotelId?: string | null; makkahNo?: string; madinahNo?: string; people: BoardPerson[] }
 
 const CAT = {
   MEN: { label: "رجال", bg: "#DCE8F6", fg: "#1F4E8C" },
@@ -14,6 +14,17 @@ const CAT = {
 } as const;
 const EMPTY = { bg: "#FFF3D1", fg: "#8A6400" };
 const housedOf = (c: BoardCard) => c.people.filter((p) => !p.noHousing).length;
+
+/** The room's own name, optional: saved by itself when the field is left. */
+function RoomName({ tripId, room, run }: { tripId: string; room: BoardCard; run: (fn: () => Promise<OfficeActionState>) => void }) {
+  const [v, setV] = useState(room.name ?? "");
+  const save = () => { if (v !== (room.name ?? "")) run(() => saveRoomName(tripId, room.id, v)); };
+  return (
+    <div className="border-b border-line px-2 py-1.5">
+      <input aria-label={`اسم الغرفة ${room.label}`} placeholder="اسم الغرفة (اختياري)" value={v} maxLength={40} onChange={(e) => setV(e.target.value)} onBlur={save} onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()} className="input min-h-8 w-full py-1 text-sm" />
+    </div>
+  );
+}
 
 /** The hotel's own room numbers of one room: saved by themselves when the field is left (no save button). */
 function HotelNos({ tripId, room, canEdit, run }: { tripId: string; room: BoardCard; canEdit: boolean; run: (fn: () => Promise<OfficeActionState>) => void }) {
@@ -35,7 +46,7 @@ function HotelNos({ tripId, room, canEdit, run }: { tripId: string; room: BoardC
  * Office rooms: search and filter, cards or a table, tick pilgrims and move them (works on a phone, no dragging needed),
  * drag and drop on a computer, the hotel's room numbers saved as you type. Internal use only.
  */
-export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, isAdmin }: { tripId: string; cards: BoardCard[]; pool: BoardPerson[]; hotels: { id: string; name: string }[]; canEdit: boolean; isAdmin: boolean }) {
+export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, canHotel, isAdmin }: { tripId: string; cards: BoardCard[]; pool: BoardPerson[]; hotels: { id: string; name: string }[]; canEdit: boolean; canHotel?: boolean; isAdmin: boolean }) {
   const [msg, setMsg] = useState<OfficeActionState | null>(null);
   const [pending, start] = useTransition();
   const [over, setOver] = useState<string | null>(null);
@@ -71,6 +82,13 @@ export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, isAdmin }: {
       <span className="min-w-0 flex-1">
         <span className="block truncate font-bold">{p.name}{p.head && <HeadTag />}</span>
         <span className="block truncate text-xs text-brand-mid">{[p.agent, p.group, p.noHousing && "بدون سكن", p.reason].filter(Boolean).join(" · ")}</span>
+        {canHotel && hotels.length > 1 && !room?.locked && (
+          <select aria-label={`فندق مكة لـ ${p.name}`} title="فندق مكة لهذا المعتمر وحده" className="mt-0.5 w-full max-w-[14rem] rounded border border-line bg-white px-1 py-0.5 text-xs" value={p.tripHotelId ?? ""}
+            onChange={(e) => { const v = e.target.value; if (v) run(() => setPilgrimHotel(tripId, p.bookingId, v)); }}>
+            {!p.tripHotelId && <option value="">فندق مكة: غير محدد</option>}
+            {hotels.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+          </select>
+        )}
       </span>
       {p.manual && <span title="نُقل يدوياً" aria-label="يدوي" className="flex-none text-xs">✋</span>}
       {p.warning && <span className="flex-none font-bold text-red-700" role="note" title={p.warning}>⚠</span>}
@@ -88,7 +106,7 @@ export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, isAdmin }: {
           <>
             <button type="button" className="btn" disabled={pending} onClick={() => run(() => rerun(tripId))} title="يوزّع غير الموزَّعين فقط ولا يمس الغرف المقفلة ولا من نُقل يدوياً">وزّع المعتمرين تلقائياً</button>
             <select aria-label="نوع الغرفة الجديدة" className="input w-auto" value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="">غرفة بسعة افتراضية</option><option value="SINGLE">سنكل</option><option value="DOUBLE">ثنائية</option><option value="TRIPLE">ثلاثية</option><option value="QUAD">رباعية</option><option value="QUINT">خماسية</option>
+              <option value="">غرفة بسعة افتراضية</option><option value="SINGLE">سنكل</option><option value="DOUBLE">ثنائية</option><option value="TRIPLE">ثلاثية</option><option value="QUAD">رباعية</option><option value="QUINT">خماسية</option><option value="SEXT">سداسية</option><option value="SEPT">سباعية</option>
             </select>
             <button type="button" className="btn-secondary" disabled={pending} onClick={() => run(() => newRoom(tripId, type))}>+ غرفة فارغة</button>
             {isAdmin && (
@@ -144,10 +162,11 @@ export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, isAdmin }: {
                   className={"overflow-hidden rounded-xl border-2 bg-white " + (over === c.id ? "ring-2 ring-brand" : "")} style={{ borderColor: cat.fg }}>
                   <div className="flex items-center gap-2 px-3 py-2" style={{ background: cat.bg, color: cat.fg }}>
                     <span className="text-xl font-bold" dir="ltr">{c.label}</span>
-                    <span className="min-w-0 flex-1 text-xs font-bold leading-tight">{c.typeLabel} · {cat.label}{c.hotel && <span className="block truncate font-normal">{c.hotel}</span>}</span>
+                    <span className="min-w-0 flex-1 text-xs font-bold leading-tight">{c.typeLabel} · {cat.label}{c.name && <span className="block truncate font-normal">«{c.name}»</span>}{c.hotel && <span className="block truncate font-normal">{c.hotel}</span>}</span>
                     <span className={"rounded-full px-2 py-0.5 text-[11px] font-bold " + (st === "full" ? "bg-white/70" : st === "empty" ? "bg-white/70" : "bg-amber-100 text-amber-900")}>{st === "full" ? "ممتلئة" : st === "empty" ? "فارغة" : `${empty} شاغر`}</span>
                     {canEdit && <button type="button" aria-label={c.locked ? "فتح القفل" : "قفل الغرفة"} title={c.locked ? "مقفلة" : "قفل"} className="text-base max-md:min-h-11 max-md:min-w-11" onClick={() => run(() => toggleLock(tripId, c.id))}>{c.locked ? "🔒" : "🔓"}</button>}
                   </div>
+                  {(canEdit || c.name) && <RoomName key={c.id + (c.name ?? "")} tripId={tripId} room={c} run={run} />}
                   <HotelNos key={c.id + (c.makkahNo ?? "") + (c.madinahNo ?? "")} tripId={tripId} room={c} canEdit={canEdit} run={run} />
                   <div className="space-y-1.5 p-2">
                     {c.people.map((p, i) => personRow(p, i, c))}
@@ -176,7 +195,7 @@ export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, isAdmin }: {
                     <tr key={c.id} data-room={c.label}>
                       <td className="td font-bold" dir="ltr">{c.locked ? "🔒 " : ""}{c.label}</td>
                       <td className="td text-sm">{hotelName(c.hotelId) || "—"}</td>
-                      <td className="td text-sm">{c.typeLabel} · {CAT[c.category].label}</td>
+                      <td className="td text-sm">{c.typeLabel} · {CAT[c.category].label}{c.name && <div className="font-bold">«{c.name}»</div>}</td>
                       <td className="td text-sm">{c.people.map((p, i) => <div key={p.bookingId} className={personMatches(p, f.q) ? "rounded bg-gold-light px-1" : ""}>{i + 1}. {p.name}{p.noHousing ? " (بدون سكن)" : ""}{p.warning ? " ⚠" : ""}</div>)}</td>
                       <td className="td"><span className={"chip " + (st === "full" ? "chip-ok" : st === "empty" ? "chip-gray" : "chip-warn")}>{st === "full" ? "ممتلئة" : st === "empty" ? "فارغة" : `${c.capacity - c.housed} شاغر`}</span></td>
                       <td className="td" colSpan={2}><HotelNos key={c.id + (c.makkahNo ?? "") + (c.madinahNo ?? "")} tripId={tripId} room={c} canEdit={canEdit} run={run} /></td>

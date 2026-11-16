@@ -1,4 +1,5 @@
 "use server";
+import { applyAccommodation } from "@/server/accommodation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
 import { AuthError, requirePermission } from "@/server/auth";
@@ -10,7 +11,7 @@ import { ROOM_BEDS, type RoomTypeKey } from "@/domain/rooming";
 export type OfficeActionState = { ok?: boolean; error?: string; info?: string };
 const touch = (tripId: string) => revalidatePath(`/trips/${tripId}/office-rooms`);
 
-async function guarded(tripId: string, perm: "officeRooms.write" | "officeRooms.renumber", fn: (u: Awaited<ReturnType<typeof requirePermission>>) => Promise<OfficeActionState>): Promise<OfficeActionState> {
+async function guarded(tripId: string, perm: "officeRooms.write" | "officeRooms.renumber" | "bookings.write", fn: (u: Awaited<ReturnType<typeof requirePermission>>) => Promise<OfficeActionState>): Promise<OfficeActionState> {
   try {
     const u = await requirePermission(perm);
     const trip = await db.trip.findFirst({ where: { id: tripId, deletedAt: null } });
@@ -79,6 +80,29 @@ export async function saveHotelNos(tripId: string, roomId: string, makkah: strin
       await auditChanges(tx, u, "OfficeRoom", roomId, before, after, ["makkahHotelRoomNo", "madinahHotelRoomNo"] as never);
     });
     touch(tripId); return { ok: true };
+  });
+}
+
+/** The room's own name (optional, e.g. «غرفة أبو أحمد»): saved when the field is left. */
+export async function saveRoomName(tripId: string, roomId: string, name: string): Promise<OfficeActionState> {
+  return guarded(tripId, "officeRooms.write", async (u) => {
+    await db.$transaction(async (tx) => {
+      const before = await tx.officeRoom.findFirstOrThrow({ where: { id: roomId, tripId } });
+      const after = await tx.officeRoom.update({ where: { id: roomId }, data: { note: name.trim().slice(0, 40) || null } });
+      await auditChanges(tx, u, "OfficeRoom", roomId, before, after, ["note"] as never);
+    });
+    touch(tripId); return { ok: true };
+  });
+}
+
+/** One pilgrim's Makkah hotel (one of the trip's priced hotels), changed on its own from the rooming screen. */
+export async function setPilgrimHotel(tripId: string, bookingId: string, tripHotelId: string): Promise<OfficeActionState> {
+  return guarded(tripId, "bookings.write", async () => {
+    const th = await db.tripHotel.findFirst({ where: { id: tripHotelId, tripId } });
+    if (!th) return { error: "الفندق غير مُدرج في أسعار الرحلة" };
+    const r = await applyAccommodation(tripId, bookingId, { makkahHotelId: th.hotelId });
+    touch(tripId);
+    return r.ok ? { ok: true } : { error: r.error };
   });
 }
 

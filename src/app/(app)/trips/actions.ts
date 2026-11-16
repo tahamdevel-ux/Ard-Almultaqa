@@ -340,7 +340,7 @@ export async function unarchiveTrip(tripId: string): Promise<TripActionState> {
 
 async function isArchived(tripId: string) { return !!(await db.trip.findFirst({ where: { id: tripId, archivedAt: { not: null } }, select: { id: true } })); }
 
-const KINDS = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT"] as const;
+const KINDS = ["SINGLE", "DOUBLE", "TRIPLE", "QUAD", "QUINT", "SEXT", "SEPT"] as const;
 const num = (v: string) => (v === "" ? null : Number(v));
 
 /** Priced Makkah hotels of a trip: the hotels already on the trip (fields h_<id>_<TYPE>/h_<id>_NOHOUSING/h_<id>_remove) plus one new hotel (newHotel + new_<TYPE>). */

@@ -165,3 +165,10 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 ### Deleted and archived trips (Nov 14, decisions)
 - **Deleted trips:** deleting stays always allowed. Money kept on a deleted trip (paid and not refunded) still counts in Accounts (received, trips and pilgrims tabs, with a «محذوفة» chip), so Accounts, the agent statements and the payments log all say the same. A deleted trip whose bookings hold no money is left out of the lists. It never adds anything to "المطلوب" (its bookings are cancelled).
 - **Archived trips:** payments and refunds can still be recorded (old debts get settled late). The booking's price, cancellation and moving it to another trip are refused (message: archived trip, view and print only), and the booking page hides those forms. Nobody can be moved INTO an archived trip. Unarchiving (admin) reopens everything.
+
+## Rooming additions (Nov 2026)
+- Room types سداسية (SEXT, 6 beds) and سباعية (SEPT, 7 beds) added everywhere السنكل…الخماسية exist (price table, forms, bulk bar, rooming, prints). Additive migration only.
+- A room can carry an optional name (`OfficeRoom.note`, ≤ 40 chars): saved on blur, shown beside the room type, in the internal PDF and Excel. Internal only.
+- The internal PDF names the hotel on every room (not only when the trip has several hotels). Hotel lists sent outside still never carry internal numbers or names.
+- Excel of the internal rooming is one click on the rooming screen (same file as the prints tab).
+- A pilgrim's Makkah hotel can be changed alone from the rooming screen (trips with more than one priced hotel). The price is recomputed unless it was typed by hand; an automatically placed pilgrim leaves his old room and is placed again in a room of the new hotel; a family is gathered again.

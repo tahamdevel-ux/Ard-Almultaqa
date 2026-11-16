@@ -229,4 +229,22 @@ describe("office rooms: a family always shares one room", () => {
     expect(res.ok).toBe(true);
     expect(await roomOf(b1.id)).toBe(await roomOf(b2.id));
   });
+
+  it("a new Makkah hotel moves an automatically placed pilgrim to a room of that hotel; سداسية and سباعية rooms hold 6 and 7", async () => {
+    const { applyAccommodation } = await import("@/server/accommodation");
+    const t = await trip("LAND");
+    const h1 = await db.hotel.create({ data: { officialName: "H1", city: "MAKKAH" } }), h2 = await db.hotel.create({ data: { officialName: "H2", city: "MAKKAH" } });
+    const th1 = await db.tripHotel.create({ data: { tripId: t.id, hotelId: h1.id, prices: { create: [{ roomType: "SEPT", amount: 300 }] } } });
+    const th2 = await db.tripHotel.create({ data: { tripId: t.id, hotelId: h2.id, prices: { create: [{ roomType: "SEPT", amount: 320 }, { roomType: "SEXT", amount: 340 }] } } });
+    const p = await pilgrim(); const b = await add(t.id, p);
+    await db.booking.update({ where: { id: b.id }, data: { priceManual: true, priceAmount: 300 } });
+    expect((await applyAccommodation(t.id, b.id, { makkahHotelId: h1.id, roomType: "SEPT" } as never)).ok).toBe(true);
+    let m = await db.officeRoomMember.findUniqueOrThrow({ where: { bookingId: b.id }, include: { officeRoom: true } });
+    expect(m.officeRoom.tripHotelId).toBe(th1.id);
+    expect(m.officeRoom.capacity).toBe(7);
+    expect((await applyAccommodation(t.id, b.id, { makkahHotelId: h2.id, roomType: "SEXT" } as never)).ok).toBe(true);
+    m = await db.officeRoomMember.findUniqueOrThrow({ where: { bookingId: b.id }, include: { officeRoom: true } });
+    expect(m.officeRoom.tripHotelId).toBe(th2.id);
+    expect(m.officeRoom.capacity).toBe(6);
+  });
 });

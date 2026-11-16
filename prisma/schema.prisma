@@ -73,6 +73,8 @@ enum RoomType {
   TRIPLE
   QUAD
   QUINT
+  SEXT
+  SEPT
 }
 enum GroupKind {
   FAMILY

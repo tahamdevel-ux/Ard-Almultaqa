@@ -162,6 +162,13 @@ test("rooming: search finds the room, ticked pilgrims move to a new room, hotel 
   await expect(page.getByLabel(/^غرفة مكة للغرفة/).first()).toHaveValue(/.+/);
   const vals = await page.getByLabel(/^غرفة مكة للغرفة/).evaluateAll((els) => els.map((e) => (e as HTMLInputElement).value));
   expect(vals).toContain("1507");
+  // the room's own name is saved the same way, and Excel is one click away on this screen
+  await page.getByLabel(/^اسم الغرفة/).first().fill("غرفة أبو أحمد");
+  await page.getByLabel(/^اسم الغرفة/).first().blur();
+  await page.waitForTimeout(800);
+  await page.reload();
+  await expect(page.getByText("«غرفة أبو أحمد»").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "تصدير Excel" }).or(page.getByRole("link", { name: "تصدير Excel" }))).toBeVisible();
 });
 
 test("trip page: tick pilgrims, set hotel-less room type for all of them at once", async ({ page }) => {

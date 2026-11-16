@@ -1,6 +1,6 @@
 /** Pure pricing rules for the Makkah-hotel price table (USD, cents allowed). */
 import { round2 } from "./money";
-export type RoomKind = "SINGLE" | "DOUBLE" | "TRIPLE" | "QUAD" | "QUINT";
+export type RoomKind = "SINGLE" | "DOUBLE" | "TRIPLE" | "QUAD" | "QUINT" | "SEXT" | "SEPT";
 
 export interface HotelPriceTable { prices: Partial<Record<RoomKind, number>>; noHousingPrice: number | null }
 
