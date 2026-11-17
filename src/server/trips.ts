@@ -6,6 +6,7 @@ import { tripCounter } from "@/domain/capacity";
 import { readiness } from "@/domain/readiness";
 import { getSetting } from "./settings";
 import { headsByTrip } from "./families";
+import { clusterOrder } from "@/domain/clusterOrder";
 
 export async function loadTripDetail(tripId: string) {
   const trip = await db.trip.findFirst({
@@ -32,7 +33,7 @@ export async function loadTripDetail(tripId: string) {
     where: { pilgrimId: { in: pilgrimIds }, tripId: { not: tripId }, status: "ACTIVE", deletedAt: null, trip: { deletedAt: null, status: { not: "CANCELLED" } } },
     include: { trip: true },
   });
-  const rows = bookings.map((b) => {
+  const rows0 = bookings.map((b) => {
     const { ready } = readiness({ bookingActive: true, passportNo: b.pilgrim.passportNo });
     const warnings: string[] = [];
     const pw = passportExpiryWarning(b.pilgrim.passportExpiry, trip.returnDate, minMonths);
@@ -41,6 +42,8 @@ export async function loadTripDetail(tripId: string) {
     if (overlap) warnings.push(`متداخل مع الرحلة ${tripLabel(overlap.trip)}`);
     return { booking: b, warnings, ready };
   });
+  // family members and room-mates next to each other
+  const rows = clusterOrder(rows0, (r) => ({ groupIds: r.booking.groups.map((g) => g.groupId), roomId: r.booking.officeMember?.officeRoomId ?? null, head: r.booking.groups.some((g) => g.isHead && g.group.kind === "FAMILY") }));
   const counter = tripCounter({ capacity: trip.capacity, bookings: rows.map((r) => ({ ready: r.ready })) });
   return { trip, rows, counter };
 }

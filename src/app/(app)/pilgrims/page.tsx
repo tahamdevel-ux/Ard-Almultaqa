@@ -12,6 +12,7 @@ import { roomLabel } from "@/domain/officeRooms";
 import { addMonths } from "@/domain/dates";
 import { getSetting } from "@/server/settings";
 import { TRIP_ORDER } from "@/server/trips";
+import { clusterOrder } from "@/domain/clusterOrder";
 import { listQuery, nextSort, parseListParams, type PilgrimSort } from "@/domain/listParams";
 
 const LIMIT = 300;
@@ -86,6 +87,8 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
       g.list.push(p); groups.set(t?.id ?? "none", g);
     }
   }
+  // default order: family members and room-mates of a trip together (an explicit sort keeps exactly what was asked)
+  if (lp.sort === "new") for (const g of groups.values()) g.list = clusterOrder(g.list, (p) => { const b = p.bookings.find((x) => x.tripId === g.trip?.id); return { groupIds: b?.groups.map((x) => x.groupId) ?? [], roomId: b?.officeMember?.officeRoomId ?? null, head: !!b?.groups.some((x) => x.isHead) }; });
   const ordered = [...groups.values()].sort((a, b) => {
     if (!a.trip) return 1; if (!b.trip) return -1;
     // newest created trip first (same order as everywhere else); ties by id
