@@ -177,3 +177,9 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - A link joins any number of pilgrims of ONE trip (brothers, spouses, father and son…) under one colour; they may sit in different rooms. It is only a visual marker: it never moves anyone, never touches prices, rooms or seats.
 - Made from the ticked pilgrims on the trip page (bulk bar «ارتباط…») or the rooming screen («ربط (ارتباط)»); optional short note (e.g. أخوة). Linking people who already have links merges them into one. A link with fewer than two live members is not shown (and is deleted on «فك الارتباط»). Requires the bookings.write permission. Every change is audited (entity BookingLink).
 - Colour = the lowest of 10 palette colours not used by another link of the trip (distinct from the room category colours).
+
+## Internal rooming in the office's Excel template (Nov 2026)
+- «تصدير Excel» of the internal rooming now fills the office template (`src/outputs/templates/office_rooms.xlsx`, only cell values/styles written): 16 rooms per sheet, a further sheet per 16. Room label + type above each room in the colour of its hotel (the template's legend colours for its known hotels, spare colours for others), hotel name (+ the room's name) in the green box, names in the rows, statistics panel (rooms, people, per type incl. سداسي/سباعي) with formulas and cached values, notes area untouched.
+- A pilgrim in an «ارتباط» has his name cell tinted with the link colour; the colours are listed under the notes box.
+- A 7-bed room has one row too few in the template: its last two names share the last row (« + »). The old one-row-per-pilgrim sheet stays available as `?format=xlsx&layout=list`.
+- Order of rooms = the PDF's order (printOrder). Not verified in desktop Excel itself (checked with LibreOffice, ExcelJS and openpyxl).

@@ -3,6 +3,7 @@ import { db } from "@/server/db";
 import { AuthError, requirePermission } from "@/server/auth";
 import { canSeeTrip } from "@/server/trips";
 import { renderOfficeRoomsPdf, renderOfficeRoomsXlsx } from "@/officeRooms/print";
+import { renderOfficeRoomsTemplateXlsx } from "@/officeRooms/templateXlsx";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -16,7 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!trip) return NextResponse.json({ error: "not found" }, { status: 404 });
     if (!canSeeTrip(user, trip)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
     if (new URL(req.url).searchParams.get("format") === "xlsx") {
-      const x = await renderOfficeRoomsXlsx(id);
+      const x = new URL(req.url).searchParams.get("layout") === "list" ? await renderOfficeRoomsXlsx(id) : await renderOfficeRoomsTemplateXlsx(id); // the office template by default; layout=list = one row per pilgrim
       return new NextResponse(new Uint8Array(x), { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="office-rooms-${trip.tripNo ?? trip.id.slice(0, 8)}.xlsx"`, "Cache-Control": "private, no-store" } });
     }
     const buf = await renderOfficeRoomsPdf(id);
