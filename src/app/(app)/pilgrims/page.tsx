@@ -1,3 +1,4 @@
+import { LiveQueryInput } from "@/components/LiveQueryInput";
 import Link from "next/link";
 import { db } from "@/server/db";
 import { requirePage } from "@/server/auth";
@@ -102,8 +103,8 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
       </div>
       {savedPilgrim && <Toast text={`تم حفظ ${fullNameAr(savedPilgrim)}`} />}
       <form className="flex flex-wrap items-end gap-2">
-        <input name="q" defaultValue={q} placeholder="بحث: رقم الجواز، الاسم بالعربي أو الإنكليزي، الهاتف" aria-label="بحث" className="input min-w-[12rem] flex-1" />
-        {showRooms && <input name="room" defaultValue={room} placeholder="غرفة المكتب (مثل a12)" aria-label="غرفة المكتب" className="input w-44" dir="ltr" />}
+        <LiveQueryInput name="q" defaultValue={q} placeholder="بحث: رقم الجواز، الاسم بالعربي أو الإنكليزي، الهاتف" aria-label="بحث" className="input min-w-[12rem] flex-1" />
+        {showRooms && <LiveQueryInput name="room" defaultValue={room} placeholder="غرفة المكتب (مثل a12)" aria-label="غرفة المكتب" className="input w-44" dir="ltr" />}
         <select name="trip" aria-label="الرحلة" defaultValue={lp.trip} className="input w-48"><option value="">كل الرحلات</option>{tripOpts.map((t) => <option key={t.id} value={t.id}>{t.tripNo ?? t.name}</option>)}</select>
         <select name="agent" aria-label="الوكيل" defaultValue={lp.agent} className="input w-44"><option value="">كل الوكلاء</option>{agentOpts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
         {lp.f && <input type="hidden" name="f" value={lp.f} />}{lp.sort !== "new" && <><input type="hidden" name="sort" value={lp.sort} /><input type="hidden" name="dir" value={lp.dir} /></>}

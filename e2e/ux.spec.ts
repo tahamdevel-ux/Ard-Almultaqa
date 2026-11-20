@@ -221,3 +221,18 @@ test("new pilgrim: the price line follows the chosen hotel and room type", async
   await page.locator(`select[name="roomType__${id}"]`).selectOption("QUAD");
   await expect(page.getByRole("status").filter({ hasText: "السعر حسب الجدول" })).toContainText("$");
 });
+
+test("pilgrims list: the search follows what is typed, no button needed", async ({ page }) => {
+  await login(page);
+  await page.goto("/pilgrims");
+  await page.waitForLoadState("networkidle");
+  const rows = page.locator("tbody tr[data-href]");
+  const before = await rows.count();
+  expect(before).toBeGreaterThan(1);
+  await page.getByLabel("بحث", { exact: true }).fill("ZZZ-no-such");
+  await expect(page).toHaveURL(/q=ZZZ-no-such/);
+  await expect(page.getByText("لا توجد نتائج")).toBeVisible();
+  await page.getByLabel("بحث", { exact: true }).fill("");
+  await expect(page).not.toHaveURL(/q=/);
+  await expect(rows).toHaveCount(before);
+});
