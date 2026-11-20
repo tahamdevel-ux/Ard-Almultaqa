@@ -1,4 +1,5 @@
 "use server";
+import { linkBookings, unlinkBookings } from "@/server/links";
 import { isMoney } from "@/domain/money";
 import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
@@ -459,6 +460,20 @@ export async function bulkAccommodation(tripId: string, _p: TripActionState, f: 
 }
 
 /** Sets the transport (bus / car / flight) of every ticked pilgrim at once. All or nothing. */
+/** «ارتباط» for the ticked pilgrims: op=link puts them in one link (one colour), op=unlink takes them out. */
+export async function bulkLink(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
+  return guarded("bookings.write", async (u) => {
+    if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
+    const ids = parseIds(f);
+    if (!ids.length) return { error: "علّم معتمراً واحداً على الأقل" };
+    const unlink = s(f, "op") === "unlink";
+    const r = await db.$transaction((tx) => (unlink ? unlinkBookings(tx, u, tripId, ids) : linkBookings(tx, u, tripId, ids, s(f, "note").trim().slice(0, 60) || null)));
+    if (!r.ok) return { error: r.error };
+    touch(tripId);
+    return { ok: true, warning: unlink ? "تم فك الارتباط." : `تم الربط (${ids.length} معتمر).` };
+  });
+}
+
 export async function bulkTransport(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
   return guarded("seats.write", async (u) => {
     if (await isArchived(tripId)) return { error: ARCHIVED_MSG };

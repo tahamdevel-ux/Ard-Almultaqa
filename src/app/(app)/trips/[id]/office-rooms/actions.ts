@@ -1,4 +1,5 @@
 "use server";
+import { linkBookings, unlinkBookings } from "@/server/links";
 import { applyAccommodation } from "@/server/accommodation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/server/db";
@@ -102,6 +103,15 @@ export async function setPilgrimHotel(tripId: string, bookingId: string, tripHot
     if (!th) return { error: "الفندق غير مُدرج في أسعار الرحلة" };
     const r = await applyAccommodation(tripId, bookingId, { makkahHotelId: th.hotelId });
     touch(tripId);
+    return r.ok ? { ok: true } : { error: r.error };
+  });
+}
+
+/** «ارتباط» from the rooming screen: the ticked pilgrims get one colour (op "link") or lose it ("unlink"). They stay in their rooms. */
+export async function linkMembers(tripId: string, bookingIds: string[], op: "link" | "unlink", note: string): Promise<OfficeActionState> {
+  return guarded(tripId, "bookings.write", async (u) => {
+    const r = await db.$transaction((tx) => (op === "unlink" ? unlinkBookings(tx, u, tripId, bookingIds) : linkBookings(tx, u, tripId, bookingIds, note.trim().slice(0, 60) || null)));
+    touch(tripId); revalidatePath(`/trips/${tripId}`);
     return r.ok ? { ok: true } : { error: r.error };
   });
 }

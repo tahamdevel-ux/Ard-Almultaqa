@@ -169,6 +169,13 @@ test("rooming: search finds the room, ticked pilgrims move to a new room, hotel 
   await page.reload();
   await expect(page.getByText("«غرفة أبو أحمد»").first()).toBeVisible();
   await expect(page.getByRole("button", { name: "تصدير Excel" }).or(page.getByRole("link", { name: "تصدير Excel" }))).toBeVisible();
+  // «ارتباط»: two ticked pilgrims in different rooms get one colour and stay where they are
+  await page.locator("input[aria-label^='تحديد']").nth(0).check();
+  await page.locator("input[aria-label^='تحديد']").nth(1).check();
+  await page.getByLabel("نوع الارتباط").fill("أخوة");
+  await page.getByRole("button", { name: "ربط (ارتباط)" }).click();
+  await expect(page.locator("[title^='ارتباط']")).toHaveCount(2);
+  await expect(page.locator("[title^='ارتباط']").first()).toContainText("أخوة");
 });
 
 test("trip page: tick pilgrims, set hotel-less room type for all of them at once", async ({ page }) => {

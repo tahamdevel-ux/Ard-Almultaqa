@@ -1,3 +1,5 @@
+import { loadLinks } from "@/server/links";
+import { LinkDot } from "@/components/LinkDot";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requirePage } from "@/server/auth";
@@ -36,7 +38,7 @@ import { TRANSPORT_LABELS, TRIP_STATUS_LABELS } from "@/lib/labels";
 import { db } from "@/server/db";
 import { balance, formatMoney, round2 } from "@/domain/money";
 import { ROOM_TYPE_LABELS } from "@/domain/rooming";
-import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, setFamilyHead, dissolveGroup, removeBooking, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo, recalcPrices, saveTransport, mergeHotelRows, bulkAccommodation, bulkTransport } from "../actions";
+import { updateTripBasics, saveAsProgram, setTripHotels, addBus, addCar, addFlight, createCompanionGroup, bulkLink, setFamilyHead, dissolveGroup, removeBooking, setAccommodation, saveHotelPrices, saveTripExtras, saveHayaInfo, recalcPrices, saveTransport, mergeHotelRows, bulkAccommodation, bulkTransport } from "../actions";
 import { DateInput } from "@/components/DateInput";
 
 export default async function TripPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ q?: string; notes?: string }> }) {
@@ -44,6 +46,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
   const { id } = await params;
   const sp = await searchParams;
   const d = await loadTripDetail(id);
+  const links = await loadLinks(id);
   if (!d) notFound();
   const { trip, rows, counter } = d;
   if (!canSeeTrip(user, trip)) redirect("/forbidden");
@@ -192,6 +195,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                       <div className="flex flex-wrap items-center gap-1.5">
                         <Link className="font-bold text-ink hover:text-brand" href={`/pilgrims/${b.pilgrimId}`}>{fullNameAr(b.pilgrim)}</Link>
                         {grp && grp.kind === "FAMILY" && grp.head === b.id && <HeadTag />}
+                        {links.get(b.id) && <LinkDot colorIdx={links.get(b.id)!.colorIdx} note={links.get(b.id)!.note} withNames={links.get(b.id)!.with} />}
                         {b.tripRole && <span className="chip chip-warn">{TRIP_ROLE_LABELS[b.tripRole]}</span>}
                         {seeNotes && (b.pilgrim.healthNotes ?? "").trim() && <span title={b.pilgrim.healthNotes ?? ""} aria-label={`ملاحظة: ${b.pilgrim.healthNotes}`} tabIndex={0} role="img" className="cursor-help text-base">📝</span>}
                       </div>
@@ -256,7 +260,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
         </div>
       </section>
 
-      {bw && <TripBulkBar canGroup={bw} accAction={accWrite ? bulkAccommodation.bind(null, trip.id) : undefined} trAction={sw ? bulkTransport.bind(null, trip.id) : undefined}
+      {bw && <TripBulkBar linkAction={bulkLink.bind(null, trip.id)} canGroup={bw} accAction={accWrite ? bulkAccommodation.bind(null, trip.id) : undefined} trAction={sw ? bulkTransport.bind(null, trip.id) : undefined}
         priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} cars={trip.cars.map((c) => ({ id: c.id, label: c.label }))} flights={trip.flights.map((f) => ({ id: f.id, label: `رحلة ${f.flightNo}` }))} />}
 
       <section id="buses" className="card space-y-3">

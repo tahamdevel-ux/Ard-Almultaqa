@@ -36,11 +36,11 @@ function Panel({ title, action, ids, children, onDone }: { title: string; action
  * Appears when pilgrims are ticked in the trip list: group them as a family or companions, set their hotel / room type / food at once,
  * or set how they travel. Everything applies to all ticked pilgrims or to none.
  */
-export function TripBulkBar({ canGroup, accAction, trAction, priced, air, cars, flights }: {
-  canGroup: boolean; accAction?: Act; trAction?: Act; priced: { id: string; name: string }[]; air: boolean; cars: { id: string; label: string }[]; flights: { id: string; label: string }[];
+export function TripBulkBar({ canGroup, accAction, trAction, linkAction, priced, air, cars, flights }: {
+  canGroup: boolean; accAction?: Act; trAction?: Act; linkAction?: Act; priced: { id: string; name: string }[]; air: boolean; cars: { id: string; label: string }[]; flights: { id: string; label: string }[];
 }) {
   const [ids, setIds] = useState<string[]>([]);
-  const [open, setOpen] = useState<"" | "acc" | "tr">("");
+  const [open, setOpen] = useState<"" | "acc" | "tr" | "link">("");
   const [mode, setMode] = useState<TransportMode>("BUS");
   useEffect(() => {
     const sync = () => setIds(boxes().filter((b) => b.checked).map((b) => b.value));
@@ -79,6 +79,14 @@ export function TripBulkBar({ canGroup, accAction, trAction, priced, air, cars, 
               <select id="b-flight" name="flightId" className="input"><option value="">— غير محددة —</option>{flights.map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}</select></div>}
           </Panel>
         )}
+        {open === "link" && linkAction && (
+          <Panel title="ارتباط" action={linkAction} ids={ids} onDone={close}>
+            <div><label className="label" htmlFor="b-op">ماذا تفعل</label>
+              <select id="b-op" name="op" className="input" defaultValue="link"><option value="link">ربط المحددين (لون واحد)</option><option value="unlink">فك الارتباط عن المحددين</option></select></div>
+            <div><label className="label" htmlFor="b-note">نوع الارتباط (اختياري)</label>
+              <input id="b-note" name="note" className="input" maxLength={60} placeholder="أخوة، زواج، أب وابن…" /></div>
+          </Panel>
+        )}
         <span className="font-bold">{ids.length} محدد</span>
         {canGroup && (
           <>
@@ -86,6 +94,7 @@ export function TripBulkBar({ canGroup, accAction, trAction, priced, air, cars, 
             <button form="groupform" name="kind" value="FAMILY" className="btn-secondary btn-sm" title="الأول في القائمة يصير رب الأسرة">جمعهم كعائلة</button>
           </>
         )}
+        {linkAction && <button type="button" className={open === "link" ? "btn btn-sm" : "btn-secondary btn-sm"} aria-expanded={open === "link"} onClick={() => setOpen(open === "link" ? "" : "link")} title="تلوين معتمرين مرتبطين بلون واحد">ارتباط…</button>}
         {accAction && <button type="button" className={open === "acc" ? "btn btn-sm" : "btn-secondary btn-sm"} aria-expanded={open === "acc"} onClick={() => setOpen(open === "acc" ? "" : "acc")}>تعيين الإقامة…</button>}
         {trAction && <button type="button" className={open === "tr" ? "btn btn-sm" : "btn-secondary btn-sm"} aria-expanded={open === "tr"} onClick={() => setOpen(open === "tr" ? "" : "tr")}>تعيين النقل…</button>}
         <button type="button" className="btn-ghost btn-sm ms-auto" onClick={clear}>إلغاء التحديد</button>

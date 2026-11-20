@@ -248,6 +248,7 @@ model Trip {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   buses         Bus[]
+  links         BookingLink[]
   flights       Flight[]
   cars          GroundCar[]
   bookings      Booking[]
@@ -334,11 +335,32 @@ model Booking {
   updatedAt   DateTime      @updatedAt
   seat        SeatAssignment?
   groups      BookingGroupMember[]
+  link        BookingLinkMember?
   rooms       RoomAssignment[]
   officeMember OfficeRoomMember?
   payments    Payment[]
   @@unique([pilgrimId, tripId])
   @@index([tripId])
+}
+
+/// «ارتباط»: any number of pilgrims of one trip who are related in some way (brothers, spouses, father and son…); the screens colour them alike. They may sit in different rooms.
+model BookingLink {
+  id        String   @id @default(uuid())
+  tripId    String
+  trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  colorIdx  Int      @default(0)
+  note      String?
+  createdAt DateTime @default(now())
+  members   BookingLinkMember[]
+  @@index([tripId])
+}
+
+model BookingLinkMember {
+  id        String      @id @default(uuid())
+  linkId    String
+  link      BookingLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  bookingId String      @unique
+  booking   Booking     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 }
 
 model BookingGroupMember {

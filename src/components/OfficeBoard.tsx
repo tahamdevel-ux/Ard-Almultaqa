@@ -1,10 +1,11 @@
 "use client";
+import { linkColor } from "@/domain/links";
 import { useMemo, useState, useTransition } from "react";
 import { HeadTag } from "@/components/HeadTag";
 import { filterRooms, personMatches, roomStatus, type RoomFilter } from "@/domain/roomFilter";
-import { moveMember, moveMembers, newRoom, removeRoom, renumber, rerun, saveHotelNos, saveRoomName, setPilgrimHotel, toggleLock, type OfficeActionState } from "@/app/(app)/trips/[id]/office-rooms/actions";
+import { moveMember, moveMembers, newRoom, removeRoom, renumber, rerun, saveHotelNos, saveRoomName, setPilgrimHotel, linkMembers, toggleLock, type OfficeActionState } from "@/app/(app)/trips/[id]/office-rooms/actions";
 
-export interface BoardPerson { bookingId: string; name: string; passport: string; gender: "MALE" | "FEMALE"; group?: string; manual?: boolean; warning?: string | null; locked: boolean; head?: boolean; agent?: string; noHousing?: boolean; reason?: string; tripHotelId?: string | null }
+export interface BoardPerson { bookingId: string; name: string; passport: string; gender: "MALE" | "FEMALE"; group?: string; manual?: boolean; warning?: string | null; locked: boolean; head?: boolean; agent?: string; noHousing?: boolean; reason?: string; tripHotelId?: string | null; link?: { colorIdx: number; note: string | null; with: string[] } }
 export interface BoardCard { id: string; label: string; typeLabel: string; category: "MEN" | "WOMEN" | "FAMILY"; capacity: number; locked: boolean; hotel?: string; name?: string; hotelId?: string | null; makkahNo?: string; madinahNo?: string; people: BoardPerson[] }
 
 const CAT = {
@@ -52,6 +53,7 @@ export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, canHotel, is
   const [over, setOver] = useState<string | null>(null);
   const [type, setType] = useState("");
   const [view, setView] = useState<"cards" | "table">("cards");
+  const [linkNote, setLinkNote] = useState("");
   const [f, setF] = useState<RoomFilter>({ q: "", hotel: "", category: "", status: "" });
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [target, setTarget] = useState("");
@@ -76,11 +78,12 @@ export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, canHotel, is
 
   const personRow = (p: BoardPerson, i: number, room: BoardCard | null) => (
     <div key={p.bookingId} draggable={canEdit && !(room?.locked)} onDragStart={(e) => e.dataTransfer.setData("text/plain", p.bookingId)}
+      style={p.link ? { borderInlineStartWidth: 6, borderInlineStartColor: linkColor(p.link.colorIdx) } : undefined}
       className={"flex items-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm " + (p.warning ? "border-red-400 bg-red-50 " : sel.has(p.bookingId) ? "border-brand bg-brand-light " : personMatches(p, f.q) ? "border-gold bg-gold-light " : "border-line bg-white ")}>
       {canEdit && !room?.locked && <input type="checkbox" className="h-4 w-4 flex-none" checked={sel.has(p.bookingId)} onChange={() => toggle(p.bookingId)} aria-label={`تحديد ${p.name}`} />}
       {room && <span className="w-4 flex-none text-xs text-brand-mid">{i + 1}</span>}
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-bold">{p.name}{p.head && <HeadTag />}</span>
+        <span className="block truncate font-bold">{p.name}{p.head && <HeadTag />}{p.link && <span className="ms-1 inline-flex items-center rounded-full px-1.5 text-[11px] font-bold text-white" style={{ background: linkColor(p.link.colorIdx) }} title={`ارتباط${p.link.note ? ` (${p.link.note})` : ""} مع: ${p.link.with.join("، ")}`}>🔗 {p.link.note ?? "ارتباط"}</span>}</span>
         <span className="block truncate text-xs text-brand-mid">{[p.agent, p.group, p.noHousing && "بدون سكن", p.reason].filter(Boolean).join(" · ")}</span>
         {canHotel && hotels.length > 1 && !room?.locked && (
           <select aria-label={`فندق مكة لـ ${p.name}`} title="فندق مكة لهذا المعتمر وحده" className="mt-0.5 w-full max-w-[14rem] rounded border border-line bg-white px-1 py-0.5 text-xs" value={p.tripHotelId ?? ""}
@@ -196,7 +199,7 @@ export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, canHotel, is
                       <td className="td font-bold" dir="ltr">{c.locked ? "🔒 " : ""}{c.label}</td>
                       <td className="td text-sm">{hotelName(c.hotelId) || "—"}</td>
                       <td className="td text-sm">{c.typeLabel} · {CAT[c.category].label}{c.name && <div className="font-bold">«{c.name}»</div>}</td>
-                      <td className="td text-sm">{c.people.map((p, i) => <div key={p.bookingId} className={personMatches(p, f.q) ? "rounded bg-gold-light px-1" : ""}>{i + 1}. {p.name}{p.noHousing ? " (بدون سكن)" : ""}{p.warning ? " ⚠" : ""}</div>)}</td>
+                      <td className="td text-sm">{c.people.map((p, i) => <div key={p.bookingId} className={personMatches(p, f.q) ? "rounded bg-gold-light px-1" : ""}>{p.link && <span aria-label="ارتباط" title={`ارتباط مع: ${p.link.with.join("، ")}`} style={{ color: linkColor(p.link.colorIdx) }}>● </span>}{i + 1}. {p.name}{p.noHousing ? " (بدون سكن)" : ""}{p.warning ? " ⚠" : ""}</div>)}</td>
                       <td className="td"><span className={"chip " + (st === "full" ? "chip-ok" : st === "empty" ? "chip-gray" : "chip-warn")}>{st === "full" ? "ممتلئة" : st === "empty" ? "فارغة" : `${c.capacity - c.housed} شاغر`}</span></td>
                       <td className="td" colSpan={2}><HotelNos key={c.id + (c.makkahNo ?? "") + (c.madinahNo ?? "")} tripId={tripId} room={c} canEdit={canEdit} run={run} /></td>
                     </tr>
@@ -220,6 +223,13 @@ export function OfficeBoard({ tripId, cards, pool, hotels, canEdit, canHotel, is
           <button type="button" className="btn" disabled={pending || !target} onClick={() => move(target)}>نقل</button>
           <button type="button" className="btn-secondary" disabled={pending} onClick={() => move("new")}>غرفة جديدة لهم</button>
           <button type="button" className="btn-secondary" disabled={pending} onClick={() => move("none")}>إخراج من الغرف</button>
+          {canHotel && (
+            <span className="flex flex-wrap items-center gap-1.5 border-s border-line ps-2">
+              <input aria-label="نوع الارتباط" className="input w-36 py-1 text-sm" maxLength={60} placeholder="نوع الارتباط (اختياري)" value={linkNote} onChange={(e) => setLinkNote(e.target.value)} />
+              <button type="button" className="btn-secondary" disabled={pending || sel.size < 2} title="يأخذ المحددون لوناً واحداً ويبقون في غرفهم" onClick={() => run(async () => { const r = await linkMembers(tripId, [...sel], "link", linkNote); if (!r.error) { setSel(new Set()); setLinkNote(""); } return r; })}>ربط (ارتباط)</button>
+              <button type="button" className="btn-ghost" disabled={pending} onClick={() => run(async () => { const r = await linkMembers(tripId, [...sel], "unlink", ""); if (!r.error) setSel(new Set()); return r; })}>فك الارتباط</button>
+            </span>
+          )}
           <button type="button" className="btn-ghost" onClick={() => setSel(new Set())}>إلغاء التحديد</button>
         </div>
       )}

@@ -172,3 +172,8 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - The internal PDF names the hotel on every room (not only when the trip has several hotels). Hotel lists sent outside still never carry internal numbers or names.
 - Excel of the internal rooming is one click on the rooming screen (same file as the prints tab).
 - A pilgrim's Makkah hotel can be changed alone from the rooming screen (trips with more than one priced hotel). The price is recomputed unless it was typed by hand; an automatically placed pilgrim leaves his old room and is placed again in a room of the new hotel; a family is gathered again.
+
+## «ارتباط» (Nov 2026)
+- A link joins any number of pilgrims of ONE trip (brothers, spouses, father and son…) under one colour; they may sit in different rooms. It is only a visual marker: it never moves anyone, never touches prices, rooms or seats.
+- Made from the ticked pilgrims on the trip page (bulk bar «ارتباط…») or the rooming screen («ربط (ارتباط)»); optional short note (e.g. أخوة). Linking people who already have links merges them into one. A link with fewer than two live members is not shown (and is deleted on «فك الارتباط»). Requires the bookings.write permission. Every change is audited (entity BookingLink).
+- Colour = the lowest of 10 palette colours not used by another link of the trip (distinct from the room category colours).

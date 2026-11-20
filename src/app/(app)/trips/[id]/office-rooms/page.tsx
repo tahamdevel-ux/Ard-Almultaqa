@@ -12,6 +12,7 @@ import { ROOM_TYPE_LABELS, type RoomTypeKey } from "@/domain/rooming";
 import { loadOfficeState } from "@/officeRooms/service";
 import { DownloadLink } from "@/components/DownloadLink";
 import { noRoomReason } from "@/domain/roomFilter";
+import { loadLinks } from "@/server/links";
 import { OfficeBoard, type BoardCard, type BoardPerson } from "@/components/OfficeBoard";
 
 export default async function OfficeRoomsPage({ params }: { params: Promise<{ id: string }> }) {
@@ -21,12 +22,13 @@ export default async function OfficeRoomsPage({ params }: { params: Promise<{ id
   if (!trip) notFound();
   if (!canSeeTrip(user, trip)) redirect("/forbidden");
   const state = await loadOfficeState(db, id);
+  const links = await loadLinks(id);
   const names = new Map(state.bookings.map((b) => [b.id, b] as const));
   const pilgrims = await db.pilgrim.findMany({ where: { id: { in: state.bookings.map((b) => b.pilgrimId) } } });
   const nameOf = new Map(pilgrims.map((p) => [p.id, tripleNameAr(p)]));
   const passportOf = new Map(pilgrims.map((p) => [p.id, p.passportNo]));
   const person = (bookingId: string, gender: "MALE" | "FEMALE", group?: string): BoardPerson => ({
-    bookingId, gender, tripHotelId: names.get(bookingId)?.tripHotelId ?? null, passport: passportOf.get(names.get(bookingId)!.pilgrimId) ?? "", name: nameOf.get(names.get(bookingId)!.pilgrimId) ?? "", locked: false, group, head: !!names.get(bookingId)?.groups.some((g) => g.isHead && g.group.kind === "FAMILY"),
+    bookingId, gender, tripHotelId: names.get(bookingId)?.tripHotelId ?? null, link: links.get(bookingId), passport: passportOf.get(names.get(bookingId)!.pilgrimId) ?? "", name: nameOf.get(names.get(bookingId)!.pilgrimId) ?? "", locked: false, group, head: !!names.get(bookingId)?.groups.some((g) => g.isHead && g.group.kind === "FAMILY"),
   });
   const hotelNames = new Map((await db.tripHotel.findMany({ where: { tripId: id }, include: { hotel: true } })).map((h) => [h.id, h.hotel.localName ?? h.hotel.officialName]));
   const roomNos = new Map((await db.officeRoom.findMany({ where: { tripId: id }, select: { id: true, makkahHotelRoomNo: true, madinahHotelRoomNo: true, note: true } })).map((r) => [r.id, r]));
