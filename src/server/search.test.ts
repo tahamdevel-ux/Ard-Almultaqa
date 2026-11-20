@@ -59,4 +59,15 @@ describe("global search", () => {
     expect((await globalSearch({ id: "z", role: "ACCOUNTANT" } as never, "rahma")).hotels).toEqual([]);
     expect((await globalSearch(admin, "rahma")).hotels).toHaveLength(1);
   });
+
+  it("finds a name with a slash and several words in one field", async () => {
+    const mk = (n: number, d: Record<string, string>) => db.pilgrim.create({ data: { firstName: "x", fatherName: "x", grandfatherName: "x", familyName: "x", gender: "MALE", birthDate: D("1980-01-01"),
+      passportNo: `B4509206${n}`, enGivenName: "KHALAF", enSurname: "NAJM", passportExpiry: D("2032-01-01"), ...d } });
+    const a = await mk(1, { firstName: "خلف", fatherName: "نجم", grandfatherName: "عبدالله/باقه", familyName: "" });
+    const b = await mk(2, { firstName: "خلف نجم عبدالله/باقه", fatherName: "", grandfatherName: "", familyName: "" });
+    for (const q of ["خلف نجم", "خلف", "نجم عبدالله", "باقه", "عبدالله/باقه", "خلف نجم عبدالله/باقه"]) {
+      const r = await globalSearch(admin, q);
+      expect(r.pilgrims.map((x) => x.id).sort(), q).toEqual([a.id, b.id].sort());
+    }
+  });
 });

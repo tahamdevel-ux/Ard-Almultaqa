@@ -9,6 +9,7 @@ const EMPTY: SearchResults = { pilgrims: [], trips: [], agents: [], hotels: [] }
 export function GlobalSearch() {
   const [q, setQ] = useState("");
   const [res, setRes] = useState<SearchResults>(EMPTY);
+  const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -20,8 +21,8 @@ export function GlobalSearch() {
     const h = setTimeout(async () => {
       try {
         const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: ctl.signal });
-        if (r.ok) setRes(await r.json());
-      } catch { /* aborted */ } finally { setLoading(false); }
+        if (r.ok) { setRes(await r.json()); setFailed(false); } else { setRes(EMPTY); setFailed(true); } // an error is not «no results»
+      } catch (e) { if ((e as { name?: string })?.name !== "AbortError") setFailed(true); } finally { setLoading(false); }
     }, 250);
     return () => { clearTimeout(h); ctl.abort(); };
   }, [q]);
@@ -46,7 +47,7 @@ export function GlobalSearch() {
       />
       {open && q.trim().length >= 2 && (
         <div role="listbox" className="absolute end-0 z-30 mt-1 max-h-[70vh] w-[min(92vw,26rem)] overflow-auto rounded-lg border border-line bg-white text-ink shadow-xl">
-          {total === 0 && <p className="px-3 py-3 text-sm text-brand-mid">{loading ? "جارٍ البحث…" : "لا توجد نتائج"}</p>}
+          {total === 0 && <p className="px-3 py-3 text-sm text-brand-mid">{loading ? "جارٍ البحث…" : failed ? "تعذّر البحث الآن — حاول مرة أخرى، وإن تكرر أخبر مدير النظام" : "لا توجد نتائج"}</p>}
           {res.pilgrims.length > 0 && (
             <Group title="المعتمرون">
               {res.pilgrims.map((p) => (

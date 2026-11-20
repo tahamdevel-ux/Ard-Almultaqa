@@ -74,10 +74,10 @@ export async function getUserByToken(token: string | undefined): Promise<Session
   if (!s || !s.user.active) return null;
   const now = Date.now();
   if (now - s.lastSeenAt.getTime() > IDLE_MS || now - s.createdAt.getTime() > ABSOLUTE_MS) {
-    await db.session.delete({ where: { id: s.id } });
+    await db.session.deleteMany({ where: { id: s.id } }); // several requests may find it expired at once: the second must not fail
     return null;
   }
-  if (now - s.lastSeenAt.getTime() > 60_000) await db.session.update({ where: { id: s.id }, data: { lastSeenAt: new Date() } });
+  if (now - s.lastSeenAt.getTime() > 60_000) await db.session.updateMany({ where: { id: s.id }, data: { lastSeenAt: new Date() } });
   return { id: s.user.id, username: s.user.username, name: s.user.name, role: s.user.role };
 }
 
