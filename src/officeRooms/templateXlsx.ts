@@ -18,7 +18,48 @@ const TYPE_AR: Record<string, string> = { SINGLE: "سنكل", DOUBLE: "ثنائ�
 const HOTEL_COLORS: Record<string, string> = { "منارات": "FF0000", "رمادا": "00B050", "انفنتي": "0070C0", "مظلات": "F8CBAD", "نسمات": "A6A6A6", "ملتزم": "FFFF00" };
 const SPARE = ["FFC000", "7030A0", "00B0F0", "92D050", "C65911", "FF66CC"];
 const CA = ["A", "C", "E", "G", "I", "K"], CB = ["B", "D", "F", "H", "J", "L"];
-const BAND_ROWS = [3, 12, 21]; // header row of each band; names follow in the next 6 rows, the green box 7 rows below
+/**
+ * The template has no row above a room for its hotel, so one is inserted above each band (rows 3, 13, 23): the hotel name sits in a cell
+ * of its own on top of its room. Everything below an insertion moves down; the legend columns (M..T) stay where they are.
+ */
+const rr = (n: number) => n + (n >= 3 ? 1 : 0) + (n >= 12 ? 1 : 0) + (n >= 21 ? 1 : 0);
+const colNo = (c: string) => [...c].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0);
+const mapRefs = (t: string) => t.replace(/(\$?)([A-Z]{1,2})(\$?)(\d+)/g, (m, d1, col, d2, row) => (colNo(col) >= 13 ? m : `${d1}${col}${d2}${rr(Number(row))}`));
+const HOTEL_ROWS = [3, 13, 23];
+
+function insertHotelRows(xml: string): string {
+  const sd = /<sheetData>(.*)<\/sheetData>/s.exec(xml)!;
+  const rows = new Map<number, { attrs: string; cells: { col: string; xml: string }[] }>();
+  for (const m of sd[1].matchAll(/<row ([^>]*?)>(.*?)<\/row>/gs)) {
+    const old = Number(/r="(\d+)"/.exec(m[1])![1]);
+    const attrs = m[1].replace(/ ?spans="[^"]*"/, "").replace(/r="\d+"/, "");
+    for (const c of m[2].matchAll(/<c r="([A-Z]+)(\d+)"([^>]*?)(\/>|>.*?<\/c>)/gs)) {
+      const home = colNo(c[1]) >= 13 ? old : rr(old); // legend columns stay on their rows
+      const row = rows.get(home) ?? { attrs: "", cells: [] };
+      rows.set(home, row);
+      row.cells.push({ col: c[1], xml: `<c r="${c[1]}${home}"${c[3]}${c[4]}` });
+    }
+    const home = rr(old); const row = rows.get(home) ?? { attrs: "", cells: [] }; row.attrs = attrs; rows.set(home, row);
+  }
+  for (const hr of HOTEL_ROWS) {
+    const cols = hr === 23 ? "ABCDEFGHIJKL" : "ABCDEFGHIJKL";
+    rows.set(hr, { attrs: 'ht="21" customHeight="1" x14ac:dyDescent="0.3"', cells: [...cols].map((col) => ({ col, xml: `<c r="${col}${hr}" s="${hr === 23 && colNo(col) <= 4 ? 1 : 9}"/>` })) });
+  }
+  const body = [...rows.entries()].sort((a, b) => a[0] - b[0]).map(([n, r]) => `<row r="${n}" ${r.attrs.trim()}>${r.cells.sort((a, b) => colNo(a.col) - colNo(b.col)).map((c) => c.xml).join("")}</row>`).join("");
+  let out = xml.replace(sd[0], `<sheetData>${body}</sheetData>`);
+  // merges: shift, then add one per hotel cell (a pair of columns)
+  const merges = [...out.matchAll(/<mergeCell ref="([^"]+)"\/>/g)].map((m) => mapRefs(m[1]));
+  const fixed = merges.filter((r) => !["K10:K11", "L10:L11"].includes(r.replace(/\d+/g, (d) => String(Number(d))))).map((r) => r); // (K/L boxes are merged below as one)
+  const add: string[] = [];
+  for (const hr of HOTEL_ROWS) for (let c = hr === 23 ? 2 : 0; c < 6; c++) add.push(`${CA[c]}${hr}:${CB[c]}${hr}`);
+  const all = [...fixed, ...add];
+  out = out.replace(/<mergeCells count="\d+">.*?<\/mergeCells>/s, `<mergeCells count="${all.length}">${all.map((r) => `<mergeCell ref="${r}"/>`).join("")}</mergeCells>`);
+  out = out.replace(/<f>(.*?)<\/f>/g, (_m, f) => `<f>${mapRefs(f)}</f>`);
+  out = out.replace(/sqref="([^"]+)"/g, (_m, q) => `sqref="${mapRefs(q)}"`).replace(/<selection [^>]*\/>/, "");
+  out = out.replace(/<dimension ref="[^"]*"\/>/, `<dimension ref="A1:T${rr(36)}"/>`);
+  return out;
+}
+const BAND_ROWS = [rr(3), rr(12), rr(21)]; // header row of each band; names follow in the next 6 rows, the box for the room's own name 7 rows below
 const SLOTS: [number, number][] = BAND_ROWS.flatMap((r, i) => (i < 2 ? [0, 1, 2, 3, 4, 5] : [2, 3, 4, 5]).map((c) => [r, c] as [number, number]));
 const PER_SHEET = SLOTS.length;
 const NAME_ROWS = 6;
@@ -108,7 +149,7 @@ export async function renderOfficeRoomsTemplateXlsx(tripId: string): Promise<Buf
 
   const zip = await JSZip.loadAsync(await readFile(path.join(process.cwd(), "src/outputs/templates/office_rooms.xlsx")));
   const styles = new Styles(await zip.file("xl/styles.xml")!.async("string"));
-  const baseSheet = await zip.file("xl/worksheets/sheet1.xml")!.async("string");
+  const baseSheet = insertHotelRows(await zip.file("xl/worksheets/sheet1.xml")!.async("string"));
 
   const rooms = printOrder(state.rooms);
   const pages = Math.max(1, Math.ceil(rooms.length / PER_SHEET));
@@ -145,28 +186,34 @@ export async function renderOfficeRoomsTemplateXlsx(tripId: string): Promise<Buf
         if (lk) used.set(lk.colorIdx, lk.note ?? "");
         sh.set(ref, text, lk ? styles.withFill(sh.styleOf(ref), tint(LINK_COLORS[lk.colorIdx % LINK_COLORS.length].slice(1))) : undefined);
       }
+      // the hotel name sits in a cell of its own above the room, in the hotel's colour; the green box below holds the room's own name
+      const href = `${CA[c]}${r0 - 1}`;
+      sh.set(href, hn, fill ? styles.withFill(sh.styleOf(href), fill) : undefined);
       const gref = `${CA[c]}${r0 + 7}`;
-      sh.set(gref, [hn, name ? `«${name}»` : ""].filter(Boolean).join("  "), styles.withFill(sh.styleOf(gref), "C6E0B4", 6));
+      if (name) sh.set(gref, name, styles.withFill(sh.styleOf(gref), "C6E0B4", 6));
       count[type] = (count[type] ?? 0) + 1; people += members.length;
     });
     // the statistics panel keeps its formulas; the cached values are written too so every viewer shows the right numbers
-    sh.set("A22", slice.length, undefined, "COUNTA(L3,J3,H3,F3,D3,B3,B12,D12,F12,H12,J12,L12,L21,J21,H21,F21,D21,B21)");
-    sh.set("A23", people, undefined, "COUNTA(K4:L9,I4:J9,G4:H9,E4:F9,C4:D9,A4:B9,K13:L18,I13:J18,G13:H18,E13:F18,C13:D18,A13:B18,K22:L27,I22:J27,G22:H27,E22:F27)");
-    [["A24", "ثنائي", "T2"], ["A25", "ثلاثي", "T3"], ["A26", "رباعي", "T4"], ["A27", "خماسي", "T5"]].forEach(([ref, t, tc]) => sh.set(ref, count[t] ?? 0, undefined, `COUNTIF(A3:L21,${tc})`));
+    const old = (ref: string, v: string | number, formula?: string) => sh.set(ref.replace(/(\d+)$/, (d) => String(rr(Number(d)))), v, undefined, formula ? mapRefs(formula) : undefined);
+    old("A22", slice.length, "COUNTA(L3,J3,H3,F3,D3,B3,B12,D12,F12,H12,J12,L12,L21,J21,H21,F21,D21,B21)");
+    old("A23", people, "COUNTA(K4:L9,I4:J9,G4:H9,E4:F9,C4:D9,A4:B9,K13:L18,I13:J18,G13:H18,E13:F18,C13:D18,A13:B18,K22:L27,I22:J27,G22:H27,E22:F27)");
+    [["A24", "ثنائي", "T2"], ["A25", "ثلاثي", "T3"], ["A26", "رباعي", "T4"], ["A27", "خماسي", "T5"]].forEach(([ref, t, tc]) => old(ref, count[t] ?? 0, `COUNTIF(A3:L21,${tc})`));
     // the two spare rows of the panel: سداسي and سباعي (and the list of types they are picked from)
     sh.set("T6", "سداسي"); sh.set("T7", "سباعي");
-    sh.set("C28", "عدد الغرف السداسية"); sh.set("A28", count["سداسي"] ?? 0, undefined, "COUNTIF(A3:L21,T6)");
-    sh.set("C29", "عدد الغرف السباعية"); sh.set("A29", count["سباعي"] ?? 0, undefined, "COUNTIF(A3:L21,T7)");
+    old("C28", "عدد الغرف السداسية"); old("A28", count["سداسي"] ?? 0, "COUNTIF(A3:L21,T6)");
+    old("C29", "عدد الغرف السباعية"); old("A29", count["سباعي"] ?? 0, "COUNTIF(A3:L21,T7)");
     // colours of the «ارتباط» in the notes area
     [...used.entries()].sort((a, b) => a[0] - b[0]).slice(0, 6).forEach(([idx, note], i) => {
-      const ref = `${CA[i]}34`; // under the notes box (a merged block)
+      const ref = `${CA[i]}${rr(34)}`; // under the notes box (a merged block)
       sh.set(ref, `ارتباط${note ? `: ${note}` : ""}`, styles.withFill(11, tint(LINK_COLORS[idx % LINK_COLORS.length].slice(1), 0.55), 6));
     });
-    sh.xml = sh.xml.replace('<row r="34" ', '<row r="34" ht="21" customHeight="1" ')
+    sh.xml = sh.xml.replace(`<row r="${rr(34)}" `, `<row r="${rr(34)}" ht="21" customHeight="1" `)
       .replace(/sqref="B21 D21"/, 'sqref="B21 D21"')
       .replace(/<formula1>\$T\$1:\$T\$5<\/formula1>/g, "<formula1>$T$1:$T$7</formula1>").replace(/<formula1>\$T\$2:\$T\$5<\/formula1>/g, "<formula1>$T$2:$T$7</formula1>")
       .replace(/<sheetView [^>]*?tabSelected="1"/, (m) => (p === 0 ? m : m.replace(' tabSelected="1"', "")))
-      .replace(/<dimension ref="[^"]*"\/>/, '<dimension ref="A1:T36"/>');
+;
+    // one page per sheet: only the rooms area is printed (not the legend columns), scaled to fit
+    sh.xml = sh.xml.replace("<dimension ", '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ').replace('fitToHeight="0"', 'fitToWidth="1" fitToHeight="1"');
     sheets.push(sh.xml);
   }
 
@@ -183,7 +230,10 @@ export async function renderOfficeRoomsTemplateXlsx(tripId: string): Promise<Buf
     types = types.replace("</Types>", `<Override PartName="/xl/worksheets/sheet${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`);
     sheetTags.push(`<sheet name="التسكين ${n}" sheetId="${n}" r:id="rIdSheet${n}"/>`);
   }
-  wb = wb.replace(/<sheets>.*?<\/sheets>/s, `<sheets>${sheetTags.join("")}</sheets>`).replace(/<calcPr[^>]*\/>/, '<calcPr calcId="191029" fullCalcOnLoad="1"/>');
+  const sheetNames = sheetTags.map((t) => /name="([^"]+)"/.exec(t)![1]);
+  const printAreas = sheetNames.map((n, i) => `<definedName name="_xlnm.Print_Area" localSheetId="${i}">'${pages === 1 ? "التسكين" : n}'!$A$1:$L$${rr(34)}</definedName>`); // down to the row under the notes box, where the «ارتباط» colours are listed
+  wb = wb.replace(/<definedNames>.*?<\/definedNames>/s, ""); // the template has none; replaced anyway so a future template cannot clash
+  wb = wb.replace(/<sheets>.*?<\/sheets>/s, `<sheets>${sheetTags.join("")}</sheets><definedNames>${printAreas.join("")}</definedNames>`).replace(/<calcPr[^>]*\/>/, '<calcPr calcId="191029" fullCalcOnLoad="1"/>');
   // the calculation chain would point at cells the copies do not have: Excel rebuilds it
   zip.remove("xl/calcChain.xml");
   rels = rels.replace(/<Relationship [^>]*calcChain[^>]*\/>/, "");

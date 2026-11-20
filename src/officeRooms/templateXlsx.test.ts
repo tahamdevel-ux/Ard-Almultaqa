@@ -39,19 +39,19 @@ describe("internal rooming in the office template", () => {
     const s1 = wb.worksheets[0];
     expect(String(s1.getCell("A1").value)).toContain("قافلة الاختبار");
     // the 7-bed room is printed first (lowest number): label, type, hotel + name, names (7th shares row 6)
-    expect(String(s1.getCell("A3").value)).toBe("1");
-    expect(String(s1.getCell("B3").value)).toBe("سباعي");
-    expect(String(s1.getCell("A10").value)).toContain("رمادا");
-    expect(String(s1.getCell("A10").value)).toContain("غرفة الاختبار");
-    expect(String(s1.getCell("A9").value)).toContain(" + ");
+    expect(String(s1.getCell("A4").value)).toBe("1");
+    expect(String(s1.getCell("B4").value)).toBe("سباعي");
+    expect(String(s1.getCell("A3").value)).toBe("رمادا"); // the hotel: a cell of its own above the room
+    expect(String(s1.getCell("A11").value)).toBe("غرفة الاختبار"); // the room's own name: the box below
+    expect(String(s1.getCell("A10").value)).toContain(" + ");
     // statistics: 16 rooms on the first sheet, 7 people (the 8th has no room), 1 seven-bed room
-    expect(Number((s1.getCell("A22").value as { result?: number }).result ?? s1.getCell("A22").value)).toBe(16);
-    expect(Number((s1.getCell("A23").value as { result?: number }).result ?? s1.getCell("A23").value)).toBe(7);
-    expect(Number((s1.getCell("A29").value as { result?: number }).result ?? s1.getCell("A29").value)).toBe(1);
+    expect(Number((s1.getCell("A25").value as { result?: number }).result ?? s1.getCell("A25").value)).toBe(16);
+    expect(Number((s1.getCell("A26").value as { result?: number }).result ?? s1.getCell("A26").value)).toBe(7);
+    expect(Number((s1.getCell("A32").value as { result?: number }).result ?? s1.getCell("A32").value)).toBe(1);
     // the linked pilgrim in a room has a tinted name cell and the notes area explains the colour
-    const fill = s1.getCell("A4").fill as { fgColor?: { argb?: string } };
+    const fill = s1.getCell("A5").fill as { fgColor?: { argb?: string } };
     expect(fill?.fgColor?.argb).toBeTruthy();
-    expect(String(s1.getCell("A34").value)).toContain("أخوة");
-    expect(wb.worksheets[1].getCell("A3").value).toBeTruthy();
+    expect(String(s1.getCell("A37").value)).toContain("أخوة");
+    expect(wb.worksheets[1].getCell("A4").value).toBeTruthy();
   });
 });
