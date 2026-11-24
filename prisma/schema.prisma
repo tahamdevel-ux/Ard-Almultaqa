@@ -222,6 +222,7 @@ model Trip {
   routeText     String?      // طريق الانطلاق
   sequenceNo    String?      // التسلسل
   foodDefault   Boolean       @default(true) // default food option of its pilgrims (with food)
+  noFoodDiscount Decimal?     @db.Decimal(14, 2) // optional: USD taken off the price of a pilgrim WITHOUT food (empty = no discount)
   sarfAmount    Decimal?      @db.Decimal(14, 2) // air trips: تصريف amount in USD, added to the due of a pilgrim who chose تصريف المعتمر
   agentCommission Decimal?    @db.Decimal(14, 2) // fixed agent commission per non-cancelled pilgrim, USD (empty = غير محدد)
   tripHotels    TripHotel[]

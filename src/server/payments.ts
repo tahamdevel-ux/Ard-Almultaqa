@@ -45,7 +45,7 @@ export async function setBookingPrice(
       const th = before.tripHotelId ? await tx.tripHotel.findUnique({ where: { id: before.tripHotelId }, include: { prices: true } }) : null;
       const rt = (input.roomType ?? before.roomType ?? null) as RoomKind | null;
       if (th) {
-        const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: rt, noHousing: before.noHousing, sarfByPilgrim: before.sarfByPilgrim, sarfAmount: trip.sarfAmount });
+        const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: rt, noHousing: before.noHousing, sarfByPilgrim: before.sarfByPilgrim, sarfAmount: trip.sarfAmount, withFood: before.withFood, noFoodDiscount: trip.noFoodDiscount });
         if (r.ok) { amount = r.amount; sarf = r.sarf; } else return fail(r.error);
       } else return fail("اختر فندق مكة المسعّر للمعتمر أو اكتب السعر يدوياً");
     }

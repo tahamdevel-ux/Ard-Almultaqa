@@ -313,6 +313,6 @@ describe("cents", () => {
   });
   it("the price adds the تصريف with cents", () => {
     const r = computePrice({ table: { prices: { DOUBLE: 100.25 }, noHousingPrice: null }, roomType: "DOUBLE", noHousing: false, sarfByPilgrim: true, sarfAmount: 12.5 });
-    expect(r).toEqual({ ok: true, amount: 112.75, sarf: 12.5 });
+    expect(r).toEqual({ ok: true, amount: 112.75, sarf: 12.5, foodDiscount: 0 });
   });
 });

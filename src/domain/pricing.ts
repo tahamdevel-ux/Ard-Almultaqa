@@ -10,13 +10,15 @@ export interface PriceInput {
   noHousing: boolean;
   sarfByPilgrim: boolean; // air: تصريف المعتمر
   sarfAmount: number | null; // the trip's تصريف amount
+  withFood?: boolean; // default true
+  noFoodDiscount?: number | null; // the trip's optional amount taken off a pilgrim without food
 }
 
-export type PriceResult = { ok: true; amount: number; sarf: number } | { ok: false; error: string };
+export type PriceResult = { ok: true; amount: number; sarf: number; foodDiscount: number } | { ok: false; error: string };
 
 /**
  * Price of one pilgrim = the hotel price of his room type (or the hotel's "بدون سكن" price) + تصريف when the pilgrim pays it.
- * The Madinah hotel and the food option never change the price.
+ * minus the trip's optional «بدون طعام» discount when the pilgrim has no food. The Madinah hotel never changes the price.
  */
 export function computePrice(i: PriceInput): PriceResult {
   if (!i.table) return { ok: false, error: "اختر فندق مكة المسعّر" };
@@ -30,7 +32,8 @@ export function computePrice(i: PriceInput): PriceResult {
     if (base == null) return { ok: false, error: "لا يوجد سعر لهذا النوع في هذا الفندق" };
   }
   const sarf = i.sarfByPilgrim ? Math.max(0, round2(i.sarfAmount ?? 0)) : 0;
-  return { ok: true, amount: round2(base + sarf), sarf };
+  const foodDiscount = i.withFood === false ? Math.max(0, round2(i.noFoodDiscount ?? 0)) : 0;
+  return { ok: true, amount: Math.max(0, round2(base + sarf - foodDiscount)), sarf, foodDiscount };
 }
 
 /** Fixed agent commission per pilgrim: the agent's amount on the trip, else the trip's amount, else 0 (غير محدد). */

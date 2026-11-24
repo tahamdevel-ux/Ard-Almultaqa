@@ -108,7 +108,7 @@ export async function applyAccommodation(tripId: string, bookingId: string, a: A
       }
       if (!th && (noHousing || roomType) && !b.priceManual && b.priceAmount == null) throw new RollbackError("اختر فندق مكة — هو الذي يحدد السعر");
       if (th && !b.priceManual && (noHousing || roomType)) { // a price typed by hand is never recomputed
-        const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType, noHousing, sarfByPilgrim, sarfAmount: trip.sarfAmount });
+        const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType, noHousing, sarfByPilgrim, sarfAmount: trip.sarfAmount, withFood: a.food !== undefined ? a.food !== "0" : b.withFood, noFoodDiscount: trip.noFoodDiscount });
         if (!r.ok) throw new RollbackError(r.error);
         data.priceAmount = r.amount; data.sarfAmount = r.sarf; data.priceCurrency = "USD";
       }

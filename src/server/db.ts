@@ -29,6 +29,7 @@ function typedClient() {
       trip: {
         sarfAmount: { needs: { sarfAmount: true }, compute: (r) => numOrNull(r.sarfAmount) },
         agentCommission: { needs: { agentCommission: true }, compute: (r) => numOrNull(r.agentCommission) },
+        noFoodDiscount: { needs: { noFoodDiscount: true }, compute: (r) => numOrNull(r.noFoodDiscount) },
       },
       booking: {
         priceAmount: { needs: { priceAmount: true }, compute: (r) => numOrNull(r.priceAmount) },

@@ -112,7 +112,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
         </div>
         <div className="flex items-center gap-2">
           {bw && can(user.role, "pilgrims.write") && !archived && <Link className="btn" href={`/pilgrims/new?trip=${trip.id}&returnTo=${encodeURIComponent(`/trips/${trip.id}`)}`}><Icon name="plus" size={16} />معتمر جديد</Link>}
-          {bw && <AddPilgrimDialog tripId={trip.id} hotels={hotelOpts} tables={money ? priceTables : undefined} sarfAmount={trip.sarfAmount} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} defaults={{ makkahHotelId: trip.makkahHotelId ?? "", madinahHotelId: trip.madinahHotelId ?? "" }} />}
+          {bw && <AddPilgrimDialog tripId={trip.id} hotels={hotelOpts} tables={money ? priceTables : undefined} sarfAmount={trip.sarfAmount} noFoodDiscount={trip.noFoodDiscount} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} defaults={{ makkahHotelId: trip.makkahHotelId ?? "", madinahHotelId: trip.madinahHotelId ?? "" }} />}
           <RowMenu label="إجراءات الرحلة">
             {w && <Link className="menu-item" href={`/trips/${trip.id}/edit`}>تعديل الرحلة</Link>}
             {can(user.role, "outputs.view") && <Link className="menu-item" href={`/trips/${trip.id}/prints`}>المطبوعات</Link>}
@@ -213,7 +213,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                     </td>
                     <td className="td">
                       {accWrite ? (
-                        <AccommodationEditor action={setAccommodation.bind(null, trip.id, b.id)} hotels={hotelOpts} tables={money ? priceTables : undefined} sarfAmount={trip.sarfAmount} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} summary={accSummary}
+                        <AccommodationEditor action={setAccommodation.bind(null, trip.id, b.id)} hotels={hotelOpts} tables={money ? priceTables : undefined} sarfAmount={trip.sarfAmount} noFoodDiscount={trip.noFoodDiscount} priced={hotelRows.map((r) => ({ id: r.hotelId, name: r.name }))} air={trip.transportType === "AIR"} summary={accSummary}
                           values={{ makkahHotelId: b.tripHotelId ? tripHotels.find((h) => h.id === b.tripHotelId)?.hotelId ?? "" : b.makkahHotelId ?? "", madinahHotelId: "", roomType: b.roomType ?? "", makkahRoomNo: "", madinahRoomNo: "", housing: b.noHousing ? "NO" : "", food: b.withFood ? "1" : "0", sarf: b.sarfByPilgrim ? "PILGRIM" : "COMPANY", tripRole: b.tripRole ?? "", officeRoom: b.officeMember ? `${b.officeMember.officeRoom.code ?? ""}${b.officeMember.officeRoom.seq}` : "" }} />
                       ) : <div className="text-sm">{accSummary}</div>}
                     </td>
@@ -230,7 +230,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                               if (b.priceManual) return <span className="chip chip-gray" title="سعر مكتوب يدوياً">يدوي</span>;
                               const th = tripHotels.find((h) => h.id === b.tripHotelId);
                               if (!th) return null;
-                              const rr = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: (b.roomType as never) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: trip.sarfAmount });
+                              const rr = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: (b.roomType as never) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: trip.sarfAmount, withFood: b.withFood, noFoodDiscount: trip.noFoodDiscount });
                               return rr.ok && rr.amount !== b.priceAmount ? <span className="chip chip-warn" title={`جدول الفندق يعطي ${formatMoney(rr.amount, "USD")}`}>≠ الجدول</span> : null;
                             })()}
                           </div>
@@ -349,7 +349,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
       {money && pw && (
         <section className="card space-y-2">
           <h2 className="font-bold">الطعام والتصريف وعمولة الوكيل</h2>
-          <TripExtrasForm action={saveTripExtras.bind(null, trip.id)} air={trip.transportType === "AIR"} values={{ foodDefault: trip.foodDefault, sarfAmount: trip.sarfAmount, agentCommission: trip.agentCommission }}
+          <TripExtrasForm action={saveTripExtras.bind(null, trip.id)} air={trip.transportType === "AIR"} values={{ foodDefault: trip.foodDefault, sarfAmount: trip.sarfAmount, agentCommission: trip.agentCommission, noFoodDiscount: trip.noFoodDiscount }}
             agents={allAgents.map((a) => ({ id: a.id, name: a.name, amount: agentOverrides.get(a.id) ?? null }))} />
         </section>
       )}

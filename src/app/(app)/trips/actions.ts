@@ -378,21 +378,23 @@ export async function saveHotelPrices(tripId: string, _p: TripActionState, f: Fo
 export async function saveTripExtras(tripId: string, _p: TripActionState, f: FormData): Promise<TripActionState> {
   return guarded("prices.write", async (u) => {
     if (await isArchived(tripId)) return { error: ARCHIVED_MSG };
-    const sarf = num(s(f, "sarfAmount")), comm = num(s(f, "agentCommission"));
-    for (const v of [sarf, comm]) if (v != null && (!isMoney(v) || v < 0)) return { error: "المبلغ غير صحيح (حتى خانتين عشريتين)" };
+    const sarf = num(s(f, "sarfAmount")), comm = num(s(f, "agentCommission")), noFood = num(s(f, "noFoodDiscount"));
+    for (const v of [sarf, comm, noFood]) if (v != null && (!isMoney(v) || v < 0)) return { error: "المبلغ غير صحيح (حتى خانتين عشريتين)" };
     const agents = await db.agent.findMany({ where: { deletedAt: null }, select: { id: true } });
     for (const a of agents) { const v = num(s(f, `ag_${a.id}`)); if (v != null && !Number.isNaN(v) && v >= 0 && !isMoney(v)) return { error: "المبلغ غير صحيح (حتى خانتين عشريتين)" }; }
     await db.$transaction(async (tx) => {
       const before = await tx.trip.findUniqueOrThrow({ where: { id: tripId } });
-      const after = await tx.trip.update({ where: { id: tripId }, data: { foodDefault: s(f, "foodDefault") === "1", sarfAmount: sarf, agentCommission: comm } });
-      await auditChanges(tx, u, "Trip", tripId, before, after, ["foodDefault", "sarfAmount", "agentCommission"] as never);
+      const after = await tx.trip.update({ where: { id: tripId }, data: { foodDefault: s(f, "foodDefault") === "1", sarfAmount: sarf, agentCommission: comm, noFoodDiscount: noFood } });
+      await auditChanges(tx, u, "Trip", tripId, before, after, ["foodDefault", "sarfAmount", "agentCommission", "noFoodDiscount"] as never);
       for (const a of agents) {
         const v = num(s(f, `ag_${a.id}`));
         if (v == null || Number.isNaN(v) || v < 0) await tx.tripAgentCommission.deleteMany({ where: { tripId, agentId: a.id } });
         else await tx.tripAgentCommission.upsert({ where: { tripId_agentId: { tripId, agentId: a.id } }, create: { tripId, agentId: a.id, amount: v }, update: { amount: v } });
       }
     });
-    touch(tripId); return { ok: true };
+    let note: string | undefined;
+    if (s(f, "applyExisting") === "1") { const r = await recalcTripPrices(u, tripId); note = `أُعيد حساب أسعار المعتمرين: ${r.updated} سعر تغيّر.`; }
+    touch(tripId); return { ok: true, warning: note };
   });
 }
 

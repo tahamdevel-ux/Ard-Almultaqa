@@ -7,7 +7,7 @@ const KINDS: [string, string][] = [["SINGLE", "سنكل"], ["DOUBLE", "ثنائ�
 export type HotelRow = { hotelId: string; name: string; used: number; prices: Record<string, number>; noHousingPrice: number | null };
 
 function Status({ st }: { st: TripActionState }) {
-  return <>{st.error && <p role="alert" className="text-xs font-bold text-red-700">{st.error}</p>}{st.ok && <p role="status" className="text-xs font-bold text-emerald-800">تم الحفظ</p>}</>;
+  return <>{st.error && <p role="alert" className="text-xs font-bold text-red-700">{st.error}</p>}{st.ok && <p role="status" className="text-xs font-bold text-emerald-800">تم الحفظ{st.warning ? ` — ${st.warning}` : ""}</p>}</>;
 }
 
 /** Makkah hotels of the trip with a price per room type + «بدون سكن» each (USD). */
@@ -43,13 +43,14 @@ export function HotelPricesForm({ action, rows, candidates }: { action: Act; row
   );
 }
 
-export function TripExtrasForm({ action, air, values, agents }: { action: Act; air: boolean; values: { foodDefault: boolean; sarfAmount: number | null; agentCommission: number | null }; agents: { id: string; name: string; amount: number | null }[] }) {
+export function TripExtrasForm({ action, air, values, agents }: { action: Act; air: boolean; values: { foodDefault: boolean; sarfAmount: number | null; agentCommission: number | null; noFoodDiscount: number | null }; agents: { id: string; name: string; amount: number | null }[] }) {
   const [st, fa, pending] = useActionState(action, {} as TripActionState);
   return (
     <form action={fa} className="space-y-2">
       <div className="flex flex-wrap items-end gap-3">
         <div><label className="label" htmlFor="foodDefault">الطعام (افتراضي المعتمرين)</label>
           <select id="foodDefault" name="foodDefault" className="input w-36" defaultValue={values.foodDefault ? "1" : "0"}><option value="1">مع طعام</option><option value="0">بدون طعام</option></select></div>
+        <div><label className="label" htmlFor="noFoodDiscount">خصم من لا يأخذ طعاماً (دولار) — اختياري</label><input id="noFoodDiscount" name="noFoodDiscount" type="number" min={0} step="0.01" className="input w-40" dir="ltr" defaultValue={values.noFoodDiscount ?? ""} placeholder="بلا خصم" title="يُخصم من سعر كل معتمر اختير له «بدون طعام». اتركه فارغاً إذا لا يوجد خصم." /></div>
         {air && <div><label className="label" htmlFor="sarfAmount">مبلغ التصريف (دولار)</label><input id="sarfAmount" name="sarfAmount" type="number" min={0} step="0.01" className="input w-32" dir="ltr" defaultValue={values.sarfAmount ?? ""} /></div>}
         <div><label className="label" htmlFor="agentCommission">عمولة الوكيل الثابتة لكل معتمر (دولار)</label><input id="agentCommission" name="agentCommission" type="number" min={0} step="0.01" className="input w-36" dir="ltr" defaultValue={values.agentCommission ?? ""} placeholder="غير محدد" /></div>
       </div>
@@ -58,6 +59,7 @@ export function TripExtrasForm({ action, air, values, agents }: { action: Act; a
           <div className="mt-2 flex flex-wrap gap-2">{agents.map((a) => <div key={a.id}><label className="label" htmlFor={"ag_" + a.id}>{a.name}</label><input id={"ag_" + a.id} name={"ag_" + a.id} type="number" min={0} step="0.01" className="input w-28" dir="ltr" defaultValue={a.amount ?? ""} placeholder="الافتراضي" /></div>)}</div>
         </details>
       )}
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="applyExisting" value="1" className="h-4 w-4" />تطبيق على المعتمرين الحاليين (يُعاد حساب سعر كل معتمر من جدول فندقه وطعامه؛ الأسعار المكتوبة يدوياً لا تتغير)</label>
       <button className="btn" disabled={pending}>حفظ</button>
       <Status st={st} />
     </form>

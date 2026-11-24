@@ -67,10 +67,11 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
 
       {b.priceAmount != null && (() => {
         const th = b.tripHotel, table = th ? (b.noHousing ? th.noHousingPrice : th.prices.find((p) => p.roomType === b.roomType)?.amount) : null;
-        const expected = table == null ? null : table + b.sarfAmount;
+        const foodCut = b.withFood ? 0 : b.trip.noFoodDiscount ?? 0; // the trip's optional «بدون طعام» discount
+        const expected = table == null ? null : Math.max(0, Math.round((table + b.sarfAmount - foodCut) * 100) / 100);
         return (
           <p className={"text-xs " + (b.priceManual || (expected != null && expected !== b.priceAmount) ? "alert-warn" : "text-brand-mid")}>
-            {th && table != null ? `جدول الفندق: ${th.hotel.localName ?? th.hotel.officialName} — ${b.noHousing ? "بدون سكن" : ROOM_TYPE_LABELS[b.roomType as keyof typeof ROOM_TYPE_LABELS]} ${formatMoney(table, "USD")}${b.sarfAmount ? ` + تصريف ${formatMoney(b.sarfAmount, "USD")}` : ""} = ${formatMoney(expected!, "USD")}` : "لا يوجد سعر في جدول فنادق الرحلة لهذا الحجز."}
+            {th && table != null ? `جدول الفندق: ${th.hotel.localName ?? th.hotel.officialName} — ${b.noHousing ? "بدون سكن" : ROOM_TYPE_LABELS[b.roomType as keyof typeof ROOM_TYPE_LABELS]} ${formatMoney(table, "USD")}${b.sarfAmount ? ` + تصريف ${formatMoney(b.sarfAmount, "USD")}` : ""}${foodCut ? ` − خصم بدون طعام ${formatMoney(foodCut, "USD")}` : ""} = ${formatMoney(expected!, "USD")}` : "لا يوجد سعر في جدول فنادق الرحلة لهذا الحجز."}
             {b.priceManual ? " — السعر الحالي مكتوب يدوياً ولا يتغير مع الجدول." : expected != null && expected !== b.priceAmount ? " — السعر الحالي يختلف عن الجدول." : ""}
           </p>
         );

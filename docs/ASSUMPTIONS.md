@@ -187,3 +187,8 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 ## Accounts screen and the agent's commission (Nov 24)
 - In الحسابات → المعتمرين and → الوكلاء, a pilgrim booked through an agent is due **price − the agent's fixed commission** (475 − 25 = 450), the same figure as the agent statement («المستحق للشركة بعد العمولة»); the gross price and the commission are shown under it. «الباقي» there is after the commission. Pilgrims without an agent, the top cards (company totals) and the trips tab stay gross.
 - A pilgrim who paid the company directly the full price therefore shows «زيادة مدفوعة» equal to the commission: that amount is the agent's, as on his statement.
+
+## «بدون طعام» discount (Nov 2026)
+- Optional per trip (`Trip.noFoodDiscount`, USD, cents allowed; empty = none), set in «إعدادات الرحلة» next to the default food option. A pilgrim whose food is «بدون طعام» is priced **hotel price (+ تصريف) − that amount** (never below 0); with food, nothing changes.
+- The price follows when the food option of a pilgrim changes (single edit, bulk, new pilgrim live price line) and on «إعادة حساب الأسعار». Saving the amount can also re-price the current pilgrims (tick box «تطبيق على المعتمرين الحاليين»); hand-typed prices are never touched.
+- The booking page shows the discount in its breakdown line; the price audit adds it back before comparing prices of the same hotel and room type, so a discounted price is not reported as a difference.

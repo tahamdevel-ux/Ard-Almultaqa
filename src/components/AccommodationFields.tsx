@@ -12,16 +12,16 @@ export type PriceTables = Record<string, { prices: Record<string, number>; noHou
 const TYPES = [["", "—"], ["SINGLE", "سنكل"], ["DOUBLE", "ثنائية"], ["TRIPLE", "ثلاثية"], ["QUAD", "رباعية"], ["QUINT", "خماسية"], ["SEXT", "سداسية"], ["SEPT", "سباعية"]];
 
 /** Hotel per city, room type and room numbers for one pilgrim. Names match accommodationFromForm(). */
-export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc", nameSuffix = "", priced, air, tables, sarfAmount }: { hotels: HotelOpt[]; priced?: PricedHotel[]; air?: boolean; tables?: PriceTables; sarfAmount?: number | null; values: AccValues; onChange?: (v: AccValues) => void; idPrefix?: string; nameSuffix?: string }) {
+export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc", nameSuffix = "", priced, air, tables, sarfAmount, noFoodDiscount }: { hotels: HotelOpt[]; priced?: PricedHotel[]; air?: boolean; tables?: PriceTables; sarfAmount?: number | null; noFoodDiscount?: number | null; values: AccValues; onChange?: (v: AccValues) => void; idPrefix?: string; nameSuffix?: string }) {
   const set = (k: keyof AccValues) => (e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>) => onChange?.({ ...values, [k]: e.target.value });
   const preview = (() => {
     if (!tables || !Object.keys(tables).length) return null;
     const tb = tables[values.makkahHotelId] ?? (priced && priced.length === 1 ? tables[priced[0].id] : undefined);
     if (!tb) return { text: "اختر فندق مكة لعرض السعر", ok: false };
-    const r = computePrice({ table: { prices: tb.prices, noHousingPrice: tb.noHousing }, roomType: (values.roomType || null) as never, noHousing: values.housing === "NO", sarfByPilgrim: values.sarf === "PILGRIM", sarfAmount: sarfAmount ?? null });
+    const r = computePrice({ table: { prices: tb.prices, noHousingPrice: tb.noHousing }, roomType: (values.roomType || null) as never, noHousing: values.housing === "NO", sarfByPilgrim: values.sarf === "PILGRIM", sarfAmount: sarfAmount ?? null, withFood: values.food !== "0", noFoodDiscount: noFoodDiscount ?? null });
     if (!r.ok) return { text: r.error, ok: false };
-    const base = r.amount - r.sarf;
-    return { text: `السعر حسب الجدول: ${values.housing === "NO" ? "بدون سكن" : TYPES.find(([k]) => k === values.roomType)?.[1]} $${base}${r.sarf ? ` + تصريف $${r.sarf}` : ""} = $${r.amount}`, ok: true };
+    const base = Math.round((r.amount - r.sarf + r.foodDiscount) * 100) / 100;
+    return { text: `السعر حسب الجدول: ${values.housing === "NO" ? "بدون سكن" : TYPES.find(([k]) => k === values.roomType)?.[1]} $${base}${r.sarf ? ` + تصريف $${r.sarf}` : ""}${r.foodDiscount ? ` − خصم بدون طعام $${r.foodDiscount}` : ""} = $${r.amount}`, ok: true };
   })();
   const mk = priced && priced.length ? priced : hotels.filter((h) => h.city === "MAKKAH");
   const pick = (k: keyof AccValues, def: string) => (onChange ? { value: values[k] ?? def, onChange: set(k) } : { defaultValue: values[k] ?? def });
@@ -58,7 +58,7 @@ export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc"
 }
 
 /** Inline editor for an existing booking (trip page row). */
-export function AccommodationEditor({ action, hotels, values, summary, priced, air, tables, sarfAmount }: { priced?: PricedHotel[]; air?: boolean; tables?: PriceTables; sarfAmount?: number | null; action: (p: TripActionState, f: FormData) => Promise<TripActionState>; hotels: HotelOpt[]; values: AccValues; summary: React.ReactNode }) {
+export function AccommodationEditor({ action, hotels, values, summary, priced, air, tables, sarfAmount, noFoodDiscount }: { priced?: PricedHotel[]; air?: boolean; tables?: PriceTables; sarfAmount?: number | null; noFoodDiscount?: number | null; action: (p: TripActionState, f: FormData) => Promise<TripActionState>; hotels: HotelOpt[]; values: AccValues; summary: React.ReactNode }) {
   const [st, fa, pending] = useActionState(action, {} as TripActionState);
   const pop = usePopover(st.ok ? st : null);
   const [vals, setVals] = useState<AccValues>(values); // controlled: the price line follows what is chosen
@@ -68,7 +68,7 @@ export function AccommodationEditor({ action, hotels, values, summary, priced, a
       <details ref={pop} className="relative mt-1">
         <summary className="btn-ghost btn-sm inline-flex cursor-pointer list-none">تعديل التسكين</summary>
         <form action={fa} className="absolute end-0 z-30 mt-1 w-80 max-w-[85vw] space-y-3 rounded-xl border border-line bg-white p-3 shadow-xl">
-          <AccommodationFields hotels={hotels} priced={priced} air={air} tables={tables} sarfAmount={sarfAmount} values={vals} onChange={setVals} idPrefix={"e" + values.roomType + values.makkahRoomNo + values.madinahRoomNo} />
+          <AccommodationFields hotels={hotels} priced={priced} air={air} tables={tables} sarfAmount={sarfAmount} noFoodDiscount={noFoodDiscount} values={vals} onChange={setVals} idPrefix={"e" + values.roomType + values.makkahRoomNo + values.madinahRoomNo} />
           <div className="flex items-center gap-2">
             <button className="btn btn-sm" disabled={pending}>حفظ التسكين</button>
             {st.error && <p role="alert" className="text-xs font-bold text-red-700">{st.error}</p>}

@@ -66,7 +66,7 @@ export async function repriceBooking(tx: Tx, user: SessionUser, bookingId: strin
   const b = await tx.booking.findUniqueOrThrow({ where: { id: bookingId }, include: { trip: true, payments: true, tripHotel: { include: { prices: true } } } });
   if (!b.tripHotel || b.priceManual) return false;
   const table = { prices: Object.fromEntries(b.tripHotel.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: b.tripHotel.noHousingPrice };
-  const r = computePrice({ table, roomType: (b.roomType as RoomKind) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: b.trip.sarfAmount });
+  const r = computePrice({ table, roomType: (b.roomType as RoomKind) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: b.trip.sarfAmount, withFood: b.withFood, noFoodDiscount: b.trip.noFoodDiscount });
   if (!r.ok || r.amount === b.priceAmount) return false;
   // never push the price below what was already received (it would show as overpaid); staff fix those by hand with a refund
   if (r.amount < paidTotal(b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) - 0.005) return false;
@@ -114,13 +114,13 @@ export async function auditTripPrices(tripId: string): Promise<PriceAudit> {
     if (th) {
       const key = `${normName(th.hotel)}|${b.noHousing ? "NOHOUSING" : b.roomType ?? "-"}`;
       const g = groups.get(key) ?? { hotel: th.hotel.localName ?? th.hotel.officialName, roomType: b.noHousing ? "NOHOUSING" : b.roomType ?? "-", entries: [] };
-      const base = round2(b.priceAmount - b.sarfAmount); // تصريف is not part of the room price (rounded: 512.49 - 12.5 must equal 499.99)
+      const base = round2(b.priceAmount - b.sarfAmount + (b.withFood ? 0 : trip.noFoodDiscount ?? 0)); // تصريف and the no-food discount are not part of the room price (rounded: 512.49 - 12.5 must equal 499.99)
       const e = g.entries.find((x) => x.base === base && x.manual === b.priceManual);
       if (e) e.count++; else g.entries.push({ base, count: 1, manual: b.priceManual });
       groups.set(key, g);
     }
     if (!th || b.priceManual) continue;
-    const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: (b.roomType as RoomKind) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: trip.sarfAmount });
+    const r = computePrice({ table: { prices: Object.fromEntries(th.prices.map((p) => [p.roomType, p.amount])), noHousingPrice: th.noHousingPrice }, roomType: (b.roomType as RoomKind) ?? null, noHousing: b.noHousing, sarfByPilgrim: b.sarfByPilgrim, sarfAmount: trip.sarfAmount, withFood: b.withFood, noFoodDiscount: trip.noFoodDiscount });
     if (r.ok && r.amount !== b.priceAmount) a.differs++;
   }
   a.groups = [...groups.values()].filter((g) => new Set(g.entries.map((e) => e.base)).size > 1);
