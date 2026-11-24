@@ -30,7 +30,8 @@ export function AccommodationFields({ hotels, values, onChange, idPrefix = "acc"
       <div><label className="label" htmlFor={`${idPrefix}-makkahHotelId`}>فندق مكة (يحدد السعر)</label>
         <select id={`${idPrefix}-makkahHotelId`} name={"makkahHotelId" + nameSuffix} className="input" {...pick("makkahHotelId", "")}>
           <option value="">— اختر —</option>{mk.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
-        </select></div>
+        </select>
+        {priced && priced.length > 0 && <p className="mt-1 text-xs text-brand-mid">تظهر هنا فنادق هذه الرحلة المسعّرة فقط. لفندق آخر: إعدادات الرحلة ← فنادق مكة والأسعار ← «+ إضافة فندق مكة».</p>}</div>
       <div><label className="label" htmlFor={`${idPrefix}-housing`}>السكن</label>
         <select id={`${idPrefix}-housing`} name={"housing" + nameSuffix} className="input" {...pick("housing", "")}>
           <option value="">مع سكن (حسب نوع الغرفة)</option><option value="NO">بدون سكن</option>
