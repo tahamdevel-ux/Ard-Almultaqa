@@ -96,6 +96,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
             <Link className={"rounded-lg border px-3 py-1.5 font-bold " + (f.onlyDue ? "bg-brand text-white" : "bg-white border-line text-brand-dark")}
               href={link({ trip: f.trip, agent: f.agent, due: f.onlyDue ? undefined : "1" })}>عليهم باقي فقط</Link>
           </div>
+          <p className="text-xs text-brand-mid">لمعتمر مسجَّل عن طريق وكيل: المطلوب للشركة = السعر − عمولة الوكيل، والباقي بعد العمولة (كما في كشف الوكيل).</p>
           <div className="card overflow-x-auto p-0">
             <table className="rt w-full">
               <thead><tr><th className="th">الاسم</th><th className="th">الرحلة</th><th className="th">الوكيل</th><th className="th text-right">المطلوب</th><th className="th text-right">المستلم</th><th className="th text-right">الباقي</th></tr></thead>
@@ -104,8 +105,8 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                   <tr key={r.bookingId} data-href={`/bookings/${r.bookingId}`} className="hover:bg-canvas">
                     <td className="td font-bold"><Link className="text-brand underline" href={`/bookings/${r.bookingId}`}>{r.name}</Link>{r.status === "CANCELLED" && <span className="chip chip-bad ms-2">ملغى</span>}</td>
                     <td className="td">{tripLabel(r.trip)}{r.deleted && <span className="chip chip-bad ms-1">محذوفة</span>}</td><td className="td">{r.agent?.name ?? "—"}</td>
-                    <td className={num}>{usd(r.due)}</td><td className={num + " text-green-800"}>{usd(r.received)}</td>
-                    <td className={num + remainCls(r.remaining)}>{remainTxt(r.remaining)}</td>
+                    <td className={num}>{usd(r.net)}{r.commission > 0 && <div className="text-xs font-normal text-brand-mid" title="المطلوب للشركة = السعر − عمولة الوكيل">السعر {usd(r.due)} − عمولة {usd(r.commission)}</div>}</td><td className={num + " text-green-800"}>{usd(r.received)}</td>
+                    <td className={num + remainCls(r.remainingNet)}>{remainTxt(r.remainingNet)}</td>
                   </tr>
                 ))}
                 {data.pilgrimRows.length === 0 && <tr><td className="td text-center text-brand-mid" colSpan={6}>لا توجد نتائج</td></tr>}
@@ -124,8 +125,8 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
                 <tr key={r.agent.id} data-href={link({ tab: "pilgrims", agent: r.agent.id })} className="hover:bg-canvas">
                   <td className="td font-bold"><Link className="text-brand underline" href={link({ tab: "pilgrims", agent: r.agent.id })}>{r.agent.name}</Link></td>
                   <td className="td">{r.pilgrims}</td>
-                  <td className={num}>{usd(r.due)}</td><td className={num + " text-green-800"}>{usd(r.viaAgent)}</td><td className={num + " text-green-800"}>{usd(r.direct)}</td>
-                  <td className={num + remainCls(r.remaining)}>{remainTxt(r.remaining)}</td><td className={num}>{usd(r.commission)}</td>
+                  <td className={num}>{usd(r.net)}{r.commission > 0 && <div className="text-xs font-normal text-brand-mid" title="المطلوب للشركة = السعر − عمولة الوكيل">السعر {usd(r.due)} − عمولة {usd(r.commission)}</div>}</td><td className={num + " text-green-800"}>{usd(r.viaAgent)}</td><td className={num + " text-green-800"}>{usd(r.direct)}</td>
+                  <td className={num + remainCls(r.remainingNet)}>{remainTxt(r.remainingNet)}</td><td className={num}>{usd(r.commission)}</td>
                 </tr>
               ))}
               {data.agentRows.length === 0 && <tr><td className="td text-center text-brand-mid" colSpan={7}>لا يوجد وكلاء</td></tr>}

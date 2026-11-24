@@ -183,3 +183,7 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - A pilgrim in an «ارتباط» has his name cell tinted with the link colour; the colours are listed under the notes box.
 - A 7-bed room has one row too few in the template: its last two names share the last row (« + »). The old one-row-per-pilgrim sheet stays available as `?format=xlsx&layout=list`.
 - Order of rooms = the PDF's order (printOrder). Not verified in desktop Excel itself (checked with LibreOffice, ExcelJS and openpyxl).
+
+## Accounts screen and the agent's commission (Nov 24)
+- In الحسابات → المعتمرين and → الوكلاء, a pilgrim booked through an agent is due **price − the agent's fixed commission** (475 − 25 = 450), the same figure as the agent statement («المستحق للشركة بعد العمولة»); the gross price and the commission are shown under it. «الباقي» there is after the commission. Pilgrims without an agent, the top cards (company totals) and the trips tab stay gross.
+- A pilgrim who paid the company directly the full price therefore shows «زيادة مدفوعة» equal to the commission: that amount is the agent's, as on his statement.

@@ -17,6 +17,23 @@ const pilgrim = (agentId?: string) => db.pilgrim.create({ data: { firstName: `م
   passportNo: `A${String(30000000 + n)}`, enGivenName: "A", enSurname: "B", passportExpiry: D("2035-01-01"), agentId } });
 
 describe("accounts overview", () => {
+  it("a pilgrim booked through an agent is due the price minus the agent's commission (475 - 25 = 450), like the agent statement", async () => {
+    const agent = await db.agent.create({ data: { name: "وكيل" } });
+    const t = await db.trip.create({ data: { name: "جوية", transportType: "AIR", capacity: 5, agentCommission: 25 } });
+    const p = await pilgrim(agent.id), q = await pilgrim();
+    const b = await db.booking.create({ data: { pilgrimId: p.id, tripId: t.id, agentId: agent.id, priceAmount: 475 } });
+    await db.booking.create({ data: { pilgrimId: q.id, tripId: t.id, priceAmount: 475 } }); // no agent: no commission
+    const o = await accountsOverview({ period: "all" });
+    const mine = o.pilgrimRows.find((r) => r.bookingId === b.id)!;
+    expect(mine).toMatchObject({ due: 475, commission: 25, net: 450, remaining: 475, remainingNet: 450 });
+    const other = o.pilgrimRows.find((r) => r.bookingId !== b.id)!;
+    expect(other).toMatchObject({ commission: 0, net: 475, remainingNet: 475 });
+    expect(o.agentRows[0]).toMatchObject({ due: 475, commission: 25, net: 450, remainingNet: 450 });
+    // 450 paid through the agent settles him
+    expect((await addPayment(user, b.id, { kind: "PAYMENT", amount: 450, currency: "USD", method: "CASH", paidAt: D("2026-10-01"), source: "AGENT", sourceAgentId: agent.id })).ok).toBe(true);
+    expect((await accountsOverview({ period: "all", onlyDue: true })).pilgrimRows.some((r) => r.bookingId === b.id)).toBe(false);
+  });
+
   it("totals, per-trip, per-agent (direct vs via agent) and the payments log", async () => {
     const agentA = await db.agent.create({ data: { name: "وكيل أ" } });
     const agentB = await db.agent.create({ data: { name: "وكيل ب" } });
@@ -40,7 +57,7 @@ describe("accounts overview", () => {
     const a = o.agentRows.find((r) => r.agent.id === agentA.id)!;
     expect(a).toMatchObject({ pilgrims: 2, due: 2000, viaAgent: 400, direct: 550, remaining: 1050 });
     expect(o.agentRows.find((r) => r.agent.id === agentB.id)).toBeUndefined();
-    expect((await accountsOverview({ period: "all", onlyDue: true })).pilgrimRows.every((r) => r.remaining > 0)).toBe(true);
+    expect((await accountsOverview({ period: "all", onlyDue: true })).pilgrimRows.every((r) => r.remainingNet > 0)).toBe(true);
     expect((await accountsOverview({ period: "all", agent: agentA.id })).pilgrimRows).toHaveLength(2);
     expect((await accountsOverview({ period: "all", trip: t2.id })).pilgrimRows).toHaveLength(0);
 
