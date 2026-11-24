@@ -164,7 +164,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
         <div className="overflow-x-auto md:overflow-visible">
           <table className="rt w-full">
             <thead><tr>
-              <th className="th w-10">{bw ? <SelectAllBox /> : <span className="sr-only">تحديد</span>}</th><th className="th">المعتمر</th><th className="th">المجموعة</th><th className="th">التسكين</th><th className="th">النقل</th>{money && <th className="th">السعر / المتبقي</th>}<th className="th w-24">تنبيهات</th><th className="th w-12"><span className="sr-only">إجراءات</span></th>
+              <th className="th w-10">{bw ? <SelectAllBox /> : <span className="sr-only">تحديد</span>}</th><th className="th">المعتمر</th><th className="th">المجموعة</th><th className="th">التسكين</th><th className="th">النقل</th>{money && <th className="th">السعر / المتبقي</th>}{money && <th className="th">الخصم</th>}<th className="th w-24">تنبيهات</th><th className="th w-12"><span className="sr-only">إجراءات</span></th>
             </tr></thead>
             <tbody>
               {shownRows.map((r) => {
@@ -238,6 +238,15 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                         <div className="mt-0.5 text-xs"><Link className={"underline " + ((bal ?? 0) > 0 ? "font-bold text-red-700" : "text-brand-mid")} href={`/bookings/${b.id}`}>{bal == null ? "فتح الحساب" : (bal ?? 0) > 0 ? `متبقٍ ${formatMoney(bal, b.priceCurrency)}` : "مسدّد"}</Link></div>
                       </td>
                     )}
+                    {money && (() => {
+                      // «الخصم»: what was taken off this pilgrim's price and why (today: no food; a hand-typed price carries no automatic discount)
+                      const cut = !b.withFood && !b.priceManual && b.priceAmount != null ? trip.noFoodDiscount ?? 0 : 0;
+                      return (
+                        <td className="td text-sm">
+                          {cut > 0 ? <><div dir="ltr" className="text-end font-bold text-emerald-800">−{formatMoney(cut, "USD")}</div><div className="text-xs text-brand-mid">بدون طعام</div></> : <span className="text-brand-mid">—</span>}
+                        </td>
+                      );
+                    })()}
                     <td className="td">
                       {r.warnings.length > 0 && (
                         <span className="chip chip-warn cursor-help" tabIndex={0} title={r.warnings.join("\n")} aria-label={r.warnings.join("، ")}>⚠ {r.warnings.length}</span>
