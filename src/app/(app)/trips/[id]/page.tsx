@@ -30,7 +30,8 @@ import { Icon } from "@/components/icons";
 import { Bar, EmptyState } from "@/components/charts";
 import { TripTabs } from "@/components/TripTabs";
 import { HotelPricesForm, MergeHotelRows, TripExtrasForm, type HotelRow } from "@/components/TripPricingForms";
-import { auditTripPrices, loadTripHotels } from "@/server/tripHotels";
+import { auditTripPrices, commissionOverrides, loadTripHotels } from "@/server/tripHotels";
+import { resolveCommission } from "@/domain/pricing";
 import { RecalcPrices } from "@/components/RecalcPrices";
 import { AccommodationEditor, type HotelOpt } from "@/components/AccommodationFields";
 import { SmallForm } from "@/components/SmallForm";
@@ -89,7 +90,10 @@ export default async function TripPage({ params, searchParams }: { params: Promi
 
   const STATUS_CHIP = { OPEN: "chip-ok", FULL: "chip-warn", TRAVELLING: "chip-gray", RETURNED: "chip-gray", CANCELLED: "chip-bad" } as const;
   const seats = seatsLabel(counter.registered, counter.capacity);
-  const owed = money ? round2(rows.reduce((n, r) => n + Math.max(0, balance(r.booking.priceAmount, r.booking.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) ?? 0), 0)) : 0;
+  // a pilgrim booked through an agent is due the price minus the agent's fixed commission (same rule as the accounts screen and the agent statement)
+  const commOv = money ? await commissionOverrides([id]) : new Map<string, number>();
+  const cutOf = (b: { agentId: string | null; priceAmount: number | null }) => (b.agentId && b.priceAmount != null ? Math.min(resolveCommission(commOv.get(`${id}:${b.agentId}`), trip.agentCommission), b.priceAmount) : 0);
+  const owed = money ? round2(rows.reduce((n, r) => n + Math.max(0, balance(r.booking.priceAmount == null ? null : r.booking.priceAmount - cutOf(r.booking), r.booking.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) ?? 0), 0)) : 0;
 
   return (
     <div className="space-y-4">
@@ -187,7 +191,8 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                     </div>
                   </>
                 );
-                const bal = money ? balance(b.priceAmount, b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) : null;
+                const comm = money ? cutOf(b) : 0;
+                const bal = money ? balance(b.priceAmount == null ? null : b.priceAmount - comm, b.payments.map((p) => ({ kind: p.kind, credited: Number(p.credited) }))) : null;
                 return (
                   <tr key={b.id} data-href={`/pilgrims/${b.pilgrimId}`}>
                     <td className="td">{bw && <input form="groupform" type="checkbox" name="bookingIds" value={b.id} aria-label={`تحديد ${fullNameAr(b.pilgrim)}`} className="h-4 w-4" />}</td>
@@ -225,7 +230,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                       <td className="td">
                         {b.priceAmount == null ? <span className="chip chip-warn">بلا سعر</span> : (
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="font-bold">{formatMoney(b.priceAmount, b.priceCurrency)}</span>
+                            <span className="font-bold">{formatMoney(b.priceAmount - comm, b.priceCurrency)}</span>{comm > 0 && <span className="w-full text-xs text-brand-mid" title="المطلوب للشركة = السعر − عمولة الوكيل">السعر {formatMoney(b.priceAmount, b.priceCurrency)} − عمولة الوكيل {formatMoney(comm, "USD")}</span>}
                             {(() => {
                               if (b.priceManual) return <span className="chip chip-gray" title="سعر مكتوب يدوياً">يدوي</span>;
                               const th = tripHotels.find((h) => h.id === b.tripHotelId);
@@ -243,7 +248,7 @@ export default async function TripPage({ params, searchParams }: { params: Promi
                       const cut = !b.withFood && !b.priceManual && b.priceAmount != null ? trip.noFoodDiscount ?? 0 : 0;
                       return (
                         <td className="td text-sm">
-                          {cut > 0 ? <><div dir="ltr" className="text-end font-bold text-emerald-800">−{formatMoney(cut, "USD")}</div><div className="text-xs text-brand-mid">بدون طعام</div></> : <span className="text-brand-mid">—</span>}
+                          {cut > 0 ? <><div className="font-bold text-emerald-800">{formatMoney(cut, "USD")}</div><div className="text-xs text-brand-mid">خصم: بدون طعام</div></> : <span className="text-brand-mid">—</span>}
                         </td>
                       );
                     })()}

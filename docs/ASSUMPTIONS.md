@@ -192,3 +192,6 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 - Optional per trip (`Trip.noFoodDiscount`, USD, cents allowed; empty = none), set in «إعدادات الرحلة» next to the default food option. A pilgrim whose food is «بدون طعام» is priced **hotel price (+ تصريف) − that amount** (never below 0); with food, nothing changes.
 - The price follows when the food option of a pilgrim changes (single edit, bulk, new pilgrim live price line) and on «إعادة حساب الأسعار». Saving the amount can also re-price the current pilgrims (tick box «تطبيق على المعتمرين الحاليين»); hand-typed prices are never touched.
 - The booking page shows the discount in its breakdown line; the price audit adds it back before comparing prices of the same hotel and room type, so a discounted price is not reported as a difference.
+
+## Trip page: price column after the agent's commission (Nov 24)
+- In the pilgrims table of every trip, a pilgrim booked through an agent shows the price **after the agent's fixed commission** (475 − 25 = 450) with «السعر 475 − عمولة الوكيل 25» under it; «متبقٍ» and the trip's «المتبقي على المعتمرين» are after the commission too (same rule as the accounts screen and the agent statement). Pilgrims without an agent are unchanged. The new «الخصم» column stays for the no-food discount only.
