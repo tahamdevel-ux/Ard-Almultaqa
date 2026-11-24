@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { db } from "./db";
-import { globalSearch } from "./search";
+import { globalSearch, pilgrimIdsMatching } from "./search";
 import { normalizeSearch } from "@/domain/searchNorm";
 
 const D = (s: string) => new Date(s + "T00:00:00Z");
@@ -69,5 +69,17 @@ describe("global search", () => {
       const r = await globalSearch(admin, q);
       expect(r.pilgrims.map((x) => x.id).sort(), q).toEqual([a.id, b.id].sort());
     }
+  });
+
+  it("the pilgrims list search needs EVERY typed word (محمد حامد does not return محمد alone or حامد alone)", async () => {
+    const mk = (n: number, first: string, father: string) => db.pilgrim.create({ data: { firstName: first, fatherName: father, grandfatherName: "علي", familyName: "الموصلي", gender: "MALE", birthDate: D("1980-01-01"),
+      passportNo: `B6000000${n}`, enGivenName: "X", enSurname: "Y", passportExpiry: D("2032-01-01") } });
+    const both = await mk(1, "محمد", "حامد"), onlyA = await mk(2, "محمد", "خالد"), onlyB = await mk(3, "احمد", "حامد"), both2 = await mk(4, "حامد", "محمّد");
+    const ids = (await pilgrimIdsMatching("محمد حامد"))!;
+    expect(ids.sort()).toEqual([both.id, both2.id].sort());
+    expect(ids).not.toContain(onlyA.id); expect(ids).not.toContain(onlyB.id);
+    expect((await pilgrimIdsMatching("محمد"))!.sort()).toEqual([both.id, onlyA.id, both2.id].sort());
+    expect(await pilgrimIdsMatching("   ")).toBeNull();
+    expect((await pilgrimIdsMatching("B60000003"))).toEqual([onlyB.id]);
   });
 });

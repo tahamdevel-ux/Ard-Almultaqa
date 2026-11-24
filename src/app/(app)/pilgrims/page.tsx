@@ -11,6 +11,7 @@ import { Toast } from "@/components/Toast";
 import { HeadTag } from "@/components/HeadTag";
 import { roomLabel } from "@/domain/officeRooms";
 import { addMonths } from "@/domain/dates";
+import { pilgrimIdsMatching } from "@/server/search";
 import { getSetting } from "@/server/settings";
 import { TRIP_ORDER } from "@/server/trips";
 import { clusterOrder } from "@/domain/clusterOrder";
@@ -39,21 +40,9 @@ export default async function PilgrimsPage({ searchParams }: { searchParams: Pro
   const listUrl = "/pilgrims" + (listQuery(lp) ? `?${listQuery(lp)}` : ""); // where the user is: Save returns here
   const rt = `returnTo=${encodeURIComponent(listUrl)}`;
   const savedPilgrim = saved ? await db.pilgrim.findUnique({ where: { id: saved } }) : null;
-  const term = q.trim();
-  const where = term
-    ? {
-        deletedAt: null,
-        OR: [
-          { passportNo: { contains: term.replace(/\s+/g, "").toUpperCase() } },
-          { phone: { contains: term.replace(/\D/g, "") || "__none__" } },
-          ...term.split(/\s+/).map((w) => ({ OR: [
-            { firstName: { contains: w } }, { fatherName: { contains: w } }, { grandfatherName: { contains: w } }, { familyName: { contains: w } },
-            { enGivenName: { contains: w, mode: "insensitive" as const } }, { enSurname: { contains: w, mode: "insensitive" as const } },
-            { enFatherName: { contains: w, mode: "insensitive" as const } },
-          ] })),
-        ],
-      }
-    : { deletedAt: null };
+  // every typed word must match (names, passport, phone): "محمد حامد" finds only people who have both
+  const ids = await pilgrimIdsMatching(q);
+  const where = ids ? { deletedAt: null, id: { in: ids } } : { deletedAt: null };
   // optional filter by office room (e.g. a12 or 3): pilgrims with an active booking in that room
   const roomFilter = showRooms && roomMatch ? { bookings: { some: { status: "ACTIVE" as const, deletedAt: null, officeMember: { officeRoom: { code: roomMatch[1] ? roomMatch[1].toLowerCase() : null, seq: Number(roomMatch[2]) } } } } } : {};
   // filters: only the booking-based ones need an ACTIVE booking on a live trip

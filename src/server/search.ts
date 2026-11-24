@@ -26,6 +26,18 @@ async function matchIds(table: string, cols: string[], tokens: string[], extraWh
 }
 
 
+const PILGRIM_COLS = ["firstName", "fatherName", "grandfatherName", "greatGrandfatherName", "familyName", "enGivenName", "enFatherName", "enGrandfatherName", "enSurname", "passportNo", "phone"];
+
+/** The pilgrims list search: ids of pilgrims in whose names / passport / phone EVERY typed word appears (Arabic letter variants merged). */
+export async function pilgrimIdsMatching(term: string): Promise<string[] | null> {
+  const tokens = searchTokens(term);
+  if (!tokens.length) return null;
+  const expr = sqlNormalize(`concat_ws(' ', ${PILGRIM_COLS.map((c) => `"${c}"`).join(", ")})`);
+  const patterns = tokens.map((t) => `%${escapeLike(t)}%`);
+  const rows = await db.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "Pilgrim" WHERE "deletedAt" IS NULL AND ${Prisma.raw(expr)} ILIKE ALL (${patterns}::text[]) LIMIT 5000`);
+  return rows.map((r) => r.id);
+}
+
 export async function searchPilgrims(user: SessionUser, tokens: string[]): Promise<SearchResults["pilgrims"]> {
   const sup = user.role === "SUPERVISOR";
   const today = new Date();
