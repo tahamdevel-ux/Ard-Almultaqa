@@ -195,3 +195,7 @@ Simplest option chosen where the brief is silent. Flag any you want changed.
 
 ## Trip page: price column after the agent's commission (Nov 24)
 - In the pilgrims table of every trip, a pilgrim booked through an agent shows the price **after the agent's fixed commission** (475 − 25 = 450) with «السعر 475 − عمولة الوكيل 25» under it; «متبقٍ» and the trip's «المتبقي على المعتمرين» are after the commission too (same rule as the accounts screen and the agent statement). Pilgrims without an agent are unchanged. The new «الخصم» column stays for the no-food discount only.
+
+## Speed of the trip page (Nov 25)
+- Measured on 720 pilgrims / 12 trips in production mode: the server answers every page in < 0.5 s; the lag was in the browser. The trip page built a hidden «تعديل التسكين» and «تعديل النقل» form for every pilgrim (7,181 elements, 1,399 controls for 60 pilgrims; ≈ 4.7 s of frozen main thread on a 4× slower CPU). The two forms are now built only while their popover is open (3,761 elements, 439 controls, ≈ 0.7 s). Tests that read the row text must not rely on text of those hidden forms.
+- Not changed: the accounts «المعتمرين» tab and the pilgrims list render every row (up to 720 / 300); paging them is the next step if they feel slow.

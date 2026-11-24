@@ -236,3 +236,18 @@ test("pilgrims list: the search follows what is typed, no button needed", async 
   await expect(page).not.toHaveURL(/q=/);
   await expect(rows).toHaveCount(before);
 });
+
+test("trip page stays light: the per-pilgrim edit forms exist only while they are open", async ({ page }) => {
+  await login(page);
+  await page.goto("/trips");
+  await page.locator("a[href^='/trips/']:not([href$='/new'])").first().click();
+  await page.waitForURL(/\/trips\/[0-9a-f-]{36}$/);
+  await page.waitForLoadState("networkidle");
+  const hotelSelects = page.locator("select[id$='-makkahHotelId']");
+  await expect(hotelSelects).toHaveCount(0);
+  await page.getByText("تعديل التسكين").first().click();
+  await expect(hotelSelects).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await page.mouse.click(5, 300); // outside: closes the popover and removes its form again
+  await expect(hotelSelects).toHaveCount(0);
+});

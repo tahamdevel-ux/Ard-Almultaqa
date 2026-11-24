@@ -92,7 +92,7 @@ test("accommodation with hotel and room, family head and family account", async 
   await expect(dlg.getByText("مضاف").first()).toBeVisible();
   await page.keyboard.press("Escape");
   await page.reload();
-  await expect(page.locator("tbody tr", { hasText: "A10000137" })).toContainText("فندق مكة");
+  await expect(page.locator("tbody tr", { hasText: "A10000137" })).toContainText("رباعية"); // the accommodation summary of the row (the edit form itself is built only when opened)
 
   // a family of two with a head
   await newPilgrim(page, `A${RUN}1`, "رب الأسرة سالم محمود", tripName);

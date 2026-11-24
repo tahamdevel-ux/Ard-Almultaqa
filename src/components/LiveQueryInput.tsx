@@ -12,6 +12,7 @@ export function LiveQueryInput({ name, defaultValue, ...rest }: { name: string; 
   const first = useRef(true);
   useEffect(() => {
     if (first.current) { first.current = false; return; }
+    if (v.trim() === defaultValue.trim()) return; // nothing typed (also: React strict mode runs effects twice in dev): leave the address alone
     const h = setTimeout(() => {
       const p = new URLSearchParams(sp.toString());
       const t = v.trim();

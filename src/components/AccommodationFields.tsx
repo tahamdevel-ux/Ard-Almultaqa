@@ -63,19 +63,20 @@ export function AccommodationEditor({ action, hotels, values, summary, priced, a
   const [st, fa, pending] = useActionState(action, {} as TripActionState);
   const pop = usePopover(st.ok ? st : null);
   const [vals, setVals] = useState<AccValues>(values); // controlled: the price line follows what is chosen
+  const [isOpen, setIsOpen] = useState(false); // the form is built only while the popover is open: a trip page has one per pilgrim
   return (
     <div className="text-sm">
       <div>{summary || <span className="text-brand-mid">غير مسكّن</span>}</div>
-      <details ref={pop} className="relative mt-1">
+      <details ref={pop} className="relative mt-1" onToggle={(e) => setIsOpen((e.currentTarget as HTMLDetailsElement).open)}>
         <summary className="btn-ghost btn-sm inline-flex cursor-pointer list-none">تعديل التسكين</summary>
-        <form action={fa} className="absolute end-0 z-30 mt-1 w-80 max-w-[85vw] space-y-3 rounded-xl border border-line bg-white p-3 shadow-xl">
+        {isOpen && <form action={fa} className="absolute end-0 z-30 mt-1 w-80 max-w-[85vw] space-y-3 rounded-xl border border-line bg-white p-3 shadow-xl">
           <AccommodationFields hotels={hotels} priced={priced} air={air} tables={tables} sarfAmount={sarfAmount} noFoodDiscount={noFoodDiscount} values={vals} onChange={setVals} idPrefix={"e" + values.roomType + values.makkahRoomNo + values.madinahRoomNo} />
           <div className="flex items-center gap-2">
             <button className="btn btn-sm" disabled={pending}>حفظ التسكين</button>
             {st.error && <p role="alert" className="text-xs font-bold text-red-700">{st.error}</p>}
             {st.ok && <p role="status" className="text-xs font-bold text-emerald-800">تم الحفظ</p>}
           </div>
-        </form>
+        </form>}
       </details>
     </div>
   );
